@@ -37,6 +37,40 @@
 	function removeClient(clientId: string) {
 		selectedClients = selectedClients.filter((c) => c.clientId !== clientId);
 	}
+
+	let creatingClient = $state(false);
+
+	async function createAndAddClient(fullName: string) {
+		const parts = fullName.trim().split(/\s+/);
+		const firstName = parts[0] ?? fullName;
+		const lastName = parts.slice(1).join(' ') || '—';
+
+		creatingClient = true;
+		try {
+			const res = await fetch('/api/v1/clients', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ firstName, lastName })
+			});
+			const { data: client } = await res.json();
+			selectedClients = [
+				...selectedClients,
+				{
+					clientId: client.id,
+					name: `${client.firstName} ${client.lastName}`,
+					amountDue: selectedService?.basePrice ?? '0'
+				}
+			];
+			clientSearch = '';
+		} finally {
+			creatingClient = false;
+		}
+	}
+
+	// Show "create new" when search has text but no existing client matches
+	const showCreateNew = $derived(
+		clientSearch.length > 1 && filteredClients.length === 0 && !creatingClient
+	);
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
@@ -152,7 +186,7 @@
 					bind:value={clientSearch}
 					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
 				/>
-				{#if filteredClients.length > 0}
+				{#if filteredClients.length > 0 || showCreateNew}
 					<div
 						class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border"
 					>
@@ -167,6 +201,15 @@
 								{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
 							</button>
 						{/each}
+						{#if showCreateNew}
+							<button
+								type="button"
+								onclick={() => createAndAddClient(clientSearch)}
+								class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand"
+							>
+								+ Create "<span class="font-medium">{clientSearch}</span>"
+							</button>
+						{/if}
 					</div>
 				{/if}
 			</div>
