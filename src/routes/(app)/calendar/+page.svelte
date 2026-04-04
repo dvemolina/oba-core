@@ -107,31 +107,41 @@
 					{@const visible = dayBookings.slice(0, 2)}
 					{@const overflow = dayBookings.length - visible.length}
 
-					<div class="flex flex-col gap-px overflow-hidden border-b border-r border-border p-0.5 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
-						<!-- Day number — links to day view -->
-						<div class="mb-0.5 flex justify-end">
-							<a
-								href="/calendar/{dateStr}"
-								class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors {isToday ? 'bg-ocean text-white' : 'text-gray-500 hover:bg-ocean/10 hover:text-ocean'}"
-							>{day}</a>
+					<!-- Whole-cell is clickable; chips sit on top via z-10 -->
+					<div class="group relative flex flex-col gap-px overflow-hidden border-b border-r border-border p-0.5 transition-colors
+						{isToday ? 'bg-ocean/5 hover:bg-ocean/10' : 'bg-surface hover:bg-sand'}">
+
+						<!-- Background link covers the whole cell -->
+						<a
+							href="/calendar/{dateStr}"
+							class="absolute inset-0 z-0"
+							aria-label="Open {dateStr}"
+						></a>
+
+						<!-- Day number — on top of the background link -->
+						<div class="relative z-10 mb-0.5 flex justify-end">
+							<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold
+								{isToday ? 'bg-ocean text-white' : 'text-gray-500 group-hover:bg-ocean/15 group-hover:text-ocean'}">
+								{day}
+							</span>
 						</div>
 
-						<!-- Events from the events table (multi-day camps) -->
+						<!-- Events — relative z-10 so clicks go to event, not the day -->
 						{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
 							<a
 								href="/events/{event.id}"
-								class="block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800"
+								class="relative z-10 block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800 hover:bg-confirmed/35"
 							>
 								<span class="hidden sm:inline">🏕️ {event.title}</span>
 								<span class="sm:hidden">🏕️</span>
 							</a>
 						{/each}
 
-						<!-- Booking chips: service · client -->
+						<!-- Booking chips — relative z-10 -->
 						{#each visible as booking}
 							<a
 								href="/bookings/{booking.id}"
-								class="block truncate rounded px-1 py-px text-[10px] leading-tight {statusChip(booking.status)}"
+								class="relative z-10 block truncate rounded px-1 py-px text-[10px] leading-tight hover:brightness-95 {statusChip(booking.status)}"
 							>
 								<span class="hidden sm:inline">
 									{booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}{booking.firstClientName ? ' · ' + booking.firstClientName : ''}
@@ -140,11 +150,11 @@
 							</a>
 						{/each}
 
-						<!-- Overflow — links to day view -->
+						<!-- +N more — relative z-10, goes to day view -->
 						{#if overflow > 0}
 							<a
 								href="/calendar/{dateStr}"
-								class="pl-1 text-[10px] text-muted hover:text-ocean"
+								class="relative z-10 pl-1 text-[10px] text-muted hover:text-ocean"
 							>+{overflow} more</a>
 						{/if}
 					</div>
