@@ -69,13 +69,13 @@
 		</div>
 		<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
 			<button
-				onclick={() => setView('agenda')}
-				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
-			>List</button>
-			<button
 				onclick={() => setView('month')}
 				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
 			>Month</button>
+			<button
+				onclick={() => setView('agenda')}
+				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
+			>Agenda</button>
 		</div>
 	</div>
 
@@ -108,10 +108,10 @@
 					{@const overflow = dayBookings.length - visible.length}
 
 					<div class="flex flex-col gap-px overflow-hidden border-b border-r border-border p-0.5 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
-						<!-- Day number -->
+						<!-- Day number — links to day view -->
 						<div class="mb-0.5 flex justify-end">
 							<a
-								href="/calendar?view=agenda&year={data.year}&month={data.month}#{dateStr}"
+								href="/calendar/{dateStr}"
 								class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors {isToday ? 'bg-ocean text-white' : 'text-gray-500 hover:bg-ocean/10 hover:text-ocean'}"
 							>{day}</a>
 						</div>
@@ -127,21 +127,23 @@
 							</a>
 						{/each}
 
-						<!-- Booking chips -->
+						<!-- Booking chips: service · client -->
 						{#each visible as booking}
 							<a
 								href="/bookings/{booking.id}"
 								class="block truncate rounded px-1 py-px text-[10px] leading-tight {statusChip(booking.status)}"
 							>
-								<span class="hidden sm:inline">{booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}</span>
+								<span class="hidden sm:inline">
+									{booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}{booking.firstClientName ? ' · ' + booking.firstClientName : ''}
+								</span>
 								<span class="sm:hidden" style="color:inherit">●</span>
 							</a>
 						{/each}
 
-						<!-- Overflow -->
+						<!-- Overflow — links to day view -->
 						{#if overflow > 0}
 							<a
-								href="/calendar?view=agenda&year={data.year}&month={data.month}#{dateStr}"
+								href="/calendar/{dateStr}"
 								class="pl-1 text-[10px] text-muted hover:text-ocean"
 							>+{overflow} more</a>
 						{/if}

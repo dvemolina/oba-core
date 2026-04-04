@@ -32,15 +32,30 @@ export async function listBookingsForDateRange(
 
 	const ids = rows.map((r) => r.id);
 	const counts: Record<string, number> = {};
+	const firstClientNames: Record<string, string> = {};
 	if (ids.length > 0) {
-		const countRows = await db
-			.select()
+		const clientRows = await db
+			.select({
+				bookingId: bookingClients.bookingId,
+				firstName: clients.firstName,
+				lastName: clients.lastName
+			})
 			.from(bookingClients)
+			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
 			.where(inArray(bookingClients.bookingId, ids));
-		for (const row of countRows) counts[row.bookingId] = (counts[row.bookingId] ?? 0) + 1;
+		for (const row of clientRows) {
+			counts[row.bookingId] = (counts[row.bookingId] ?? 0) + 1;
+			if (!firstClientNames[row.bookingId] && row.firstName) {
+				firstClientNames[row.bookingId] = row.firstName;
+			}
+		}
 	}
 
-	return rows.map((r) => ({ ...r, clientCount: counts[r.id] ?? 0 })) as BookingSummary[];
+	return rows.map((r) => ({
+		...r,
+		clientCount: counts[r.id] ?? 0,
+		firstClientName: firstClientNames[r.id] ?? null
+	})) as BookingSummary[];
 }
 
 export async function getBooking(id: string): Promise<Booking | undefined> {
