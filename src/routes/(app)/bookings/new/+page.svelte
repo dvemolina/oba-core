@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let loading = $state(false);
-	let isFlexible = $state(false);
+	// Pre-fill flexible only when no time comes in from the URL (read once, no tracking needed)
+	let isFlexible = $state(untrack(() => data.defaultTime === ''));
 	let selectedServiceId = $state(data.services[0]?.id ?? '');
 	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
 	let clientSearch = $state('');
@@ -126,6 +128,7 @@
 				<input
 					name="time"
 					type="time"
+					value={data.defaultTime}
 					disabled={isFlexible}
 					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40"
 				/>
