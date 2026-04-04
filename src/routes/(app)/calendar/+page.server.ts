@@ -4,7 +4,7 @@ import { getDateRange, getTodayString } from '$lib/features/calendar/utils';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-	const view = (url.searchParams.get('view') ?? 'agenda') as 'agenda' | 'month';
+	const view = (url.searchParams.get('view') ?? 'month') as 'agenda' | 'month';
 	const today = new Date();
 	const year = parseInt(url.searchParams.get('year') ?? String(today.getFullYear()));
 	const month = parseInt(url.searchParams.get('month') ?? String(today.getMonth() + 1));

@@ -39,6 +39,7 @@ export interface BookingSummary {
 	isFlexible: boolean;
 	status: BookingStatus;
 	clientCount: number;
+	firstClientName: string | null;
 }
 
 export interface ClientBookingSummary {

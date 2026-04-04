@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '$lib/server/db';
-import { services } from '$lib/server/db/schema';
+import { bookingClients, bookings, services } from '$lib/server/db/schema';
 import { listServices, getService, createService, updateService, deleteService } from './queries';
 
 // Integration tests — require DB running on localhost:5432
 describe('service queries', () => {
 	beforeEach(async () => {
+		// Delete in FK-safe order: booking_clients → bookings → services
+		await db.delete(bookingClients);
+		await db.delete(bookings);
 		await db.delete(services);
 	});
 
