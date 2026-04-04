@@ -851,8 +851,8 @@ Create `src/lib/server/seed.ts`:
 import { auth } from './auth';
 
 const owners = [
-	{ email: 'owner1@oba.surf', password: 'ChangeMe123!', name: 'Owner 1' },
-	{ email: 'owner2@oba.surf', password: 'ChangeMe123!', name: 'Owner 2' }
+	{ email: 'crisesteve1503@gmail.com', password: 'Cris123.', name: 'Cris' },
+	{ email: 'patripaucastello@gmail.com', password: 'Patri123.', name: 'Patri' }
 ];
 
 async function seed() {
