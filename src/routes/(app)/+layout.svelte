@@ -5,9 +5,9 @@
 	let { children } = $props();
 </script>
 
-<div class="flex min-h-screen bg-sand">
+<div class="flex h-screen overflow-hidden bg-sand">
 	<Sidebar />
-	<main class="min-w-0 flex-1 pb-16 md:pb-0">
+	<main class="min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">
 		{@render children()}
 	</main>
 	<BottomNav />

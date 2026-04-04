@@ -6,31 +6,21 @@
 	let { data }: { data: PageData } = $props();
 
 	const grouped = $derived(groupBookingsByDate(data.bookings));
-
-	// Dates that have bookings (for month view dots)
-	const datesWithBookings = $derived(new Set(Object.keys(grouped)));
+	const today = $derived(data.today);
 
 	function setView(v: 'agenda' | 'month') {
 		goto(`/calendar?view=${v}&year=${data.year}&month=${data.month}`);
 	}
 
 	function prevMonth() {
-		let y = data.year,
-			m = data.month - 1;
-		if (m < 1) {
-			m = 12;
-			y--;
-		}
+		let y = data.year, m = data.month - 1;
+		if (m < 1) { m = 12; y--; }
 		goto(`/calendar?view=${data.view}&year=${y}&month=${m}`);
 	}
 
 	function nextMonth() {
-		let y = data.year,
-			m = data.month + 1;
-		if (m > 12) {
-			m = 1;
-			y++;
-		}
+		let y = data.year, m = data.month + 1;
+		if (m > 12) { m = 1; y++; }
 		goto(`/calendar?view=${data.view}&year=${y}&month=${m}`);
 	}
 
@@ -38,18 +28,25 @@
 		new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' })
 	);
 
-	// Agenda: group into past + upcoming
-	const today = data.today;
+	// Month grid helpers
+	// getDay(): 0=Sun,1=Mon...6=Sat → convert to Mon-first: (d+6)%7
+	const firstDayOffset = $derived((new Date(data.year, data.month - 1, 1).getDay() + 6) % 7);
+	const daysInMonth = $derived(getDaysInMonth(data.year, data.month));
+	const numWeeks = $derived(Math.ceil((firstDayOffset + daysInMonth) / 7));
+	const trailingBlanks = $derived(numWeeks * 7 - firstDayOffset - daysInMonth);
+
+	function statusChip(status: string) {
+		if (status === 'confirmed') return 'bg-confirmed/20 text-green-800';
+		if (status === 'cancelled') return 'bg-red-100 text-red-600 line-through opacity-60';
+		return 'bg-pending/25 text-amber-800';
+	}
+
+	// Agenda helpers
 	const upcomingDates = $derived(
-		Object.keys(grouped)
-			.filter((d) => d >= today)
-			.sort()
+		Object.keys(grouped).filter((d) => d >= today).sort()
 	);
 	const pastDates = $derived(
-		Object.keys(grouped)
-			.filter((d) => d < today)
-			.sort()
-			.reverse()
+		Object.keys(grouped).filter((d) => d < today).sort().reverse()
 	);
 
 	function statusClass(status: string) {
@@ -57,77 +54,112 @@
 		if (status === 'cancelled') return 'border-flexible bg-flexible/5 opacity-50';
 		return 'border-pending bg-pending/5';
 	}
-
-	function flexClass(isFlexible: boolean) {
-		return isFlexible ? 'border-dashed' : 'border-solid';
-	}
+	function flexClass(f: boolean) { return f ? 'border-dashed' : 'border-solid'; }
 </script>
 
-<div class="flex h-full flex-col">
-	<!-- Header -->
-	<div class="sticky top-0 z-10 border-b border-border bg-sand px-4 py-3">
-		<div class="mb-3 flex items-center justify-between">
-			<div class="flex items-center gap-2">
-				<button onclick={prevMonth} class="p-1 text-muted hover:text-gray-700">‹</button>
-				<h1 class="font-bold text-navy">{monthName} {data.year}</h1>
-				<button onclick={nextMonth} class="p-1 text-muted hover:text-gray-700">›</button>
-			</div>
-			<!-- View toggle -->
-			<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
-				<button
-					onclick={() => setView('agenda')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda'
-						? 'bg-ocean text-white'
-						: 'text-muted hover:text-gray-700'}"
-				>List</button>
-				<button
-					onclick={() => setView('month')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month'
-						? 'bg-ocean text-white'
-						: 'text-muted hover:text-gray-700'}"
-				>Month</button>
-			</div>
-		</div>
+<!-- Root: h-full when month so grid fills viewport; auto when agenda so main scrolls -->
+<div class="flex flex-col {data.view === 'month' ? 'h-full overflow-hidden' : ''}">
 
-		<!-- Month grid (when view=month) -->
-		{#if data.view === 'month'}
-			<div class="grid grid-cols-7 gap-0.5 text-center">
-				{#each ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as d}
-					<div class="py-1 text-xs text-muted">{d}</div>
-				{/each}
-				{#each Array.from({
-					length:
-						new Date(data.year, data.month - 1, 1).getDay() === 0
-							? 6
-							: new Date(data.year, data.month - 1, 1).getDay() - 1
-				}) as _}
-					<div></div>
-				{/each}
-				{#each Array.from({ length: getDaysInMonth(data.year, data.month) }, (_, i) => i + 1) as day}
-					{@const dateStr = `${data.year}-${String(data.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
-					{@const isToday = dateStr === today}
-					{@const hasBookings = datesWithBookings.has(dateStr)}
-					<a
-						href="/calendar?view=agenda&year={data.year}&month={data.month}#{dateStr}"
-						class="flex flex-col items-center rounded-lg py-1 transition-colors hover:bg-ocean/5"
-					>
-						<span
-							class="flex h-6 w-6 items-center justify-center rounded-full text-xs {isToday
-								? 'bg-ocean font-bold text-white'
-								: 'text-gray-700'}">{day}</span>
-						{#if hasBookings}
-							<span class="mt-0.5 h-1 w-1 rounded-full bg-ocean"></span>
-						{/if}
-					</a>
-				{/each}
-			</div>
-		{/if}
+	<!-- Compact header (always visible) -->
+	<div class="flex shrink-0 items-center justify-between border-b border-border bg-sand px-4 py-2">
+		<div class="flex items-center gap-1">
+			<button onclick={prevMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">‹</button>
+			<h1 class="w-36 text-center text-sm font-bold text-navy">{monthName} {data.year}</h1>
+			<button onclick={nextMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">›</button>
+		</div>
+		<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
+			<button
+				onclick={() => setView('agenda')}
+				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
+			>List</button>
+			<button
+				onclick={() => setView('month')}
+				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
+			>Month</button>
+		</div>
 	</div>
 
-	<!-- Agenda list -->
+	<!-- ─── MONTH VIEW ─── -->
+	{#if data.view === 'month'}
+		<div class="flex flex-1 flex-col overflow-hidden">
+			<!-- Weekday headers -->
+			<div class="grid shrink-0 grid-cols-7 border-b border-border bg-sand">
+				{#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as d}
+					<div class="py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted">{d}</div>
+				{/each}
+			</div>
+
+			<!-- Grid — fills all remaining space -->
+			<div
+				class="grid flex-1 grid-cols-7 overflow-hidden"
+				style="grid-template-rows: repeat({numWeeks}, 1fr)"
+			>
+				<!-- Leading blank cells -->
+				{#each Array(firstDayOffset) as _}
+					<div class="border-b border-r border-border/50 bg-sand/40"></div>
+				{/each}
+
+				<!-- Day cells -->
+				{#each Array.from({ length: daysInMonth }, (_, i) => i + 1) as day}
+					{@const dateStr = `${data.year}-${String(data.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`}
+					{@const isToday = dateStr === today}
+					{@const dayBookings = grouped[dateStr] ?? []}
+					{@const visible = dayBookings.slice(0, 2)}
+					{@const overflow = dayBookings.length - visible.length}
+
+					<div class="flex flex-col gap-px overflow-hidden border-b border-r border-border p-0.5 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
+						<!-- Day number -->
+						<div class="mb-0.5 flex justify-end">
+							<a
+								href="/calendar?view=agenda&year={data.year}&month={data.month}#{dateStr}"
+								class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors {isToday ? 'bg-ocean text-white' : 'text-gray-500 hover:bg-ocean/10 hover:text-ocean'}"
+							>{day}</a>
+						</div>
+
+						<!-- Events from the events table (multi-day camps) -->
+						{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
+							<a
+								href="/events/{event.id}"
+								class="block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800"
+							>
+								<span class="hidden sm:inline">🏕️ {event.title}</span>
+								<span class="sm:hidden">🏕️</span>
+							</a>
+						{/each}
+
+						<!-- Booking chips -->
+						{#each visible as booking}
+							<a
+								href="/bookings/{booking.id}"
+								class="block truncate rounded px-1 py-px text-[10px] leading-tight {statusChip(booking.status)}"
+							>
+								<span class="hidden sm:inline">{booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}</span>
+								<span class="sm:hidden" style="color:inherit">●</span>
+							</a>
+						{/each}
+
+						<!-- Overflow -->
+						{#if overflow > 0}
+							<a
+								href="/calendar?view=agenda&year={data.year}&month={data.month}#{dateStr}"
+								class="pl-1 text-[10px] text-muted hover:text-ocean"
+							>+{overflow} more</a>
+						{/if}
+					</div>
+				{/each}
+
+				<!-- Trailing blank cells -->
+				{#each Array(trailingBlanks) as _}
+					<div class="border-b border-r border-border/50 bg-sand/40"></div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	<!-- ─── AGENDA VIEW ─── -->
 	{#if data.view === 'agenda'}
-		<div class="flex-1 space-y-6 overflow-y-auto px-4 py-4">
-			<!-- Events (camps / fixed blocks) -->
+		<div class="space-y-6 px-4 py-4">
+			<!-- Multi-day events -->
 			{#each data.events as event}
 				<a
 					href="/events/{event.id}"
@@ -143,20 +175,16 @@
 				</a>
 			{/each}
 
-			<!-- Upcoming bookings -->
 			{#if upcomingDates.length === 0 && data.events.length === 0}
 				<p class="py-12 text-center text-sm text-muted">No upcoming bookings.</p>
 			{/if}
+
 			{#each upcomingDates as date}
 				<div id={date}>
 					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
 						{date === today
 							? 'Today'
-							: new Date(date + 'T00:00:00').toLocaleDateString('default', {
-									weekday: 'short',
-									day: 'numeric',
-									month: 'short'
-								})}
+							: new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 					</p>
 					<div class="space-y-2">
 						{#each grouped[date] as booking}
@@ -171,19 +199,10 @@
 										· {booking.serviceName}
 									</p>
 									<p class="text-xs text-muted">
-										{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !==
-										1
-											? 's'
-											: ''}
+										{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}
 									</p>
 								</div>
-								<span
-									class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed'
-										? 'bg-confirmed/15 text-green-700'
-										: booking.status === 'cancelled'
-											? 'bg-red-100 text-red-600'
-											: 'bg-pending/30 text-amber-700'}"
-								>
+								<span class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : booking.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-pending/30 text-amber-700'}">
 									{booking.status}
 								</span>
 							</a>
@@ -192,21 +211,16 @@
 				</div>
 			{/each}
 
-			<!-- Past bookings (collapsed) -->
 			{#if pastDates.length > 0}
 				<details class="mt-6">
-					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600"
-						>Past bookings ({pastDates.reduce((n, d) => n + grouped[d].length, 0)})</summary
-					>
+					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
+						Past bookings ({pastDates.reduce((n, d) => n + grouped[d].length, 0)})
+					</summary>
 					<div class="mt-3 space-y-4">
 						{#each pastDates as date}
 							<div>
 								<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-									{new Date(date + 'T00:00:00').toLocaleDateString('default', {
-										weekday: 'short',
-										day: 'numeric',
-										month: 'short'
-									})}
+									{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 								</p>
 								<div class="space-y-2">
 									{#each grouped[date] as booking}
@@ -214,12 +228,8 @@
 											href="/bookings/{booking.id}"
 											class="flex items-center justify-between rounded-(--radius-card) border-l-4 bg-surface p-3 opacity-70 ring-1 ring-border {statusClass(booking.status)} {flexClass(booking.isFlexible)}"
 										>
-											<p class="text-sm text-gray-700"
-												>{booking.time?.slice(0, 5) ?? '—'} · {booking.serviceName}</p
-											>
-											<span class="text-xs text-muted"
-												>{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span
-											>
+											<p class="text-sm text-gray-700">{booking.time?.slice(0, 5) ?? '—'} · {booking.serviceName}</p>
+											<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
 										</a>
 									{/each}
 								</div>
@@ -232,11 +242,9 @@
 	{/if}
 </div>
 
-<!-- FAB: New booking -->
+<!-- FAB -->
 <a
 	href="/bookings/new"
 	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-2xl text-white shadow-lg transition-colors hover:bg-ocean/90 md:bottom-6"
 	aria-label="New booking"
->
-	+
-</a>
+>+</a>
