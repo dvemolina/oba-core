@@ -38,38 +38,57 @@
 		selectedClients = selectedClients.filter((c) => c.clientId !== clientId);
 	}
 
+	// Inline new-client mini-form state
+	let newClientPanel = $state(false);
+	let newFirstName = $state('');
+	let newLastName = $state('');
+	let newPhone = $state('');
+	let newEmail = $state('');
 	let creatingClient = $state(false);
 
-	async function createAndAddClient(fullName: string) {
-		const parts = fullName.trim().split(/\s+/);
-		const firstName = parts[0] ?? fullName;
-		const lastName = parts.slice(1).join(' ') || '—';
+	function openNewClientPanel() {
+		// Pre-fill name from whatever was typed in the search box
+		const parts = clientSearch.trim().split(/\s+/);
+		newFirstName = parts[0] ?? '';
+		newLastName = parts.slice(1).join(' ');
+		newPhone = '';
+		newEmail = '';
+		newClientPanel = true;
+		clientSearch = '';
+	}
 
+	async function saveNewClient() {
+		if (!newFirstName) return;
 		creatingClient = true;
 		try {
 			const res = await fetch('/api/v1/clients', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ firstName, lastName })
+				body: JSON.stringify({
+					firstName: newFirstName,
+					lastName: newLastName || '—',
+					phone: newPhone || undefined,
+					email: newEmail || undefined
+				})
 			});
 			const { data: client } = await res.json();
 			selectedClients = [
 				...selectedClients,
 				{
 					clientId: client.id,
-					name: `${client.firstName} ${client.lastName}`,
+					name: `${client.firstName} ${client.lastName !== '—' ? ' ' + client.lastName : ''}`.trim(),
 					amountDue: selectedService?.basePrice ?? '0'
 				}
 			];
-			clientSearch = '';
+			newClientPanel = false;
 		} finally {
 			creatingClient = false;
 		}
 	}
 
-	// Show "create new" when search has text but no existing client matches
+	// Show "create new" option when typing but no existing match
 	const showCreateNew = $derived(
-		clientSearch.length > 1 && filteredClients.length === 0 && !creatingClient
+		clientSearch.length > 1 && filteredClients.length === 0 && !newClientPanel
 	);
 </script>
 
@@ -179,40 +198,81 @@
 			{/if}
 
 			<!-- Search input -->
-			<div class="relative">
-				<input
-					type="text"
-					placeholder="Search or type name to add…"
-					bind:value={clientSearch}
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
-				/>
-				{#if filteredClients.length > 0 || showCreateNew}
-					<div
-						class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border"
-					>
-						{#each filteredClients.slice(0, 6) as client}
-							<button
-								type="button"
-								onclick={() => addClient(client)}
-								class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand"
-							>
-								{client.firstName}
-								{client.lastName}
-								{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
-							</button>
-						{/each}
-						{#if showCreateNew}
-							<button
-								type="button"
-								onclick={() => createAndAddClient(clientSearch)}
-								class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand"
-							>
-								+ Create "<span class="font-medium">{clientSearch}</span>"
-							</button>
-						{/if}
+			{#if !newClientPanel}
+				<div class="relative">
+					<input
+						type="text"
+						placeholder="Search or type name to add…"
+						bind:value={clientSearch}
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					/>
+					{#if filteredClients.length > 0 || showCreateNew}
+						<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
+							{#each filteredClients.slice(0, 6) as client}
+								<button
+									type="button"
+									onclick={() => addClient(client)}
+									class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand"
+								>
+									{client.firstName} {client.lastName}
+									{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
+								</button>
+							{/each}
+							{#if showCreateNew}
+								<button
+									type="button"
+									onclick={openNewClientPanel}
+									class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand"
+								>
+									+ Create "<span class="font-medium">{clientSearch}</span>"
+								</button>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<!-- Inline new-client mini-form -->
+				<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
+					<p class="text-xs font-semibold text-ocean">New client</p>
+					<div class="grid grid-cols-2 gap-2">
+						<input
+							bind:value={newFirstName}
+							placeholder="First name *"
+							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none"
+						/>
+						<input
+							bind:value={newLastName}
+							placeholder="Last name"
+							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none"
+						/>
 					</div>
-				{/if}
-			</div>
+					<input
+						bind:value={newPhone}
+						type="tel"
+						placeholder="Phone"
+						class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none"
+					/>
+					<input
+						bind:value={newEmail}
+						type="email"
+						placeholder="Email"
+						class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none"
+					/>
+					<div class="flex gap-2 pt-1">
+						<button
+							type="button"
+							onclick={saveNewClient}
+							disabled={!newFirstName || creatingClient}
+							class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50"
+						>{creatingClient ? 'Saving…' : 'Add client'}</button>
+						<button
+							type="button"
+							onclick={() => { newClientPanel = false; clientSearch = ''; }}
+							class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border hover:text-gray-700"
+						>Cancel</button>
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Notes -->
