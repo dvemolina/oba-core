@@ -11,6 +11,7 @@
 </script>
 
 <nav
+	aria-label="Main navigation"
 	class="group hidden shrink-0 flex-col overflow-hidden bg-navy transition-all duration-200 md:flex"
 	style="width: 3.5rem;"
 	onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.width = '12rem')}
@@ -28,6 +29,8 @@
 		{@const active = page.url.pathname.startsWith(item.href)}
 		<a
 			href={item.href}
+			aria-current={active ? 'page' : undefined}
+			aria-label={item.label}
 			class="flex items-center gap-3 px-4 py-3 text-sm transition-colors {active
 				? 'bg-white/10 text-white'
 				: 'text-white/60 hover:bg-white/5 hover:text-white'}"

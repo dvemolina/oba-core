@@ -11,12 +11,14 @@
 </script>
 
 <nav
+	aria-label="Main navigation"
 	class="fixed right-0 bottom-0 left-0 z-50 flex justify-around border-t border-border bg-surface py-2 md:hidden"
 >
 	{#each items as item}
 		{@const active = page.url.pathname.startsWith(item.href)}
 		<a
 			href={item.href}
+			aria-current={active ? 'page' : undefined}
 			class="flex flex-col items-center gap-0.5 px-3 py-1 text-xs transition-colors {active
 				? 'text-ocean'
 				: 'text-muted hover:text-gray-700'}"
