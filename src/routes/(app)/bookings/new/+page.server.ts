@@ -12,7 +12,8 @@ export const load: PageServerLoad = async ({ url }) => {
 		listClients()
 	]);
 	const defaultDate = url.searchParams.get('date') ?? '';
-	return { services, instructors, clients, defaultDate };
+	const defaultTime = url.searchParams.get('time') ?? '';
+	return { services, instructors, clients, defaultDate, defaultTime };
 };
 
 export const actions: Actions = {
