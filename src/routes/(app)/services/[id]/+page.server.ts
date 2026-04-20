@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getService, updateService } from '$lib/features/services/queries';
+import { deleteService, getService, updateService } from '$lib/features/services/queries';
 import type { ServiceType } from '$lib/features/services/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -32,5 +32,15 @@ export const actions: Actions = {
 		if (!service) error(404);
 		await updateService(params.id, { active: !service.active });
 		return {};
+	},
+
+	delete: async ({ params }) => {
+		const result = await deleteService(params.id);
+		if (!result.deleted) {
+			return fail(409, {
+				error: 'This service is used by existing bookings or events and cannot be deleted. Deactivate it instead.'
+			});
+		}
+		redirect(302, '/services');
 	}
 };

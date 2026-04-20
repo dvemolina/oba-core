@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { services } from '$lib/server/db/schema';
+import { bookings, events, services } from '$lib/server/db/schema';
 import type { CreateServiceInput, Service, UpdateServiceInput } from './types';
 
 export async function listServices(includeInactive = false): Promise<Service[]> {
@@ -31,6 +31,13 @@ export async function updateService(id: string, input: UpdateServiceInput): Prom
 	return row as Service;
 }
 
-export async function deleteService(id: string): Promise<void> {
-	await db.update(services).set({ active: false, updatedAt: new Date() }).where(eq(services.id, id));
+export async function deleteService(
+	id: string
+): Promise<{ deleted: boolean; reason?: 'has_bookings' | 'has_events' }> {
+	const [linked] = await db.select({ id: bookings.id }).from(bookings).where(eq(bookings.serviceId, id)).limit(1);
+	if (linked) return { deleted: false, reason: 'has_bookings' };
+	const [linkedEvent] = await db.select({ id: events.id }).from(events).where(eq(events.serviceId, id)).limit(1);
+	if (linkedEvent) return { deleted: false, reason: 'has_events' };
+	await db.delete(services).where(eq(services.id, id));
+	return { deleted: true };
 }

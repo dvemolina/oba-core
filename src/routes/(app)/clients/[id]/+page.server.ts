@@ -1,5 +1,5 @@
-import { error, fail } from '@sveltejs/kit';
-import { getClient, updateClient } from '$lib/features/clients/queries';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { deleteClient, getClient, updateClient } from '$lib/features/clients/queries';
 import { getBookingsForClient } from '$lib/features/bookings/queries';
 import type { SkillLevel } from '$lib/features/clients/types';
 import type { Actions, PageServerLoad } from './$types';
@@ -28,5 +28,13 @@ export const actions: Actions = {
 			notes: form.get('notes')?.toString().trim() || undefined
 		});
 		return { error: null };
+	},
+
+	delete: async ({ params }) => {
+		const result = await deleteClient(params.id);
+		if (!result.deleted) {
+			return fail(409, { error: 'This client has booking history and cannot be deleted. Remove them from all bookings first.' });
+		}
+		redirect(302, '/clients');
 	}
 };
