@@ -1,7 +1,7 @@
 // src/lib/features/clients/queries.ts
 import { eq, ilike, or } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { clients } from '$lib/server/db/schema';
+import { bookingClients, clients } from '$lib/server/db/schema';
 import type { Client, CreateClientInput, UpdateClientInput } from './types';
 
 export async function listClients(search?: string): Promise<Client[]> {
@@ -38,6 +38,13 @@ export async function updateClient(id: string, input: UpdateClientInput): Promis
 		.where(eq(clients.id, id))
 		.returning();
 	return row as Client;
+}
+
+export async function deleteClient(id: string): Promise<{ deleted: boolean; reason?: 'has_bookings' }> {
+	const [linked] = await db.select({ id: bookingClients.id }).from(bookingClients).where(eq(bookingClients.clientId, id)).limit(1);
+	if (linked) return { deleted: false, reason: 'has_bookings' };
+	await db.delete(clients).where(eq(clients.id, id));
+	return { deleted: true };
 }
 
 export async function searchOrCreateClient(

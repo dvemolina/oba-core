@@ -1,0 +1,148 @@
+# =============================================================================
+# OBA Core Production Deployment - Docker Swarm
+# =============================================================================
+# Deploy: docker stack deploy -c oba-stack.yml oba --with-registry-auth
+#
+# Required secrets (create once on the VPS):
+#   docker secret create oba_postgres_db        <(echo "oba")
+#   docker secret create oba_postgres_user      <(echo "obauser")
+#   docker secret create oba_postgres_password  <(openssl rand -base64 24)
+#   docker secret create oba_database_url       <(echo "postgres://obauser:<password>@oba_postgres:5432/oba")
+#   docker secret create oba_better_auth_secret <(openssl rand -base64 32)
+# =============================================================================
+
+networks:
+  oba_network:
+    driver: overlay
+    attachable: true
+
+  traefik_network:
+    external: true
+    name: proxy
+
+volumes:
+  postgres_data:
+    driver: local
+
+secrets:
+  oba_postgres_db:
+    external: true
+  oba_postgres_user:
+    external: true
+  oba_postgres_password:
+    external: true
+  oba_database_url:
+    external: true
+  oba_better_auth_secret:
+    external: true
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - oba_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    secrets:
+      - oba_postgres_db
+      - oba_postgres_user
+      - oba_postgres_password
+    environment:
+      POSTGRES_DB_FILE: /run/secrets/oba_postgres_db
+      POSTGRES_USER_FILE: /run/secrets/oba_postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/oba_postgres_password
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/oba_postgres_user) -d $$(cat /run/secrets/oba_postgres_db)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================================================
+  # OBA Core Application
+  # ===========================================================================
+  app:
+    image: ghcr.io/dvemolina/oba-core:${IMAGE_TAG:-latest}
+    networks:
+      - oba_network
+      - traefik_network
+    secrets:
+      - oba_database_url
+      - oba_better_auth_secret
+    environment:
+      NODE_ENV: production
+      ORIGIN: https://oba.tipitisurf.com
+      PROTOCOL_HEADER: x-forwarded-proto
+      HOST_HEADER: x-forwarded-host
+      BODY_SIZE_LIMIT: 5M
+      DATABASE_URL_FILE: /run/secrets/oba_database_url
+      BETTER_AUTH_SECRET_FILE: /run/secrets/oba_better_auth_secret
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=proxy"
+        - "traefik.http.routers.oba.rule=Host(`oba.tipitisurf.com`)"
+        - "traefik.http.routers.oba.entrypoints=websecure"
+        - "traefik.http.routers.oba.tls=true"
+        - "traefik.http.routers.oba.tls.certresolver=cloudflare"
+        - "traefik.http.routers.oba.middlewares=oba-security"
+        - "traefik.http.services.oba.loadbalancer.server.port=3000"
+        - "traefik.http.services.oba.loadbalancer.healthcheck.path=/api/health"
+        - "traefik.http.services.oba.loadbalancer.healthcheck.interval=30s"
+        # Security headers
+        - "traefik.http.middlewares.oba-security.headers.sslredirect=true"
+        - "traefik.http.middlewares.oba-security.headers.stsSeconds=31536000"
+        - "traefik.http.middlewares.oba-security.headers.stsIncludeSubdomains=true"
+        - "traefik.http.middlewares.oba-security.headers.stsPreload=true"
+        - "traefik.http.middlewares.oba-security.headers.frameDeny=true"
+        - "traefik.http.middlewares.oba-security.headers.contentTypeNosniff=true"
+        - "traefik.http.middlewares.oba-security.headers.browserXssFilter=true"
+        - "traefik.http.middlewares.oba-security.headers.referrerPolicy=strict-origin-when-cross-origin"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - postgres

@@ -18,12 +18,27 @@
 				<span class="text-xs text-muted">{data.client.skillLevel}</span>
 			{/if}
 		</div>
-		<button
-			onclick={() => (editing = !editing)}
-			class="ml-auto rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-border text-muted hover:text-gray-700"
-		>
-			{editing ? 'Cancel' : 'Edit'}
-		</button>
+		<div class="ml-auto flex items-center gap-2">
+			<button
+				onclick={() => (editing = !editing)}
+				class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-border text-muted hover:text-gray-700"
+			>
+				{editing ? 'Cancel' : 'Edit'}
+			</button>
+			<form
+				method="post"
+				action="?/delete"
+				use:enhance
+				onsubmit={(e) => { if (!confirm(`Delete ${data.client.firstName} ${data.client.lastName}? This cannot be undone.`)) e.preventDefault(); }}
+			>
+				<button
+					type="submit"
+					class="rounded-lg px-3 py-1.5 text-xs font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5"
+				>
+					Delete
+				</button>
+			</form>
+		</div>
 	</div>
 
 	{#if editing}

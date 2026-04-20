@@ -10,16 +10,31 @@
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/services" class="text-muted hover:text-gray-700">←</a>
 		<h1 class="text-xl font-bold text-navy">Edit Service</h1>
-		<form method="post" action="?/toggle" use:enhance class="ml-auto">
-			<button
-				type="submit"
-				class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 {data.service.active
-					? 'ring-border text-muted hover:text-gray-700'
-					: 'ring-confirmed text-confirmed'}"
+		<div class="ml-auto flex items-center gap-2">
+			<form method="post" action="?/toggle" use:enhance>
+				<button
+					type="submit"
+					class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 {data.service.active
+						? 'ring-border text-muted hover:text-gray-700'
+						: 'ring-confirmed text-confirmed'}"
+				>
+					{data.service.active ? 'Deactivate' : 'Activate'}
+				</button>
+			</form>
+			<form
+				method="post"
+				action="?/delete"
+				use:enhance
+				onsubmit={(e) => { if (!confirm('Delete this service permanently?')) e.preventDefault(); }}
 			>
-				{data.service.active ? 'Deactivate' : 'Activate'}
-			</button>
-		</form>
+				<button
+					type="submit"
+					class="rounded-lg px-3 py-1.5 text-xs font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5"
+				>
+					Delete
+				</button>
+			</form>
+		</div>
 	</div>
 
 	<form
