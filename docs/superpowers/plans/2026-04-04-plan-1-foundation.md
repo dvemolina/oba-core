@@ -84,6 +84,12 @@ DATABASE_URL=postgresql://root:change-me-db-password@localhost:5432/local
 BETTER_AUTH_SECRET=change-me-to-a-random-32-char-string
 BETTER_AUTH_URL=http://localhost:5173
 ORIGIN=http://localhost:5173
+SEED_OWNER_1_EMAIL=owner1@example.com
+SEED_OWNER_1_PASSWORD=change-me-owner-1
+SEED_OWNER_1_NAME=Owner 1
+SEED_OWNER_2_EMAIL=owner2@example.com
+SEED_OWNER_2_PASSWORD=change-me-owner-2
+SEED_OWNER_2_NAME=Owner 2
 ```
 
 - [ ] **Step 4: Create .env (local, not committed)**
@@ -851,8 +857,8 @@ Create `src/lib/server/seed.ts`:
 import { auth } from './auth';
 
 const owners = [
-	{ email: 'owner1@example.com', password: 'change-me-owner-1', name: 'Cris' },
-	{ email: 'owner2@example.com', password: 'change-me-owner-2', name: 'Patri' }
+	{ email: 'owner1@example.com', password: 'change-me-owner-1', name: 'Owner 1' },
+	{ email: 'owner2@example.com', password: 'change-me-owner-2', name: 'Owner 2' }
 ];
 
 async function seed() {
