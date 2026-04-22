@@ -20,6 +20,7 @@ export interface Booking {
 	instructorId: string | null;
 	instructorName: string | null;
 	date: string;
+	dateEnd: string | null;
 	time: string | null;
 	isFlexible: boolean;
 	status: BookingStatus;
@@ -35,6 +36,7 @@ export interface BookingSummary {
 	serviceName: string;
 	instructorName: string | null;
 	date: string;
+	dateEnd: string | null;
 	time: string | null;
 	isFlexible: boolean;
 	status: BookingStatus;
@@ -54,6 +56,7 @@ export interface CreateBookingInput {
 	serviceId: string;
 	instructorId?: string;
 	date: string;
+	dateEnd?: string;
 	time?: string;
 	isFlexible: boolean;
 	spotNotes?: string;
@@ -67,6 +70,7 @@ export interface CreateBookingInput {
 export interface UpdateBookingInput {
 	instructorId?: string | null;
 	date?: string;
+	dateEnd?: string | null;
 	time?: string | null;
 	isFlexible?: boolean;
 	status?: BookingStatus;

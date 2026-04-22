@@ -20,6 +20,7 @@ export async function listBookingsForDateRange(
 			serviceName: services.name,
 			instructorName: instructors.name,
 			date: bookings.date,
+			dateEnd: bookings.dateEnd,
 			time: bookings.time,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status
@@ -67,6 +68,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			instructorId: bookings.instructorId,
 			instructorName: instructors.name,
 			date: bookings.date,
+			dateEnd: bookings.dateEnd,
 			time: bookings.time,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status,
@@ -124,6 +126,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			serviceId: input.serviceId,
 			instructorId: input.instructorId,
 			date: input.date,
+			dateEnd: input.dateEnd,
 			time: input.time,
 			isFlexible: input.isFlexible,
 			spotNotes: input.spotNotes,

@@ -7,14 +7,15 @@ import {
 	numeric,
 	integer,
 	date,
-	time
+	time,
+	jsonb
 } from 'drizzle-orm/pg-core';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
 export const skillLevelEnum = pgEnum('skill_level', ['beginner', 'intermediate', 'advanced']);
 
-export const serviceTypeEnum = pgEnum('service_type', ['lesson', 'camp', 'product', 'rental']);
+export const serviceTypeEnum = pgEnum('service_type', ['lesson', 'camp', 'product', 'rental', 'accommodation']);
 
 export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'cancelled']);
 
@@ -74,6 +75,7 @@ export const bookings = pgTable('bookings', {
 		.references(() => services.id),
 	instructorId: text('instructor_id').references(() => instructors.id),
 	date: date('date').notNull(),
+	dateEnd: date('date_end'), // check-out date for accommodation; null for single-day services
 	time: time('time'),
 	isFlexible: boolean('is_flexible').notNull().default(false),
 	status: bookingStatusEnum('status').notNull().default('pending'),
@@ -111,6 +113,16 @@ export const events = pgTable('events', {
 	notes: text('notes'),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
+});
+
+export const whatsappSessions = pgTable('whatsapp_sessions', {
+	whatsappId:    text('whatsapp_id').primaryKey(),
+	state:         text('state').notNull().default('IDLE'),
+	serviceType:   text('service_type'),
+	collectedData: jsonb('collected_data'),
+	reservationId: text('reservation_id'),
+	language:      text('language').default('es'),
+	lastActivity:  timestamp('last_activity').notNull().defaultNow()
 });
 
 // Re-export Better Auth schema so db/index.ts imports everything from one place

@@ -1,4 +1,4 @@
-export type ServiceType = 'lesson' | 'camp' | 'product' | 'rental';
+export type ServiceType = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation';
 
 export interface Service {
 	id: string;
