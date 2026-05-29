@@ -13,10 +13,15 @@ export interface BookingClient {
 	paymentStatus: PaymentStatus;
 }
 
+export type BookingSource = 'admin' | 'whatsapp_bot';
+
 export interface Booking {
 	id: string;
-	serviceId: string;
-	serviceName: string;
+	serviceId: string | null;
+	serviceName: string | null;
+	serviceType: string | null;
+	serviceColor: string | null;
+	serviceMaxStudents: number | null;
 	instructorId: string | null;
 	instructorName: string | null;
 	date: string;
@@ -24,6 +29,7 @@ export interface Booking {
 	time: string | null;
 	isFlexible: boolean;
 	status: BookingStatus;
+	source: BookingSource;
 	spotNotes: string | null;
 	notes: string | null;
 	clients: BookingClient[];
@@ -33,7 +39,10 @@ export interface Booking {
 
 export interface BookingSummary {
 	id: string;
-	serviceName: string;
+	serviceName: string | null;
+	serviceType: string | null;
+	serviceColor: string | null;
+	serviceMaxStudents: number | null;
 	instructorName: string | null;
 	date: string;
 	dateEnd: string | null;
@@ -48,7 +57,7 @@ export interface ClientBookingSummary {
 	id: string;
 	date: string;
 	time: string | null;
-	serviceName: string;
+	serviceName: string | null;
 	status: BookingStatus;
 }
 
@@ -59,6 +68,8 @@ export interface CreateBookingInput {
 	dateEnd?: string;
 	time?: string;
 	isFlexible: boolean;
+	status?: BookingStatus;
+	source?: BookingSource;
 	spotNotes?: string;
 	notes?: string;
 	clients: {

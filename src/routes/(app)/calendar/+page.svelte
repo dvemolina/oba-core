@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { groupBookingsByDate, getDaysInMonth } from '$lib/features/calendar/utils';
+	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
+	import type { BookingSummary } from '$lib/features/bookings/types';
 
 	let { data }: { data: PageData } = $props();
 
@@ -11,13 +13,11 @@
 	function setView(v: 'agenda' | 'month') {
 		goto(`/calendar?view=${v}&year=${data.year}&month=${data.month}`);
 	}
-
 	function prevMonth() {
 		let y = data.year, m = data.month - 1;
 		if (m < 1) { m = 12; y--; }
 		goto(`/calendar?view=${data.view}&year=${y}&month=${m}`);
 	}
-
 	function nextMonth() {
 		let y = data.year, m = data.month + 1;
 		if (m > 12) { m = 1; y++; }
@@ -28,54 +28,171 @@
 		new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' })
 	);
 
-	// Month grid helpers
-	// getDay(): 0=Sun,1=Mon...6=Sat → convert to Mon-first: (d+6)%7
+	// ── Month grid ───────────────────────────────────────────────────────────
 	const firstDayOffset = $derived((new Date(data.year, data.month - 1, 1).getDay() + 6) % 7);
 	const daysInMonth = $derived(getDaysInMonth(data.year, data.month));
-	const numWeeks = $derived(Math.ceil((firstDayOffset + daysInMonth) / 7));
-	const trailingBlanks = $derived(numWeeks * 7 - firstDayOffset - daysInMonth);
 
-	function statusChip(status: string) {
-		if (status === 'confirmed') return 'bg-confirmed/20 text-green-800';
-		if (status === 'cancelled') return 'bg-red-100 text-red-600 line-through opacity-60';
-		return 'bg-pending/25 text-amber-800';
+	// Weeks as arrays of date strings (null = blank padding cell)
+	const weeks = $derived(() => {
+		const result: (string | null)[][] = [];
+		const m = String(data.month).padStart(2, '0');
+		let cells: (string | null)[] = Array(firstDayOffset).fill(null);
+		for (let day = 1; day <= daysInMonth; day++) {
+			cells.push(`${data.year}-${m}-${String(day).padStart(2, '0')}`);
+			if (cells.length === 7) { result.push(cells); cells = []; }
+		}
+		if (cells.length > 0) {
+			while (cells.length < 7) cells.push(null);
+			result.push(cells);
+		}
+		return result;
+	});
+
+	// Multi-day (spanning) bookings — non-cancelled, dateEnd spans more than one day
+	const multiDayBookings = $derived(
+		data.bookings.filter(b => b.status !== 'cancelled' && b.dateEnd && b.dateEnd !== b.date)
+	);
+
+	// Single-day bookings grouped by date
+	const singleGrouped = $derived(
+		data.bookings
+			.filter(b => b.status !== 'cancelled' && (!b.dateEnd || b.dateEnd === b.date))
+			.reduce<Record<string, BookingSummary[]>>((acc, b) => {
+				(acc[b.date] ??= []).push(b);
+				return acc;
+			}, {})
+	);
+
+	// For each week: compute spanning layout (startCol 0-indexed, span, row for stacking)
+	type SpanItem = { booking: BookingSummary; startCol: number; span: number; row: number };
+
+	function weekSpanLayout(weekDates: (string | null)[]): SpanItem[] {
+		const firstDay = weekDates.find(d => d !== null);
+		const lastDay = [...weekDates].filter(d => d !== null).at(-1);
+		if (!firstDay || !lastDay) return [];
+
+		const inWeek = multiDayBookings.filter(b =>
+			b.date <= lastDay && (b.dateEnd ?? b.date) >= firstDay
+		);
+
+		// Assign each booking to a stack row (greedy, left-to-right)
+		const rowEndCols: number[] = [];
+		return inWeek.map(b => {
+			const bookingEnd = b.dateEnd ?? b.date;
+			const clampedStart = b.date >= firstDay ? b.date : firstDay;
+			const clampedEnd = bookingEnd <= lastDay ? bookingEnd : lastDay;
+			const startCol = weekDates.indexOf(clampedStart);
+			const endCol = weekDates.indexOf(clampedEnd);
+			const span = endCol - startCol + 1;
+
+			let row = rowEndCols.findIndex(end => end < startCol);
+			if (row === -1) { row = rowEndCols.length; rowEndCols.push(endCol); }
+			else { rowEndCols[row] = endCol; }
+
+			return { booking: b, startCol, span, row };
+		});
 	}
 
-	// Agenda helpers
+	// Percentage-based inline style for a spanning pill
+	function spanStyle(startCol: number, span: number, row: number): string {
+		const DAY_NUM_H = 22; // px — height of day number row
+		const PILL_H = 18;   // px — height of each pill
+		const PILL_GAP = 2;  // px — gap between pill rows
+		const left = (startCol / 7) * 100;
+		const width = (span / 7) * 100;
+		const top = DAY_NUM_H + row * (PILL_H + PILL_GAP);
+		return `position:absolute; left:calc(${left}% + 2px); width:calc(${width}% - 4px); top:${top}px; height:${PILL_H}px; z-index:10;`;
+	}
+
+	// Padding-top for single-day chips (clears the spanning pills)
+	function cellPt(maxRows: number): string {
+		const DAY_NUM_H = 22;
+		const PILL_H = 18;
+		const PILL_GAP = 2;
+		const pt = maxRows > 0 ? DAY_NUM_H + maxRows * (PILL_H + PILL_GAP) : DAY_NUM_H;
+		return `padding-top:${pt}px;`;
+	}
+
+	// Rounded corners: pill starts/ends this week or continues across boundary
+	function pillRounded(booking: BookingSummary, weekDates: (string | null)[]): string {
+		const validDates = weekDates.filter(Boolean) as string[];
+		const startsHere = booking.date >= validDates[0];
+		const endsHere = (booking.dateEnd ?? booking.date) <= validDates[validDates.length - 1];
+		if (startsHere && endsHere) return 'rounded';
+		if (startsHere) return 'rounded-l rounded-r-none';
+		if (endsHere) return 'rounded-r rounded-l-none';
+		return 'rounded-none';
+	}
+
+	function chipClasses(booking: BookingSummary): string {
+		const c = getServiceColor(booking.serviceColor ?? '');
+		const opacity = booking.status === 'pending' ? 'opacity-60' : '';
+		return `${c.bg} ${c.text} ${opacity}`;
+	}
+	function pillClasses(booking: BookingSummary): string {
+		const c = getServiceColor(booking.serviceColor ?? '');
+		const opacity = booking.status === 'pending' ? 'opacity-60' : '';
+		return `${c.bg} ${c.text} ${opacity}`;
+	}
+	function statusDot(status: string): string {
+		return status === 'confirmed' ? '●' : '○';
+	}
+
+	// ── Agenda ───────────────────────────────────────────────────────────────
+
+	function agendaBookingsForDate(date: string): BookingSummary[] {
+		return (grouped[date] ?? []).filter(
+			b => b.status !== 'cancelled' && (!b.dateEnd || b.dateEnd === b.date || b.date === date)
+		);
+	}
+
+	const cancelledBookings = $derived(() => {
+		const seen = new Set<string>();
+		const result: BookingSummary[] = [];
+		for (const list of Object.values(grouped)) {
+			for (const b of list) {
+				if (b.status === 'cancelled' && !seen.has(b.id)) {
+					seen.add(b.id);
+					result.push(b);
+				}
+			}
+		}
+		return result.sort((a, b) => b.date.localeCompare(a.date));
+	});
+
 	const upcomingDates = $derived(
-		Object.keys(grouped).filter((d) => d >= today).sort()
+		Object.keys(grouped).filter(d => d >= today && agendaBookingsForDate(d).length > 0).sort()
 	);
 	const pastDates = $derived(
-		Object.keys(grouped).filter((d) => d < today).sort().reverse()
+		Object.keys(grouped).filter(d => d < today && agendaBookingsForDate(d).length > 0).sort().reverse()
 	);
 
-	function statusClass(status: string) {
-		if (status === 'confirmed') return 'border-confirmed bg-confirmed/5';
-		if (status === 'cancelled') return 'border-flexible bg-flexible/5 opacity-50';
-		return 'border-pending bg-pending/5';
+	function agendaCardClass(booking: BookingSummary): string {
+		const c = getServiceColor(booking.serviceColor ?? '');
+		if (booking.status === 'cancelled') return 'border-gray-300 bg-surface opacity-50 border-solid';
+		const style = booking.isFlexible ? 'border-dashed' : 'border-solid';
+		return `${c.border} bg-surface ${style}`;
 	}
-	function flexClass(f: boolean) { return f ? 'border-dashed' : 'border-solid'; }
 </script>
 
-<!-- Root: h-full when month so grid fills viewport; auto when agenda so main scrolls -->
 <div class="flex flex-col {data.view === 'month' ? 'h-full overflow-hidden' : ''}">
 
-	<!-- Compact header (always visible) -->
+	<!-- Header -->
 	<div class="flex shrink-0 items-center justify-between border-b border-border bg-sand px-4 py-2">
 		<div class="flex items-center gap-1">
 			<button onclick={prevMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">‹</button>
 			<h1 class="w-36 text-center text-sm font-bold text-navy">{monthName} {data.year}</h1>
 			<button onclick={nextMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">›</button>
 		</div>
-		<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
-			<button
-				onclick={() => setView('month')}
-				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
-			>Month</button>
-			<button
-				onclick={() => setView('agenda')}
-				class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}"
-			>Agenda</button>
+		<div class="flex items-center gap-3">
+			<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
+				<span>● Confirmed</span>
+				<span>○ Pending</span>
+			</span>
+			<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
+				<button onclick={() => setView('month')} class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}">Month</button>
+				<button onclick={() => setView('agenda')} class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}">Agenda</button>
+			</div>
 		</div>
 	</div>
 
@@ -89,80 +206,88 @@
 				{/each}
 			</div>
 
-			<!-- Grid — fills all remaining space -->
-			<div
-				class="grid flex-1 grid-cols-7 overflow-hidden"
-				style="grid-template-rows: repeat({numWeeks}, 1fr)"
-			>
-				<!-- Leading blank cells -->
-				{#each Array(firstDayOffset) as _}
-					<div class="border-b border-r border-border/50 bg-sand/40"></div>
-				{/each}
+			<!-- Weeks -->
+			<div class="flex flex-1 flex-col overflow-hidden">
+				{#each weeks() as weekDates}
+					{@const layout = weekSpanLayout(weekDates)}
+					{@const maxRows = layout.length > 0 ? Math.max(...layout.map(l => l.row)) + 1 : 0}
 
-				<!-- Day cells -->
-				{#each Array.from({ length: daysInMonth }, (_, i) => i + 1) as day}
-					{@const dateStr = `${data.year}-${String(data.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`}
-					{@const isToday = dateStr === today}
-					{@const dayBookings = grouped[dateStr] ?? []}
-					{@const visible = dayBookings.slice(0, 2)}
-					{@const overflow = dayBookings.length - visible.length}
+					<div class="relative flex-1 border-b border-border/60 last:border-b-0">
 
-					<!-- Whole-cell is clickable; chips sit on top via z-10 -->
-					<div class="group relative flex flex-col gap-px overflow-hidden border-b border-r border-border p-0.5 transition-colors
-						{isToday ? 'bg-ocean/5 hover:bg-ocean/10' : 'bg-surface hover:bg-sand'}">
+						<!-- Background + day numbers + single-day chips — one cell per column -->
+						<div class="absolute inset-0 grid grid-cols-7">
+							{#each weekDates as dateStr}
+								{#if dateStr === null}
+									<div class="border-r border-border/40 bg-sand/40 last:border-r-0"></div>
+								{:else}
+									{@const isToday = dateStr === today}
+									{@const dayChips = (singleGrouped[dateStr] ?? []).slice(0, 3)}
+									{@const overflow = (singleGrouped[dateStr] ?? []).length - dayChips.length}
 
-						<!-- Background link covers the whole cell -->
-						<a
-							href="/calendar/{dateStr}"
-							class="absolute inset-0 z-0"
-							aria-label="Open {dateStr}"
-						></a>
+									<div class="group relative flex flex-col overflow-hidden border-r border-border/40 last:border-r-0
+										{isToday ? 'bg-ocean/5' : 'bg-surface'}">
 
-						<!-- Day number — on top of the background link -->
-						<div class="relative z-10 mb-0.5 flex justify-end">
-							<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold
-								{isToday ? 'bg-ocean text-white' : 'text-gray-500 group-hover:bg-ocean/15 group-hover:text-ocean'}">
-								{day}
-							</span>
+										<!-- Full-cell link (behind everything) -->
+										<a href="/calendar/{dateStr}" class="absolute inset-0 z-0" aria-label="Open {dateStr}"></a>
+
+										<!-- Day number — always at top of cell -->
+										<div class="relative z-10 flex justify-end p-0.5">
+											<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold
+												{isToday ? 'bg-ocean text-white' : 'text-gray-500 group-hover:bg-ocean/15 group-hover:text-ocean'}">
+												{dateStr.slice(-2).replace(/^0/, '')}
+											</span>
+										</div>
+
+										<!-- Events + single-day chips (padded to clear spanning pills) -->
+										<div class="relative z-10 flex flex-col gap-px overflow-hidden px-0.5 pb-0.5" style={cellPt(maxRows)}>
+											<!-- surf events -->
+											{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
+												<a href="/events/{event.id}"
+													class="block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800 hover:bg-confirmed/35">
+													<span class="hidden sm:inline">🏕️ {event.title}</span>
+													<span class="sm:hidden">🏕️</span>
+												</a>
+											{/each}
+											<!-- single-day booking chips -->
+											{#each dayChips as booking}
+												<a href="/bookings/{booking.id}"
+													class="block truncate rounded px-1 py-px text-[10px] leading-tight hover:brightness-95 {chipClasses(booking)}">
+													<span class="hidden sm:inline">
+														{statusDot(booking.status)} {booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}{booking.firstClientName ? ' · ' + booking.firstClientName : ''}
+													</span>
+													<span class="sm:hidden" style="color:inherit">{statusDot(booking.status)}</span>
+												</a>
+											{/each}
+											{#if overflow > 0}
+												<a href="/calendar/{dateStr}" class="pl-1 text-[10px] text-muted hover:text-ocean">+{overflow} more</a>
+											{/if}
+										</div>
+									</div>
+								{/if}
+							{/each}
 						</div>
 
-						<!-- Events — relative z-10 so clicks go to event, not the day -->
-						{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
-							<a
-								href="/events/{event.id}"
-								class="relative z-10 block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800 hover:bg-confirmed/35"
-							>
-								<span class="hidden sm:inline">🏕️ {event.title}</span>
-								<span class="sm:hidden">🏕️</span>
-							</a>
-						{/each}
-
-						<!-- Booking chips — relative z-10 -->
-						{#each visible as booking}
+						<!-- Multi-day spanning pills — absolutely positioned over the grid -->
+						{#each layout as { booking, startCol, span, row }}
+							{@const startsHere = booking.date >= (weekDates.find(d => d !== null) ?? '')}
 							<a
 								href="/bookings/{booking.id}"
-								class="relative z-10 block truncate rounded px-1 py-px text-[10px] leading-tight hover:brightness-95 {statusChip(booking.status)}"
+								style={spanStyle(startCol, span, row)}
+								class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center hover:brightness-95 {pillRounded(booking, weekDates)} {pillClasses(booking)}"
 							>
-								<span class="hidden sm:inline">
-									{booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}{booking.firstClientName ? ' · ' + booking.firstClientName : ''}
-								</span>
-								<span class="sm:hidden" style="color:inherit">●</span>
+								{#if startsHere}
+									🏕️ {booking.serviceName}
+									{#if booking.serviceMaxStudents != null}
+										<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxStudents})</span>
+									{:else}
+										<span class="ml-1 opacity-70">({booking.clientCount})</span>
+									{/if}
+								{:else}
+									&nbsp;
+								{/if}
 							</a>
 						{/each}
-
-						<!-- +N more — relative z-10, goes to day view -->
-						{#if overflow > 0}
-							<a
-								href="/calendar/{dateStr}"
-								class="relative z-10 pl-1 text-[10px] text-muted hover:text-ocean"
-							>+{overflow} more</a>
-						{/if}
 					</div>
-				{/each}
-
-				<!-- Trailing blank cells -->
-				{#each Array(trailingBlanks) as _}
-					<div class="border-b border-r border-border/50 bg-sand/40"></div>
 				{/each}
 			</div>
 		</div>
@@ -171,12 +296,8 @@
 	<!-- ─── AGENDA VIEW ─── -->
 	{#if data.view === 'agenda'}
 		<div class="space-y-6 px-4 py-4">
-			<!-- Multi-day events -->
 			{#each data.events as event}
-				<a
-					href="/events/{event.id}"
-					class="block rounded-(--radius-card) border border-confirmed/30 bg-confirmed/10 p-3"
-				>
+				<a href="/events/{event.id}" class="block rounded-(--radius-card) border border-confirmed/30 bg-confirmed/10 p-3">
 					<div class="flex items-center gap-2">
 						<span class="text-base">🏕️</span>
 						<div>
@@ -199,22 +320,30 @@
 							: new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 					</p>
 					<div class="space-y-2">
-						{#each grouped[date] as booking}
-							<a
-								href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 bg-surface p-3 ring-1 ring-border {statusClass(booking.status)} {flexClass(booking.isFlexible)}"
-							>
+						{#each agendaBookingsForDate(date) as booking}
+							{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
+							<a href="/bookings/{booking.id}"
+								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {agendaCardClass(booking)}">
 								<div>
 									<p class="text-sm font-medium text-gray-800">
-										{booking.time ? booking.time.slice(0, 5) : '—'}
-										{#if booking.isFlexible}<span class="ml-1 text-flexible">⚡</span>{/if}
-										· {booking.serviceName}
+										{#if isCamp}
+											🏕️ {booking.serviceName}
+											<span class="ml-1 text-xs text-muted">{booking.date} → {booking.dateEnd}</span>
+										{:else}
+											{booking.time ? booking.time.slice(0, 5) : '—'}
+											{#if booking.isFlexible}<span class="ml-1 text-flexible">⚡</span>{/if}
+											· {booking.serviceName}
+										{/if}
 									</p>
 									<p class="text-xs text-muted">
-										{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}
+										{#if isCamp}
+											{booking.clientCount}{booking.serviceMaxStudents != null ? ` / ${booking.serviceMaxStudents}` : ''} enrolled
+										{:else}
+											{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}
+										{/if}
 									</p>
 								</div>
-								<span class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : booking.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-pending/30 text-amber-700'}">
+								<span class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
 									{booking.status}
 								</span>
 							</a>
@@ -226,7 +355,7 @@
 			{#if pastDates.length > 0}
 				<details class="mt-6">
 					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Past bookings ({pastDates.reduce((n, d) => n + grouped[d].length, 0)})
+						Past bookings ({pastDates.reduce((n, d) => n + agendaBookingsForDate(d).length, 0)})
 					</summary>
 					<div class="mt-3 space-y-4">
 						{#each pastDates as date}
@@ -235,12 +364,13 @@
 									{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 								</p>
 								<div class="space-y-2">
-									{#each grouped[date] as booking}
-										<a
-											href="/bookings/{booking.id}"
-											class="flex items-center justify-between rounded-(--radius-card) border-l-4 bg-surface p-3 opacity-70 ring-1 ring-border {statusClass(booking.status)} {flexClass(booking.isFlexible)}"
-										>
-											<p class="text-sm text-gray-700">{booking.time?.slice(0, 5) ?? '—'} · {booking.serviceName}</p>
+									{#each agendaBookingsForDate(date) as booking}
+										{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
+										<a href="/bookings/{booking.id}"
+											class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-70 ring-1 ring-border {agendaCardClass(booking)}">
+											<p class="text-sm text-gray-700">
+												{isCamp ? '🏕️ ' : (booking.time?.slice(0, 5) ?? '—') + ' · '}{booking.serviceName}
+											</p>
 											<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
 										</a>
 									{/each}
@@ -250,13 +380,31 @@
 					</div>
 				</details>
 			{/if}
+
+			{#if cancelledBookings().length > 0}
+				<details class="mt-4">
+					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
+						Cancelled ({cancelledBookings().length})
+					</summary>
+					<div class="mt-2 space-y-1">
+						{#each cancelledBookings() as booking}
+							{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
+							<a href="/bookings/{booking.id}"
+								class="flex items-center justify-between rounded-(--radius-card) border-l-4 border-solid border-flexible bg-surface p-3 opacity-50 ring-1 ring-border">
+								<p class="text-sm text-gray-500 line-through">
+									{isCamp ? '🏕️ ' : ''}{booking.serviceName}
+									<span class="ml-1 text-xs no-underline">{booking.date}</span>
+								</p>
+								<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
+							</a>
+						{/each}
+					</div>
+				</details>
+			{/if}
 		</div>
 	{/if}
 </div>
 
-<!-- FAB -->
-<a
-	href="/bookings/new"
+<a href="/bookings/new"
 	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-2xl text-white shadow-lg transition-colors hover:bg-ocean/90 md:bottom-6"
-	aria-label="New booking"
->+</a>
+	aria-label="New booking">+</a>

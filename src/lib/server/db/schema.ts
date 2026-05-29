@@ -61,6 +61,11 @@ export const services = pgTable('services', {
 	type: serviceTypeEnum('type').notNull(),
 	durationMinutes: integer('duration_minutes'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
+	campStartDate: date('camp_start_date'),
+	campEndDate: date('camp_end_date'),
+	maxStudents: integer('max_students'),
+	campInstructorIds: jsonb('camp_instructor_ids'),
+	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
@@ -71,7 +76,6 @@ export const bookings = pgTable('bookings', {
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
 	serviceId: text('service_id')
-		.notNull()
 		.references(() => services.id),
 	instructorId: text('instructor_id').references(() => instructors.id),
 	date: date('date').notNull(),
@@ -79,6 +83,7 @@ export const bookings = pgTable('bookings', {
 	time: time('time'),
 	isFlexible: boolean('is_flexible').notNull().default(false),
 	status: bookingStatusEnum('status').notNull().default('pending'),
+	source: text('source').notNull().default('admin'),
 	spotNotes: text('spot_notes'),
 	notes: text('notes'),
 	createdAt: timestamp('created_at').notNull().defaultNow(),

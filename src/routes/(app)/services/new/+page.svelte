@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionData } from './$types';
+	import ColorPicker from '$lib/components/ColorPicker.svelte';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let selectedType = $state('lesson');
 	let loading = $state(false);
 </script>
@@ -46,7 +47,12 @@
 			</select>
 		</div>
 
-		{#if selectedType === 'lesson' || selectedType === 'camp'}
+		<div>
+			<label class="mb-2 block text-sm font-medium text-gray-700">Color</label>
+			<ColorPicker selected={form?.values?.color ?? 'ocean'} />
+		</div>
+
+		{#if selectedType === 'lesson'}
 			<div>
 				<label class="mb-1 block text-sm font-medium text-gray-700">Duration (minutes)</label>
 				<input
@@ -58,6 +64,59 @@
 					placeholder="90"
 				/>
 			</div>
+		{/if}
+
+		{#if selectedType === 'camp'}
+			<div class="grid grid-cols-2 gap-3">
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Start date *</label>
+					<input
+						name="campStartDate"
+						type="date"
+						required
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					/>
+				</div>
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">End date *</label>
+					<input
+						name="campEndDate"
+						type="date"
+						required
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					/>
+				</div>
+			</div>
+			<div>
+				<label class="mb-1 block text-sm font-medium text-gray-700">Max students *</label>
+				<input
+					name="maxStudents"
+					type="number"
+					min="1"
+					step="1"
+					required
+					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					placeholder="10"
+				/>
+			</div>
+			{#if data.instructors.length > 0}
+				<div>
+					<label class="mb-2 block text-sm font-medium text-gray-700">Instructors</label>
+					<div class="space-y-2 rounded-lg border border-border p-3">
+						{#each data.instructors as instructor}
+							<label class="flex cursor-pointer items-center gap-3">
+								<input
+									type="checkbox"
+									name="campInstructorId"
+									value={instructor.id}
+									class="h-4 w-4 accent-ocean"
+								/>
+								<span class="text-sm text-gray-800">{instructor.name}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		{/if}
 
 		<div>

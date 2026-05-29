@@ -1,7 +1,8 @@
 // src/lib/features/bookings/queries.ts
-import { and, eq, gte, lte, desc, inArray } from 'drizzle-orm';
+import { and, eq, gte, lte, desc, inArray, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bookings, bookingClients, clients, services, instructors } from '$lib/server/db/schema';
+import type { Service } from '$lib/features/services/types';
 import type {
 	Booking,
 	BookingSummary,
@@ -18,6 +19,9 @@ export async function listBookingsForDateRange(
 		.select({
 			id: bookings.id,
 			serviceName: services.name,
+			serviceType: services.type,
+			serviceColor: services.color,
+			serviceMaxStudents: services.maxStudents,
 			instructorName: instructors.name,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
@@ -65,6 +69,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			id: bookings.id,
 			serviceId: bookings.serviceId,
 			serviceName: services.name,
+			serviceType: services.type,
+			serviceColor: services.color,
+			serviceMaxStudents: services.maxStudents,
 			instructorId: bookings.instructorId,
 			instructorName: instructors.name,
 			date: bookings.date,
@@ -72,6 +79,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			time: bookings.time,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status,
+			source: bookings.source,
 			spotNotes: bookings.spotNotes,
 			notes: bookings.notes,
 			createdAt: bookings.createdAt,
@@ -129,6 +137,8 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			dateEnd: input.dateEnd,
 			time: input.time,
 			isFlexible: input.isFlexible,
+			status: input.status ?? (input.source === 'whatsapp_bot' ? 'pending' : 'confirmed'),
+			source: input.source ?? 'admin',
 			spotNotes: input.spotNotes,
 			notes: input.notes
 		})
@@ -147,6 +157,61 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 	}
 
 	return (await getBooking(booking.id))!;
+}
+
+/** For camps: find the single booking for this service, or create it (empty, no clients yet). */
+export async function getOrCreateCampBooking(service: Service): Promise<Booking> {
+	if (!service.campStartDate) throw new Error('Camp service has no start date');
+
+	const [existing] = await db
+		.select({ id: bookings.id })
+		.from(bookings)
+		.where(and(
+			eq(bookings.serviceId, service.id),
+			eq(bookings.date, service.campStartDate),
+			ne(bookings.status, 'cancelled')
+		))
+		.limit(1);
+
+	if (existing) return (await getBooking(existing.id))!;
+
+	const [created] = await db
+		.insert(bookings)
+		.values({
+			serviceId: service.id,
+			date: service.campStartDate,
+			dateEnd: service.campEndDate ?? service.campStartDate,
+			isFlexible: false,
+			status: 'pending'
+		})
+		.returning();
+
+	return (await getBooking(created.id))!;
+}
+
+/** Enroll a single client in an existing booking (camp roster add). */
+export async function addClientToBooking(
+	bookingId: string,
+	clientId: string,
+	amountDue: string
+): Promise<void> {
+	await db.insert(bookingClients).values({
+		bookingId,
+		clientId,
+		amountDue,
+		amountPaid: '0',
+		paymentStatus: 'pending'
+	});
+}
+
+/** Remove a client from a booking (camp unenroll). */
+export async function removeClientFromBooking(
+	bookingId: string,
+	clientId: string
+): Promise<void> {
+	await db
+		.delete(bookingClients)
+		.where(and(eq(bookingClients.bookingId, bookingId), eq(bookingClients.clientId, clientId)));
 }
 
 export async function updateBooking(id: string, input: UpdateBookingInput): Promise<Booking> {

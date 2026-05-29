@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "camp_instructor_ids" jsonb;

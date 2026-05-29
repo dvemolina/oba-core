@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { Service } from '$lib/features/services/types';
+	import { DOT_COLORS } from '$lib/features/services/colors';
+	import type { ServiceColorKey } from '$lib/features/services/colors';
 
 	let { data }: { data: PageData } = $props();
 
@@ -33,29 +35,45 @@
 	{#each Object.entries(grouped) as [type, items]}
 		<section class="mb-6">
 			<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-				{typeLabels[type]}
+				{typeLabels[type] ?? type}
 			</h2>
 			<div class="space-y-2">
 				{#each items as service}
-					<a
-						href="/services/{service.id}"
-						class="flex items-center justify-between rounded-[var(--radius-card)] bg-surface p-4 ring-1 ring-border hover:ring-ocean/50"
-					>
-						<div>
-							<p class="font-medium text-gray-800 {!service.active ? 'line-through opacity-50' : ''}">
-								{service.name}
-							</p>
-							{#if service.durationMinutes}
-								<p class="text-xs text-muted">{service.durationMinutes} min</p>
-							{/if}
-						</div>
-						<div class="text-right">
-							<p class="font-semibold text-gray-800">€{service.basePrice}</p>
-							{#if !service.active}
-								<span class="text-xs text-muted">inactive</span>
-							{/if}
-						</div>
-					</a>
+					<div class="rounded-(--radius-card) bg-surface ring-1 ring-border hover:ring-ocean/50 {!service.active ? 'opacity-60' : ''}">
+						<a href="{service.type === 'camp' && service.campStartDate ? `/bookings/camp/${service.id}` : `/services/${service.id}`}" class="flex items-center justify-between p-4">
+							<div>
+								<div class="flex items-center gap-2">
+									<span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {DOT_COLORS[service.color as ServiceColorKey] ?? DOT_COLORS['ocean']}"></span>
+									<p class="font-medium text-gray-800 {!service.active ? 'line-through opacity-50' : ''}">
+										{service.name}
+									</p>
+								</div>
+								{#if service.durationMinutes}
+									<p class="text-xs text-muted">{service.durationMinutes} min</p>
+								{/if}
+								{#if service.campStartDate && service.campEndDate}
+									<p class="text-xs text-muted">{service.campStartDate} → {service.campEndDate}</p>
+								{/if}
+								{#if service.maxStudents}
+									<p class="text-xs text-muted">Max {service.maxStudents} students</p>
+								{/if}
+							</div>
+							<div class="text-right">
+								<p class="font-semibold text-gray-800">€{service.basePrice}</p>
+								{#if !service.active}
+									<span class="text-xs text-muted">inactive</span>
+								{/if}
+							</div>
+						</a>
+						{#if service.type === 'camp' && service.campStartDate}
+							<div class="border-t border-border/50 px-4 py-2">
+								<a
+									href="/bookings/camp/{service.id}"
+									class="text-xs font-medium text-ocean hover:underline"
+								>🏕️ Open Roster →</a>
+							</div>
+						{/if}
+					</div>
 				{/each}
 			</div>
 		</section>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { getServiceColor } from '$lib/features/services/colors';
 
 	let { data }: { data: PageData } = $props();
 
@@ -56,20 +57,18 @@
 
 	const unscheduled = $derived(data.bookings.filter((b) => !b.time || b.isFlexible));
 
-	// ── Status helpers ────────────────────────────────────────────────────────
-	function statusBg(status: string) {
-		if (status === 'confirmed') return 'border-confirmed bg-confirmed/10';
-		if (status === 'cancelled') return 'border-flexible bg-flexible/5 opacity-50';
-		return 'border-pending bg-pending/10';
+	// ── Color helpers ─────────────────────────────────────────────────────────
+	function bookingBg(booking: (typeof data.bookings)[0]) {
+		const c = getServiceColor(booking.serviceColor ?? '');
+		if (booking.status === 'cancelled') return 'border-gray-300 bg-surface opacity-50 border-solid';
+		const dashed = booking.isFlexible ? 'border-dashed' : 'border-solid';
+		return `${c.border} ${c.bg} ${dashed}`;
 	}
 
-	function paymentDot(booking: (typeof data.bookings)[0]) {
-		// We don't have payment info in summary — just show status badge
-		return booking.status === 'confirmed'
-			? 'text-green-700'
-			: booking.status === 'cancelled'
-				? 'text-red-500'
-				: 'text-amber-600';
+	function statusText(booking: (typeof data.bookings)[0]) {
+		const c = getServiceColor(booking.serviceColor ?? '');
+		if (booking.status === 'cancelled') return 'text-gray-400';
+		return c.text;
 	}
 
 	// Show a label only at whole-hour marks even when slots < 60 min
@@ -132,7 +131,7 @@
 					{#each unscheduled as booking}
 						<a
 							href="/bookings/{booking.id}"
-							class="flex items-center justify-between rounded-lg border-l-4 border-dashed bg-surface px-3 py-2 ring-1 ring-border {statusBg(booking.status)}"
+							class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {bookingBg(booking)}"
 						>
 							<div>
 								<p class="text-sm font-medium text-gray-800">
@@ -143,7 +142,7 @@
 								</p>
 								<p class="text-xs text-muted">{booking.instructorName ?? 'No instructor'}</p>
 							</div>
-							<span class="text-xs {paymentDot(booking)}">{booking.status}</span>
+							<span class="text-xs {statusText(booking)}">{booking.status}</span>
 						</a>
 					{/each}
 				</div>
@@ -171,7 +170,7 @@
 						{#each bookingsHere as booking}
 							<a
 								href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {statusBg(booking.status)}"
+								class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {bookingBg(booking)}"
 							>
 								<div class="min-w-0">
 									<p class="truncate text-sm font-medium text-gray-800">

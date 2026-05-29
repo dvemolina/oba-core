@@ -15,6 +15,41 @@
       "when": 1776838651751,
       "tag": "0001_complete_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780076807231,
+      "tag": "0002_lush_zarda",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780077469351,
+      "tag": "0003_overconfident_eddie_brock",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780077660071,
+      "tag": "0004_rare_rumiko_fujikawa",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780082210677,
+      "tag": "0005_careless_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780084195823,
+      "tag": "0006_grey_blockbuster",
+      "breakpoints": true
     }
   ]
 }

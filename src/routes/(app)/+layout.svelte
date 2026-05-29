@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BottomNav from '$lib/components/nav/BottomNav.svelte';
 	import Sidebar from '$lib/components/nav/Sidebar.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 
 	let { children } = $props();
 </script>
@@ -12,3 +13,5 @@
 	</main>
 	<BottomNav />
 </div>
+
+<Toaster />

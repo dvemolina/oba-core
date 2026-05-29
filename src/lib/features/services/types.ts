@@ -7,6 +7,11 @@ export interface Service {
 	type: ServiceType;
 	durationMinutes: number | null;
 	basePrice: string; // Drizzle returns numeric as string
+	campStartDate: string | null;
+	campEndDate: string | null;
+	maxStudents: number | null;
+	campInstructorIds: string[] | null;
+	color: string;
 	active: boolean;
 	createdAt: Date;
 	updatedAt: Date;
@@ -18,6 +23,11 @@ export interface CreateServiceInput {
 	type: ServiceType;
 	durationMinutes?: number;
 	basePrice: string;
+	campStartDate?: string;
+	campEndDate?: string;
+	maxStudents?: number;
+	campInstructorIds?: string[];
+	color?: string;
 }
 
 export interface UpdateServiceInput extends Partial<CreateServiceInput> {

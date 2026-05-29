@@ -5,7 +5,14 @@ export function groupBookingsByDate(
 	bookings: BookingSummary[]
 ): Record<string, BookingSummary[]> {
 	return bookings.reduce<Record<string, BookingSummary[]>>((acc, b) => {
-		(acc[b.date] ??= []).push(b);
+		const end = b.dateEnd ?? b.date;
+		let current = b.date;
+		while (current <= end) {
+			(acc[current] ??= []).push(b);
+			const d = new Date(current + 'T00:00:00');
+			d.setDate(d.getDate() + 1);
+			current = formatDate(d);
+		}
 		return acc;
 	}, {});
 }
