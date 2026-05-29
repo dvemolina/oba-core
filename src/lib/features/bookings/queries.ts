@@ -1,7 +1,7 @@
 // src/lib/features/bookings/queries.ts
 import { and, eq, gte, lte, desc, inArray, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookings, bookingClients, clients, services, instructors } from '$lib/server/db/schema';
+import { bookings, bookingClients, clients, services, instructors, accommodationUnits, accommodationUnitTypes } from '$lib/server/db/schema';
 import type { Service } from '$lib/features/services/types';
 import type {
 	Booking,
@@ -23,6 +23,9 @@ export async function listBookingsForDateRange(
 			serviceColor: services.color,
 			serviceMaxStudents: services.maxStudents,
 			instructorName: instructors.name,
+			accommodationUnitName: accommodationUnits.name,
+			accommodationUnitTypeName: accommodationUnitTypes.name,
+			guestsCount: bookings.guestsCount,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			time: bookings.time,
@@ -32,6 +35,8 @@ export async function listBookingsForDateRange(
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(instructors, eq(bookings.instructorId, instructors.id))
+		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
+		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.where(and(gte(bookings.date, from), lte(bookings.date, to)))
 		.orderBy(bookings.date, bookings.time);
 
@@ -74,6 +79,10 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceMaxStudents: services.maxStudents,
 			instructorId: bookings.instructorId,
 			instructorName: instructors.name,
+			accommodationUnitId: bookings.accommodationUnitId,
+			accommodationUnitName: accommodationUnits.name,
+			accommodationUnitTypeName: accommodationUnitTypes.name,
+			guestsCount: bookings.guestsCount,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			time: bookings.time,
@@ -88,6 +97,8 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(instructors, eq(bookings.instructorId, instructors.id))
+		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
+		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.where(eq(bookings.id, id));
 
 	if (!booking) return undefined;
@@ -133,6 +144,8 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.values({
 			serviceId: input.serviceId,
 			instructorId: input.instructorId,
+			accommodationUnitId: input.accommodationUnitId,
+			guestsCount: input.guestsCount,
 			date: input.date,
 			dateEnd: input.dateEnd,
 			time: input.time,

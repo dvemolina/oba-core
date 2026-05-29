@@ -3,6 +3,7 @@ import { createBooking, getOrCreateCampBooking, addClientToBooking } from '$lib/
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
+import { listUnitTypesByService, getAvailableUnits } from '$lib/features/accommodation/queries';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -13,7 +14,17 @@ export const load: PageServerLoad = async ({ url }) => {
 	]);
 	const defaultDate = url.searchParams.get('date') ?? '';
 	const defaultTime = url.searchParams.get('time') ?? '';
-	return { services, instructors, clients, defaultDate, defaultTime };
+
+	// Pre-load unit types for any accommodation services
+	const accommodationServices = services.filter((s) => s.type === 'accommodation');
+	const unitTypesByService: Record<string, Awaited<ReturnType<typeof listUnitTypesByService>>> = {};
+	await Promise.all(
+		accommodationServices.map(async (s) => {
+			unitTypesByService[s.id] = await listUnitTypesByService(s.id);
+		})
+	);
+
+	return { services, instructors, clients, defaultDate, defaultTime, unitTypesByService };
 };
 
 export const actions: Actions = {
@@ -51,7 +62,40 @@ export const actions: Actions = {
 			return { bookingId: campBooking.id, message: `${clientIds.length > 1 ? `${clientIds.length} clients` : 'Client'} enrolled in camp` };
 		}
 
-		// ── Lesson / Product / Rental / Accommodation ─────────────────────────
+		// ── Accommodation ─────────────────────────────────────────────────────
+		if (service.type === 'accommodation') {
+			const unitTypeId = form.get('accommodationUnitTypeId')?.toString() ?? '';
+			const checkIn = form.get('date')?.toString() ?? '';
+			const checkOut = form.get('dateEnd')?.toString() ?? '';
+			const guestsCount = parseInt(form.get('guestsCount')?.toString() ?? '1');
+
+			if (!unitTypeId) return fail(400, { error: 'Select a unit type' });
+			if (!checkIn || !checkOut || checkIn >= checkOut)
+				return fail(400, { error: 'Valid check-in and check-out dates required' });
+
+			const available = await getAvailableUnits(unitTypeId, checkIn, checkOut);
+			if (available.length === 0)
+				return fail(400, { error: 'No units available for those dates' });
+
+			const unit = available[0];
+			const clientIds = form.getAll('clientId').map(String).filter(Boolean);
+			const amounts = form.getAll('amountDue').map(String);
+			if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
+
+			const booking = await createBooking({
+				serviceId,
+				accommodationUnitId: unit.id,
+				guestsCount,
+				date: checkIn,
+				dateEnd: checkOut,
+				isFlexible: false,
+				status: 'confirmed',
+				clients: clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' }))
+			});
+			return { bookingId: booking.id, message: `Booked — ${unit.name}` };
+		}
+
+		// ── Lesson / Product / Rental ──────────────────────────────────────────
 		const instructorId = form.get('instructorId')?.toString() || undefined;
 		const date = form.get('date')?.toString() ?? '';
 		const dateEnd = form.get('dateEnd')?.toString() || undefined;

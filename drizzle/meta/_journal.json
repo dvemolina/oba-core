@@ -50,6 +50,13 @@
       "when": 1780084195823,
       "tag": "0006_grey_blockbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780085439047,
+      "tag": "0007_chemical_kronos",
+      "breakpoints": true
     }
   ]
 }

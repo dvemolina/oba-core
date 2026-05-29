@@ -307,11 +307,33 @@
 		<!-- ── VIEW MODE ─────────────────────────────────────────────── -->
 
 			<div class="mb-4 space-y-3 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
-				<!-- Instructor -->
-				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructor</span>
-					<span class="text-sm text-gray-800">{data.booking.instructorName ?? '—'}</span>
-				</div>
+				{#if data.booking.accommodationUnitName}
+					<!-- Accommodation info -->
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-semibold uppercase tracking-wider text-muted">Unit</span>
+						<span class="text-sm font-medium text-gray-800">
+							{data.booking.accommodationUnitTypeName ? data.booking.accommodationUnitTypeName + ' · ' : ''}{data.booking.accommodationUnitName}
+						</span>
+					</div>
+					{#if data.booking.dateEnd}
+						<div class="flex items-center justify-between">
+							<span class="text-xs font-semibold uppercase tracking-wider text-muted">Check-out</span>
+							<span class="text-sm text-gray-800">{data.booking.dateEnd}</span>
+						</div>
+					{/if}
+					{#if data.booking.guestsCount}
+						<div class="flex items-center justify-between">
+							<span class="text-xs font-semibold uppercase tracking-wider text-muted">Guests</span>
+							<span class="text-sm text-gray-800">{data.booking.guestsCount}</span>
+						</div>
+					{/if}
+				{:else}
+					<!-- Instructor -->
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructor</span>
+						<span class="text-sm text-gray-800">{data.booking.instructorName ?? '—'}</span>
+					</div>
+				{/if}
 				<!-- Spot notes -->
 				{#if data.booking.spotNotes}
 					<div class="flex items-start gap-2 text-sm text-muted">

@@ -24,6 +24,10 @@ export interface Booking {
 	serviceMaxStudents: number | null;
 	instructorId: string | null;
 	instructorName: string | null;
+	accommodationUnitId: string | null;
+	accommodationUnitName: string | null;
+	accommodationUnitTypeName: string | null;
+	guestsCount: number | null;
 	date: string;
 	dateEnd: string | null;
 	time: string | null;
@@ -44,6 +48,9 @@ export interface BookingSummary {
 	serviceColor: string | null;
 	serviceMaxStudents: number | null;
 	instructorName: string | null;
+	accommodationUnitName: string | null;
+	accommodationUnitTypeName: string | null;
+	guestsCount: number | null;
 	date: string;
 	dateEnd: string | null;
 	time: string | null;
@@ -64,6 +71,8 @@ export interface ClientBookingSummary {
 export interface CreateBookingInput {
 	serviceId: string;
 	instructorId?: string;
+	accommodationUnitId?: string;
+	guestsCount?: number;
 	date: string;
 	dateEnd?: string;
 	time?: string;

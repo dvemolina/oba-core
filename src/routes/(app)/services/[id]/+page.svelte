@@ -12,6 +12,15 @@
 	let selectedType = $state(data.service.type);
 	let loading = $state(false);
 
+	// Accommodation unit management state
+	let showAddUnitType = $state(false);
+	let addingUnitToTypeId = $state<string | null>(null);
+	const OCCUPANCY_LABELS: Record<string, string> = {
+		shared: 'Shared (beds)',
+		private: 'Private room',
+		entire: 'Entire property'
+	};
+
 	const typeLabels: Record<string, string> = {
 		lesson: 'Lesson', camp: 'Camp', product: 'Product', rental: 'Rental', accommodation: 'Accommodation'
 	};
@@ -88,6 +97,98 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Accommodation unit management -->
+		{#if data.service.type === 'accommodation'}
+			<div class="mb-4">
+				<div class="mb-2 flex items-center justify-between">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Unit Types & Inventory</h2>
+					<button type="button" onclick={() => (showAddUnitType = !showAddUnitType)}
+						class="text-xs font-medium text-ocean hover:underline">
+						{showAddUnitType ? 'Cancel' : '+ Add type'}
+					</button>
+				</div>
+
+				{#if showAddUnitType}
+					<form method="post" action="?/addUnitType" use:enhance={serviceEnhance()} class="mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
+						<p class="text-xs font-semibold text-ocean">New unit type</p>
+						<input name="utName" required placeholder="e.g. Dorm Bed, Double Room"
+							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+						<div class="grid grid-cols-2 gap-2">
+							<select name="occupancyType" class="rounded-md border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none">
+								<option value="shared">Shared (beds)</option>
+								<option value="private">Private room</option>
+								<option value="entire">Entire property</option>
+							</select>
+							<input name="maxOccupancy" type="number" min="1" required placeholder="Max guests"
+								class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+						</div>
+						<input name="pricePerNight" type="number" step="0.01" min="0" required placeholder="Price / night (€)"
+							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+						<button type="submit" class="w-full rounded-md bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Add unit type</button>
+					</form>
+				{/if}
+
+				{#if data.unitTypes.length === 0 && !showAddUnitType}
+					<p class="py-4 text-center text-xs text-muted">No unit types yet. Add one above.</p>
+				{/if}
+
+				<div class="space-y-3">
+					{#each data.unitTypes as ut}
+						<div class="rounded-lg border border-border bg-surface">
+							<!-- Unit type header -->
+							<div class="flex items-center justify-between px-3 py-2.5">
+								<div>
+									<p class="text-sm font-semibold text-gray-800">{ut.name}</p>
+									<p class="text-xs text-muted">
+										{OCCUPANCY_LABELS[ut.occupancyType] ?? ut.occupancyType} · max {ut.maxOccupancy} guests · €{ut.pricePerNight}/night
+									</p>
+								</div>
+								<form method="post" action="?/deleteUnitType" use:enhance={serviceEnhance()}
+									onsubmit={(e) => { if (!confirm(`Delete "${ut.name}" and all its units?`)) e.preventDefault(); }}>
+									<input type="hidden" name="unitTypeId" value={ut.id} />
+									<button type="submit" class="text-xs text-flexible hover:underline">Delete</button>
+								</form>
+							</div>
+
+							<!-- Physical units list -->
+							<div class="border-t border-border/50 px-3 py-2">
+								{#if ut.units.length === 0}
+									<p class="text-xs text-muted italic">No physical units yet.</p>
+								{/if}
+								<div class="flex flex-wrap gap-1.5">
+									{#each ut.units as unit}
+										<div class="flex items-center gap-1 rounded-full bg-sand px-2.5 py-0.5 ring-1 ring-border">
+											<span class="text-xs text-gray-700">{unit.name}</span>
+											<form method="post" action="?/deleteUnit" use:enhance={serviceEnhance()}>
+												<input type="hidden" name="unitId" value={unit.id} />
+												<button type="submit" class="ml-0.5 text-[10px] text-muted hover:text-flexible">✕</button>
+											</form>
+										</div>
+									{/each}
+									{#if addingUnitToTypeId === ut.id}
+										<form method="post" action="?/addUnit" use:enhance={serviceEnhance()}
+											onsubmit={() => (addingUnitToTypeId = null)}
+											class="flex items-center gap-1">
+											<input type="hidden" name="unitTypeId" value={ut.id} />
+											<input name="unitName" required autofocus placeholder="Unit name"
+												class="w-28 rounded-full border border-ocean px-2.5 py-0.5 text-xs focus:outline-none" />
+											<button type="submit" class="text-xs font-medium text-ocean">Add</button>
+											<button type="button" onclick={() => (addingUnitToTypeId = null)} class="text-xs text-muted">✕</button>
+										</form>
+									{:else}
+										<button type="button" onclick={() => (addingUnitToTypeId = ut.id)}
+											class="rounded-full border border-dashed border-ocean/40 px-2.5 py-0.5 text-xs text-ocean hover:border-ocean">
+											+ Add unit
+										</button>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">

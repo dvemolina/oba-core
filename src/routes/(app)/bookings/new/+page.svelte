@@ -12,12 +12,27 @@
 	let selectedServiceId = $state(data.services[0]?.id ?? '');
 	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
 	let clientSearch = $state('');
+	let selectedUnitTypeId = $state('');
 
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
 	const isCamp = $derived(selectedService?.type === 'camp');
 	const isLesson = $derived(selectedService?.type === 'lesson');
+	const isAccommodation = $derived(selectedService?.type === 'accommodation');
 	const showInstructor = $derived(isLesson);
 	const showTimeAndFlexible = $derived(isLesson);
+
+	const unitTypes = $derived(
+		isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []
+	);
+	const selectedUnitType = $derived(unitTypes.find((ut) => ut.id === selectedUnitTypeId));
+
+	// Auto-select first unit type when accommodation service chosen
+	$effect(() => {
+		if (isAccommodation && unitTypes.length > 0 && !selectedUnitTypeId) {
+			selectedUnitTypeId = unitTypes[0].id;
+		}
+		if (!isAccommodation) selectedUnitTypeId = '';
+	});
 
 	const filteredClients = $derived(
 		clientSearch.length > 1
@@ -30,13 +45,12 @@
 	);
 
 	function addClient(client: (typeof data.clients)[0]) {
+		const price = isAccommodation
+			? (selectedUnitType?.pricePerNight ?? selectedService?.basePrice ?? '0')
+			: (selectedService?.basePrice ?? '0');
 		selectedClients = [
 			...selectedClients,
-			{
-				clientId: client.id,
-				name: `${client.firstName} ${client.lastName}`,
-				amountDue: selectedService?.basePrice ?? '0'
-			}
+			{ clientId: client.id, name: `${client.firstName} ${client.lastName}`, amountDue: price }
 		];
 		clientSearch = '';
 	}
@@ -234,6 +248,122 @@
 				{/if}
 			</div>
 
+		{:else if isAccommodation}
+			<!-- ── ACCOMMODATION MODE ────────────────────────────────── -->
+
+			{#if unitTypes.length === 0}
+				<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
+					No unit types configured for this property. Add them in the service settings first.
+				</div>
+			{:else}
+				<!-- Unit type selector -->
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Unit type *</label>
+					<div class="space-y-2">
+						{#each unitTypes as ut}
+							<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors
+								{selectedUnitTypeId === ut.id ? 'border-ocean bg-ocean/5' : 'border-border bg-surface hover:bg-sand'}">
+								<input type="radio" name="accommodationUnitTypeId" value={ut.id}
+									bind:group={selectedUnitTypeId} class="accent-ocean" />
+								<div class="flex-1">
+									<p class="text-sm font-medium text-gray-800">{ut.name}</p>
+									<p class="text-xs text-muted">max {ut.maxOccupancy} guests · €{ut.pricePerNight}/night</p>
+								</div>
+								<span class="text-xs font-semibold text-ocean">€{ut.pricePerNight}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Check-in / check-out -->
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="mb-1 block text-sm font-medium text-gray-700">Check-in *</label>
+						<input name="date" type="date" required value={data.defaultDate}
+							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+					</div>
+					<div>
+						<label class="mb-1 block text-sm font-medium text-gray-700">Check-out *</label>
+						<input name="dateEnd" type="date" required
+							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+					</div>
+				</div>
+
+				<!-- Guests count -->
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Guests</label>
+					<input name="guestsCount" type="number" min="1"
+						max={selectedUnitType?.maxOccupancy ?? 99}
+						value="1"
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+				</div>
+
+				<!-- Clients (guest names linked to booking) -->
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Guests / clients *</label>
+
+					{#if selectedClients.length > 0}
+						<div class="mb-2 flex flex-wrap gap-2">
+							{#each selectedClients as c}
+								<div class="flex items-center gap-1 rounded-full bg-ocean/10 py-1 pl-3 pr-1">
+									<span class="text-xs font-medium text-ocean">{c.name}</span>
+									<input type="hidden" name="clientId" value={c.clientId} />
+									<input type="hidden" name="amountDue" value={c.amountDue} />
+									<button type="button" onclick={() => removeClient(c.clientId)}
+										class="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-ocean/60 hover:text-ocean">✕</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					{#if !newClientPanel}
+						<div class="relative">
+							<input type="text" placeholder="Search client…" bind:value={clientSearch}
+								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+							{#if filteredClients.length > 0 || showCreateNew}
+								<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
+									{#each filteredClients.slice(0, 6) as client}
+										<button type="button" onclick={() => addClient(client)}
+											class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
+											{client.firstName} {client.lastName}
+											{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
+										</button>
+									{/each}
+									{#if showCreateNew}
+										<button type="button" onclick={openNewClientPanel}
+											class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
+											+ Create "<span class="font-medium">{clientSearch}</span>"
+										</button>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{:else}
+						<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
+							<p class="text-xs font-semibold text-ocean">New client</p>
+							<div class="grid grid-cols-2 gap-2">
+								<input bind:value={newFirstName} placeholder="First name *"
+									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+								<input bind:value={newLastName} placeholder="Last name"
+									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							</div>
+							<input bind:value={newPhone} type="tel" placeholder="Phone"
+								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							<input bind:value={newEmail} type="email" placeholder="Email"
+								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							<div class="flex gap-2 pt-1">
+								<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
+									class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
+									{creatingClient ? 'Saving…' : 'Add client'}
+								</button>
+								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
+									class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border hover:text-gray-700">Cancel</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
 		{:else}
 			<!-- ── REGULAR BOOKING MODE ─────────────────────────────── -->
 
@@ -412,6 +542,7 @@
 		>
 			{#if loading}Saving…
 			{:else if isCamp}Enroll in Camp
+			{:else if isAccommodation}Book Accommodation
 			{:else}Save Booking{/if}
 		</button>
 	</form>

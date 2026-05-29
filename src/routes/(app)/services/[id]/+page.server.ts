@@ -1,7 +1,15 @@
 import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
+import {
+	listUnitTypesByService,
+	createUnitType,
+	deleteUnitType,
+	createUnit,
+	deleteUnit
+} from '$lib/features/accommodation/queries';
 import type { ServiceType } from '$lib/features/services/types';
+import type { OccupancyType } from '$lib/features/accommodation/types';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -11,7 +19,12 @@ export const load: PageServerLoad = async ({ params }) => {
 		listInstructors()
 	]);
 	if (!service) error(404, 'Service not found');
-	return { service, instructors };
+
+	const unitTypes = service.type === 'accommodation'
+		? await listUnitTypesByService(params.id)
+		: [];
+
+	return { service, instructors, unitTypes };
 };
 
 export const actions: Actions = {
@@ -64,5 +77,45 @@ export const actions: Actions = {
 			return fail(409, { error: msg });
 		}
 		return { deleted: true, message: 'Service deleted' };
+	},
+
+	addUnitType: async ({ request, params }) => {
+		const form = await request.formData();
+		const name = form.get('utName')?.toString().trim() ?? '';
+		const occupancyType = (form.get('occupancyType')?.toString() ?? 'private') as OccupancyType;
+		const maxOccupancy = parseInt(form.get('maxOccupancy')?.toString() ?? '1');
+		const pricePerNight = form.get('pricePerNight')?.toString() ?? '';
+
+		if (!name || !pricePerNight || isNaN(maxOccupancy)) {
+			return fail(400, { utError: 'Name, occupancy, and price required' });
+		}
+
+		await createUnitType(params.id, { name, occupancyType, maxOccupancy, pricePerNight });
+		return { message: 'Unit type added' };
+	},
+
+	deleteUnitType: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('unitTypeId')?.toString() ?? '';
+		if (!id) return fail(400, { error: 'Missing unit type ID' });
+		await deleteUnitType(id);
+		return { message: 'Unit type deleted' };
+	},
+
+	addUnit: async ({ request }) => {
+		const form = await request.formData();
+		const unitTypeId = form.get('unitTypeId')?.toString() ?? '';
+		const name = form.get('unitName')?.toString().trim() ?? '';
+		if (!unitTypeId || !name) return fail(400, { error: 'Unit type and name required' });
+		await createUnit(unitTypeId, { name });
+		return { message: 'Unit added' };
+	},
+
+	deleteUnit: async ({ request }) => {
+		const form = await request.formData();
+		const id = form.get('unitId')?.toString() ?? '';
+		if (!id) return fail(400, { error: 'Missing unit ID' });
+		await deleteUnit(id);
+		return { message: 'Unit deleted' };
 	}
 };
