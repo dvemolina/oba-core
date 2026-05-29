@@ -1,25 +1,26 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
 @theme {
-	/* Brand palette */
-	--color-navy: #1a1a2e;
-	--color-ocean: #3a86ff;
-	--color-sand: #f8f6f0;
+	/* ── Brand palette ─────────────────────────────────────────────────────── */
+	--color-navy:   #0f172a;   /* slate-900  — primary dark surface / sidebar */
+	--color-ocean:  #2563eb;   /* blue-600   — primary action / focus */
+	--color-sand:   #f8fafc;   /* slate-50   — page background */
 
-	/* Status colours */
-	--color-confirmed: #51cf66;
-	--color-pending: #ffd43b;
-	--color-flexible: #ff6b6b;
+	/* ── Status ────────────────────────────────────────────────────────────── */
+	--color-confirmed: #16a34a;  /* green-600  */
+	--color-pending:   #d97706;  /* amber-600  */
+	--color-flexible:  #9333ea;  /* purple-600 — flexible/⚡ booking indicator */
 
-	/* Neutral */
+	/* ── Neutral surfaces ───────────────────────────────────────────────────  */
 	--color-surface: #ffffff;
-	--color-border: #e5e7eb;
-	--color-muted: #9ca3af;
+	--color-border:  #e2e8f0;   /* slate-200 */
+	--color-muted:   #64748b;   /* slate-500 */
 
-	/* Typography */
-	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	/* ── Typography ─────────────────────────────────────────────────────────  */
+	--font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
 
-	/* Radii */
+	/* ── Radii ──────────────────────────────────────────────────────────────  */
 	--radius-card: 12px;
 	--radius-chip: 20px;
 }
@@ -28,6 +29,110 @@
 	body {
 		background-color: var(--color-sand);
 		font-family: var(--font-sans);
-		color: #1f2937;
+		color: #0f172a;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+}
+
+/* ── Semantic button system ─────────────────────────────────────────────────── */
+
+/* Shared base — applied to all variants via grouped selector */
+.btn-primary,
+.btn-secondary,
+.btn-destructive,
+.btn-ghost {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border-radius: 0.5rem;
+	padding: 0.625rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.25rem;
+	transition: all 150ms ease;
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+	text-decoration: none;
+}
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-destructive:focus-visible,
+.btn-ghost:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-ocean);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-destructive:disabled,
+.btn-ghost:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-destructive:active:not(:disabled),
+.btn-ghost:active:not(:disabled) {
+	transform: scale(0.98);
+}
+
+@layer components {
+	/* High emphasis — one primary CTA per screen */
+	.btn-primary {
+		@apply bg-ocean text-white hover:bg-blue-700;
+	}
+
+	/* Medium emphasis — secondary/alternative */
+	.btn-secondary {
+		@apply bg-surface text-slate-800 ring-1 ring-border hover:bg-sand hover:ring-slate-300;
+	}
+
+	/* Destructive — delete, cancel, irreversible */
+	.btn-destructive {
+		@apply bg-red-50 text-red-600 ring-1 ring-red-200 hover:bg-red-100 hover:ring-red-300;
+	}
+
+	/* Ghost — lowest emphasis, contextual actions */
+	.btn-ghost {
+		@apply text-muted hover:text-slate-800 hover:bg-slate-100;
+	}
+
+	/* ── Size modifiers ──────────────────────────────────────────────────────  */
+	.btn-sm {
+		@apply px-3 py-1.5 text-xs;
+	}
+
+	.btn-lg {
+		@apply px-6 py-3 text-base;
+	}
+
+	.btn-block {
+		@apply w-full;
+	}
+
+	/* ── Form elements ───────────────────────────────────────────────────────  */
+	.input {
+		@apply w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-slate-900
+		       placeholder:text-muted transition-colors
+		       focus:border-ocean focus:outline-none focus:ring-2 focus:ring-ocean/20;
+	}
+
+	.label {
+		@apply mb-1 block text-sm font-medium text-slate-700;
+	}
+
+	/* ── Page chrome ─────────────────────────────────────────────────────────  */
+	.page-header {
+		@apply flex shrink-0 items-center justify-between border-b border-border bg-surface/80
+		       px-4 py-3 backdrop-blur-sm;
+	}
+
+	.page-title {
+		@apply text-base font-semibold text-navy;
 	}
 }

@@ -8,7 +8,7 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/clients" class="text-muted hover:text-gray-700">←</a>
+		<a href="/clients" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<div>
 			<h1 class="text-xl font-bold text-navy">
 				{data.client.firstName}
@@ -21,7 +21,7 @@
 		<div class="ml-auto flex items-center gap-2">
 			<button
 				onclick={() => (editing = !editing)}
-				class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-border text-muted hover:text-gray-700"
+				class="btn-ghost btn-sm"
 			>
 				{editing ? 'Cancel' : 'Edit'}
 			</button>
@@ -33,7 +33,7 @@
 			>
 				<button
 					type="submit"
-					class="rounded-lg px-3 py-1.5 text-xs font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5"
+					class="btn-destructive btn-sm"
 				>
 					Delete
 				</button>
@@ -127,7 +127,7 @@
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+				class="btn-primary btn-block"
 			>
 				{loading ? 'Saving…' : 'Save Changes'}
 			</button>

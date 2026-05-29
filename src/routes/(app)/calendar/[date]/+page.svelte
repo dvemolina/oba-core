@@ -79,28 +79,24 @@
 
 <div class="flex h-full flex-col overflow-hidden">
 	<!-- ── Header ── -->
-	<div class="flex shrink-0 items-center justify-between border-b border-border bg-sand px-4 py-2.5">
-		<div class="flex items-center gap-2 min-w-0">
+	<div class="page-header">
+		<div class="flex min-w-0 items-center gap-2">
 			<a
 				href="/calendar?view=month&year={year}&month={month}"
-				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700"
+				class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base"
 			>‹</a>
-			<h1 class="truncate text-sm font-bold text-navy">{dateLabel}</h1>
+			<h1 class="page-title truncate">{dateLabel}</h1>
 		</div>
-		<div class="flex shrink-0 items-center gap-2 ml-3">
-			<!-- Slot-size selector -->
+		<div class="ml-3 flex shrink-0 items-center gap-2">
 			<select
 				bind:value={slotMinutes}
-				class="rounded-md border border-border bg-white px-2 py-1 text-xs text-muted focus:border-ocean focus:outline-none"
+				class="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:border-ocean focus:outline-none focus:ring-2 focus:ring-ocean/20"
 			>
 				{#each SLOT_OPTIONS as opt}
 					<option value={opt}>{opt} min</option>
 				{/each}
 			</select>
-			<a
-				href="/bookings/new?date={data.date}"
-				class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-semibold text-white hover:bg-ocean/90"
-			>+ Booking</a>
+			<a href="/bookings/new?date={data.date}" class="btn-primary btn-sm">+ Booking</a>
 		</div>
 	</div>
 
@@ -155,7 +151,7 @@
 				{@const bookingsHere = slottedBookings()[slot] ?? []}
 				{@const isHour = showHourLabel(slot)}
 
-				<div class="flex min-h-[3rem] gap-0 {bookingsHere.length > 0 ? '' : 'hover:bg-sand/60'}">
+				<div class="flex min-h-12 gap-0 {bookingsHere.length > 0 ? '' : 'hover:bg-sand/60'}">
 					<!-- Time gutter -->
 					<div class="w-14 shrink-0 border-r border-border/50 px-2 pt-1 text-right">
 						{#if isHour}
@@ -208,6 +204,8 @@
 <!-- FAB -->
 <a
 	href="/bookings/new?date={data.date}"
-	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-2xl text-white shadow-lg transition-colors hover:bg-ocean/90 md:bottom-6"
+	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 active:scale-95 md:bottom-6"
 	aria-label="New booking"
->+</a>
+>
+	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+</a>

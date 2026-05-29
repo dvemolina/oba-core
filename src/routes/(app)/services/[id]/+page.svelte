@@ -41,7 +41,7 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/services" class="text-muted hover:text-gray-700">←</a>
+		<a href="/services" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<div class="flex-1">
 			<p class="text-xs font-semibold uppercase tracking-wider text-muted">{typeLabels[data.service.type] ?? data.service.type}</p>
 			<div class="flex items-center gap-2">
@@ -198,29 +198,24 @@
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
 			{#if data.service.type === 'camp' && data.service.campStartDate}
-				<a
-					href="/bookings/camp/{data.service.id}"
-					class="w-full rounded-lg bg-ocean py-2.5 text-center text-sm font-semibold text-white hover:bg-ocean/90"
-				>🏕️ Open Camp Roster</a>
+				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
+					Open Camp Roster
+				</a>
 			{/if}
 			<div class="flex gap-2">
 				<button
 					type="button"
 					onclick={() => { selectedType = data.service.type; editing = true; }}
-					class="flex-1 rounded-lg py-2.5 text-sm font-semibold ring-1 ring-border text-gray-700 hover:bg-sand"
+					class="btn-secondary flex-1"
 				>Edit</button>
 				<form method="post" action="?/toggle" use:enhance={serviceEnhance()}>
-					<button type="submit"
-						class="rounded-lg px-4 py-2.5 text-sm font-medium ring-1 {data.service.active
-							? 'ring-border text-muted hover:text-gray-700'
-							: 'ring-confirmed text-confirmed'}"
-					>{data.service.active ? 'Deactivate' : 'Activate'}</button>
+					<button type="submit" class="{data.service.active ? 'btn-ghost' : 'btn-ghost text-confirmed'}">
+						{data.service.active ? 'Deactivate' : 'Activate'}
+					</button>
 				</form>
 				<form method="post" action="?/delete" use:enhance={serviceEnhance()}
 					onsubmit={(e) => { if (!confirm('Delete this service permanently?')) e.preventDefault(); }}>
-					<button type="submit"
-						class="rounded-lg px-4 py-2.5 text-sm font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5"
-					>Delete</button>
+					<button type="submit" class="btn-destructive">Delete</button>
 				</form>
 			</div>
 		</div>
@@ -235,13 +230,13 @@
 			use:enhance={serviceEnhance()}
 		>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Name *</label>
+				<label class="label">Name *</label>
 				<input name="name" required value={data.service.name}
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+					class="input" />
 			</div>
 
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Type *</label>
+				<label class="label">Type *</label>
 				<select name="type" bind:value={selectedType}
 					class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none">
 					{#each ['lesson', 'camp', 'product', 'rental'] as t}
@@ -257,29 +252,29 @@
 
 			{#if selectedType === 'lesson'}
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Duration (minutes)</label>
+					<label class="label">Duration (minutes)</label>
 					<input name="durationMinutes" type="number" min="15" step="15" value={data.service.durationMinutes ?? ''}
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+						class="input" />
 				</div>
 			{/if}
 
 			{#if selectedType === 'camp'}
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">Start date *</label>
+						<label class="label">Start date *</label>
 						<input name="campStartDate" type="date" required value={data.service.campStartDate ?? ''}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+							class="input" />
 					</div>
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">End date *</label>
+						<label class="label">End date *</label>
 						<input name="campEndDate" type="date" required value={data.service.campEndDate ?? ''}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+							class="input" />
 					</div>
 				</div>
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Max students *</label>
+					<label class="label">Max students *</label>
 					<input name="maxStudents" type="number" min="1" step="1" required value={data.service.maxStudents ?? ''}
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+						class="input" />
 				</div>
 				{#if data.instructors.length > 0}
 					<div>
@@ -299,15 +294,15 @@
 			{/if}
 
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Base price (€) *</label>
+				<label class="label">Base price (€) *</label>
 				<input name="basePrice" type="number" step="0.01" min="0" required value={data.service.basePrice}
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+					class="input" />
 			</div>
 
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
+				<label class="label">Description</label>
 				<textarea name="description" rows="3"
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					class="input"
 				>{data.service.description ?? ''}</textarea>
 			</div>
 
@@ -316,12 +311,10 @@
 			{/if}
 
 			<div class="flex gap-2">
-				<button type="submit" disabled={loading}
-					class="flex-1 rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white hover:bg-ocean/90 disabled:opacity-60">
+				<button type="submit" disabled={loading} class="btn-primary flex-1">
 					{loading ? 'Saving…' : 'Save Changes'}
 				</button>
-				<button type="button" onclick={() => editing = false}
-					class="rounded-lg px-4 py-2.5 text-sm text-muted ring-1 ring-border hover:text-gray-700">
+				<button type="button" onclick={() => editing = false} class="btn-secondary">
 					Cancel
 				</button>
 			</div>

@@ -10,8 +10,8 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/services" class="text-muted hover:text-gray-700">←</a>
-		<h1 class="text-xl font-bold text-navy">New Service</h1>
+		<a href="/services" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
+		<h1 class="text-xl font-semibold text-navy">New Service</h1>
 	</div>
 
 	<form
@@ -23,18 +23,18 @@
 		}}
 	>
 		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">Name *</label>
+			<label class="label">Name *</label>
 			<input
 				name="name"
 				required
 				value={form?.values?.name ?? ''}
-				class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+				class="input"
 				placeholder="Group Surf Lesson"
 			/>
 		</div>
 
 		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">Type *</label>
+			<label class="label">Type *</label>
 			<select
 				name="type"
 				bind:value={selectedType}
@@ -54,13 +54,13 @@
 
 		{#if selectedType === 'lesson'}
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Duration (minutes)</label>
+				<label class="label">Duration (minutes)</label>
 				<input
 					name="durationMinutes"
 					type="number"
 					min="15"
 					step="15"
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					class="input"
 					placeholder="90"
 				/>
 			</div>
@@ -69,33 +69,33 @@
 		{#if selectedType === 'camp'}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Start date *</label>
+					<label class="label">Start date *</label>
 					<input
 						name="campStartDate"
 						type="date"
 						required
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+						class="input"
 					/>
 				</div>
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">End date *</label>
+					<label class="label">End date *</label>
 					<input
 						name="campEndDate"
 						type="date"
 						required
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+						class="input"
 					/>
 				</div>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Max students *</label>
+				<label class="label">Max students *</label>
 				<input
 					name="maxStudents"
 					type="number"
 					min="1"
 					step="1"
 					required
-					class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+					class="input"
 					placeholder="10"
 				/>
 			</div>
@@ -120,7 +120,7 @@
 		{/if}
 
 		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">Base price (€) *</label>
+			<label class="label">Base price (€) *</label>
 			<input
 				name="basePrice"
 				type="number"
@@ -128,17 +128,17 @@
 				min="0"
 				required
 				value={form?.values?.basePrice ?? ''}
-				class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+				class="input"
 				placeholder="40.00"
 			/>
 		</div>
 
 		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">Description</label>
+			<label class="label">Description</label>
 			<textarea
 				name="description"
 				rows="3"
-				class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
+				class="input"
 				placeholder="Optional description…"
 			>{form?.values?.description ?? ''}</textarea>
 		</div>
@@ -147,11 +147,7 @@
 			<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
 		{/if}
 
-		<button
-			type="submit"
-			disabled={loading}
-			class="w-full rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white hover:bg-ocean/90 disabled:opacity-60"
-		>
+		<button type="submit" disabled={loading} class="btn-primary btn-block">
 			{loading ? 'Saving…' : 'Save Service'}
 		</button>
 	</form>

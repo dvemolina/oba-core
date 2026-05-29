@@ -23,13 +23,8 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center justify-between">
-		<h1 class="text-xl font-bold text-navy">Services</h1>
-		<a
-			href="/services/new"
-			class="rounded-lg bg-ocean px-4 py-2 text-sm font-semibold text-white hover:bg-ocean/90"
-		>
-			+ New
-		</a>
+		<h1 class="text-xl font-semibold text-navy">Services</h1>
+		<a href="/services/new" class="btn-primary btn-sm">+ New</a>
 	</div>
 
 	{#each Object.entries(grouped) as [type, items]}

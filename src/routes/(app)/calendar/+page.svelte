@@ -178,20 +178,20 @@
 <div class="flex flex-col {data.view === 'month' ? 'h-full overflow-hidden' : ''}">
 
 	<!-- Header -->
-	<div class="flex shrink-0 items-center justify-between border-b border-border bg-sand px-4 py-2">
+	<div class="page-header">
 		<div class="flex items-center gap-1">
-			<button onclick={prevMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">‹</button>
-			<h1 class="w-36 text-center text-sm font-bold text-navy">{monthName} {data.year}</h1>
-			<button onclick={nextMonth} class="flex h-7 w-7 items-center justify-center rounded-md text-lg text-muted hover:bg-border hover:text-gray-700">›</button>
+			<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</button>
+			<h1 class="w-36 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
+			<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</button>
 		</div>
 		<div class="flex items-center gap-3">
 			<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
 				<span>● Confirmed</span>
 				<span>○ Pending</span>
 			</span>
-			<div class="flex overflow-hidden rounded-lg bg-surface ring-1 ring-border">
-				<button onclick={() => setView('month')} class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'month' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}">Month</button>
-				<button onclick={() => setView('agenda')} class="px-3 py-1.5 text-xs font-medium transition-colors {data.view === 'agenda' ? 'bg-ocean text-white' : 'text-muted hover:text-gray-700'}">Agenda</button>
+			<div class="flex overflow-hidden rounded-lg bg-slate-100 p-0.5">
+				<button onclick={() => setView('month')} class="rounded-md px-3 py-1 text-xs font-semibold transition-colors {data.view === 'month' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Month</button>
+				<button onclick={() => setView('agenda')} class="rounded-md px-3 py-1 text-xs font-semibold transition-colors {data.view === 'agenda' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Agenda</button>
 			</div>
 		</div>
 	</div>
@@ -406,5 +406,7 @@
 </div>
 
 <a href="/bookings/new"
-	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-2xl text-white shadow-lg transition-colors hover:bg-ocean/90 md:bottom-6"
-	aria-label="New booking">+</a>
+	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 hover:shadow-ocean/40 active:scale-95 md:bottom-6"
+	aria-label="New booking">
+	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+</a>

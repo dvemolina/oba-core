@@ -132,7 +132,7 @@
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/calendar" class="text-muted hover:text-gray-700">←</a>
+		<a href="/calendar" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<h1 class="text-xl font-bold text-navy">
 			{isCamp ? 'Enroll in Camp' : 'New Booking'}
 		</h1>
@@ -242,7 +242,7 @@
 								{creatingClient ? 'Saving…' : 'Add client'}
 							</button>
 							<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border hover:text-gray-700">Cancel</button>
+								class="btn-ghost btn-sm">Cancel</button>
 						</div>
 					</div>
 				{/if}
@@ -357,7 +357,7 @@
 									{creatingClient ? 'Saving…' : 'Add client'}
 								</button>
 								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-									class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border hover:text-gray-700">Cancel</button>
+									class="btn-ghost btn-sm">Cancel</button>
 							</div>
 						</div>
 					{/if}
@@ -503,7 +503,7 @@
 								{creatingClient ? 'Saving…' : 'Add client'}
 							</button>
 							<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border hover:text-gray-700">Cancel</button>
+								class="btn-ghost btn-sm">Cancel</button>
 						</div>
 					</div>
 				{/if}
@@ -538,7 +538,7 @@
 		<button
 			type="submit"
 			disabled={loading || selectedClients.length === 0}
-			class="w-full rounded-lg bg-ocean py-3 text-sm font-semibold text-white hover:bg-ocean/90 disabled:opacity-60"
+			class="btn-primary btn-block"
 		>
 			{#if loading}Saving…
 			{:else if isCamp}Enroll in Camp

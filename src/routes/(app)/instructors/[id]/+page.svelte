@@ -7,7 +7,7 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/instructors" class="text-muted hover:text-gray-700">←</a>
+		<a href="/instructors" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<h1 class="text-xl font-bold text-navy">{data.instructor.name}</h1>
 		<form method="post" action="?/toggle" use:enhance class="ml-auto">
 			<button type="submit" class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 {data.instructor.active ? 'ring-border text-muted' : 'ring-confirmed text-confirmed'}">
@@ -36,7 +36,7 @@
 		{#if form?.error}
 			<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
 		{/if}
-		<button type="submit" disabled={loading} class="w-full rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+		<button type="submit" disabled={loading} class="btn-primary btn-block">
 			{loading ? 'Saving…' : 'Save Changes'}
 		</button>
 	</form>

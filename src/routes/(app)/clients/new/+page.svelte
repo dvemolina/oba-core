@@ -7,7 +7,7 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a href="/clients" class="text-muted hover:text-gray-700">←</a>
+		<a href="/clients" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<h1 class="text-xl font-bold text-navy">New Client</h1>
 	</div>
 
@@ -90,7 +90,7 @@
 		<button
 			type="submit"
 			disabled={loading}
-			class="w-full rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+			class="btn-primary btn-block"
 		>
 			{loading ? 'Saving…' : 'Save Client'}
 		</button>

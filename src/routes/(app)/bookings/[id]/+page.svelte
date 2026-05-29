@@ -120,7 +120,7 @@
 
 		<!-- Header -->
 		<div class="mb-5 flex items-start gap-3">
-			<a href="/calendar" class="mt-1 text-muted hover:text-gray-700">←</a>
+			<a href="/calendar" class="btn-ghost btn-sm mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 			<div class="flex-1">
 				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Camp</p>
 				<div class="flex items-center gap-2">
@@ -200,7 +200,7 @@
 											<input name="amountDue" type="number" step="0.01" min="0" value={bc.amountDue}
 												class="mt-0.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
 										</div>
-										<button type="submit" class="rounded-lg bg-ocean/10 px-3 py-2 text-xs font-medium text-ocean hover:bg-ocean/20">Save</button>
+										<button type="submit" class="btn-secondary btn-sm">Save</button>
 									</form>
 									<!-- Amount paid -->
 									<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-end gap-2">
@@ -211,14 +211,14 @@
 											<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
 												class="mt-0.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
 										</div>
-										<button type="submit" class="rounded-lg bg-ocean/10 px-3 py-2 text-xs font-medium text-ocean hover:bg-ocean/20">Save</button>
+										<button type="submit" class="btn-secondary btn-sm">Save</button>
 									</form>
 									<!-- Cancel enrollment -->
 									<form method="post" action="?/cancelClient" use:enhance={withToast()} class="pt-1">
 										<input type="hidden" name="bookingClientId" value={bc.id} />
 										<button type="submit"
 											onclick={(e) => { if (!confirm(`Cancel ${bc.clientFirstName}'s enrollment? They stay in history and can be re-enrolled.`)) e.preventDefault(); }}
-											class="w-full rounded-lg py-2 text-xs font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5">
+											class="btn-destructive btn-sm btn-block">
 											Cancel Enrollment
 										</button>
 									</form>
@@ -258,7 +258,7 @@
 							<input type="hidden" name="clientId" value={selectedEnroll.clientId} />
 							<input type="hidden" name="amountDue" value={data.service?.basePrice ?? '0'} />
 							<span class="flex-1 rounded-lg bg-ocean/10 px-3 py-2 text-sm font-medium text-ocean">{selectedEnroll.name}</span>
-							<button type="submit" class="rounded-lg bg-ocean px-3 py-2 text-xs font-semibold text-white hover:bg-ocean/90">Enroll</button>
+							<button type="submit" class="btn-primary btn-sm">Enroll</button>
 							<button type="button" onclick={() => selectedEnroll = null} class="text-xs text-muted hover:text-gray-700">✕</button>
 						</form>
 					{:else if !enrollPanel}
@@ -310,7 +310,7 @@
 		<div class="flex flex-col gap-2">
 			{#if data.booking.serviceId}
 				<a href="/services/{data.booking.serviceId}"
-					class="w-full rounded-lg py-2.5 text-center text-sm font-semibold ring-1 ring-border text-gray-700 hover:bg-sand">
+					class="btn-secondary btn-block text-center">
 					Camp Settings →
 				</a>
 			{/if}
@@ -319,7 +319,7 @@
 					<input type="hidden" name="status" value="confirmed" />
 					<input type="hidden" name="date" value={data.booking.date} />
 					<input type="hidden" name="isFlexible" value="false" />
-					<button type="submit" class="w-full rounded-lg bg-confirmed py-2.5 text-sm font-semibold text-white hover:opacity-90">
+					<button type="submit" class="btn-primary btn-block" style="background-color: var(--color-confirmed)">
 						Confirm Camp
 					</button>
 				</form>
@@ -331,7 +331,7 @@
 
 		<!-- Header -->
 		<div class="mb-5 flex items-start gap-3">
-			<a href="/calendar" class="mt-1 text-muted hover:text-gray-700">←</a>
+			<a href="/calendar" class="btn-ghost btn-sm mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 			<div class="flex-1">
 				<div class="flex items-center gap-2">
 					<span class="inline-block h-3 w-3 shrink-0 rounded-full" style="background-color: {DOT_COLORS[data.booking.serviceColor as ServiceColorKey] ?? DOT_COLORS['ocean']}"></span>
@@ -430,20 +430,20 @@
 						<input type="hidden" name="time" value={data.booking.time ?? ''} />
 						<input type="hidden" name="isFlexible" value={String(data.booking.isFlexible)} />
 						<input type="hidden" name="instructorId" value={data.booking.instructorId ?? ''} />
-						<button type="submit" class="w-full rounded-lg bg-confirmed py-2.5 text-sm font-semibold text-white hover:opacity-90">
+						<button type="submit" class="btn-primary btn-block" style="background-color: var(--color-confirmed)">
 							Confirm Booking
 						</button>
 					</form>
 				{/if}
 				<button type="button" onclick={openEdit}
-					class="flex-1 rounded-lg py-2.5 text-sm font-semibold ring-1 ring-border text-gray-700 hover:bg-sand">
+					class="btn-secondary flex-1">
 					Edit
 				</button>
 				{#if data.booking.status !== 'cancelled'}
 					<form method="post" action="?/cancel" use:enhance={withToast()} class="flex-1">
 						<button type="submit"
 							onclick={(e) => { if (!confirm('Cancel this booking?')) e.preventDefault(); }}
-							class="w-full rounded-lg py-2.5 text-sm font-semibold ring-1 ring-flexible text-flexible hover:bg-flexible/5">
+							class="btn-destructive btn-block">
 							Cancel
 						</button>
 					</form>
@@ -489,7 +489,7 @@
 							{/each}
 						</select>
 					</div>
-					<button type="submit" class="w-full rounded-lg bg-ocean py-2.5 text-sm font-semibold text-white hover:bg-ocean/90">
+					<button type="submit" class="btn-primary btn-block">
 						Save Changes
 					</button>
 				</form>
