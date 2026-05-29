@@ -311,7 +311,7 @@
 			{#if data.booking.serviceId}
 				<a href="/services/{data.booking.serviceId}"
 					class="w-full rounded-lg py-2.5 text-center text-sm font-semibold ring-1 ring-border text-gray-700 hover:bg-sand">
-					Edit Camp Settings
+					Camp Settings →
 				</a>
 			{/if}
 			{#if data.booking.status === 'pending'}
@@ -321,15 +321,6 @@
 					<input type="hidden" name="isFlexible" value="false" />
 					<button type="submit" class="w-full rounded-lg bg-confirmed py-2.5 text-sm font-semibold text-white hover:opacity-90">
 						Confirm Camp
-					</button>
-				</form>
-			{/if}
-			{#if data.booking.status !== 'cancelled'}
-				<form method="post" action="?/cancel" use:enhance={withToast()}>
-					<button type="submit"
-						onclick={(e) => { if (!confirm('Cancel this camp? This will not automatically remove enrolled students.')) e.preventDefault(); }}
-						class="w-full rounded-lg py-2.5 text-sm font-semibold ring-1 ring-flexible text-flexible hover:bg-flexible/5">
-						Cancel Camp
 					</button>
 				</form>
 			{/if}

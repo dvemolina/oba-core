@@ -1,6 +1,6 @@
 import { and, eq, gte, isNotNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookings, events, services } from '$lib/server/db/schema';
+import { bookings, bookingClients, events, services } from '$lib/server/db/schema';
 import type { CreateServiceInput, Service, UpdateServiceInput } from './types';
 
 export async function listServices(includeInactive = false): Promise<Service[]> {
@@ -36,12 +36,20 @@ export async function deleteService(
 ): Promise<{ deleted: boolean; reason?: 'has_future_bookings' | 'has_events' }> {
 	const today = new Date().toISOString().slice(0, 10);
 
-	const [futureBooking] = await db
+	// Block only if future bookings have actual enrolled clients (not empty auto-created roster bookings)
+	const [futureBookingWithClients] = await db
 		.select({ id: bookings.id })
 		.from(bookings)
+		.innerJoin(
+			bookingClients,
+			and(
+				eq(bookingClients.bookingId, bookings.id),
+				eq(bookingClients.status, 'enrolled')
+			)
+		)
 		.where(and(eq(bookings.serviceId, id), gte(bookings.date, today)))
 		.limit(1);
-	if (futureBooking) return { deleted: false, reason: 'has_future_bookings' };
+	if (futureBookingWithClients) return { deleted: false, reason: 'has_future_bookings' };
 
 	const [linkedEvent] = await db
 		.select({ id: events.id })
@@ -50,7 +58,9 @@ export async function deleteService(
 		.limit(1);
 	if (linkedEvent) return { deleted: false, reason: 'has_events' };
 
-	// Nullify service reference on past bookings so history is preserved
+	// Delete empty future bookings (e.g. auto-created camp roster with no enrolled clients)
+	await db.delete(bookings).where(and(eq(bookings.serviceId, id), gte(bookings.date, today)));
+	// Nullify service reference on past bookings to preserve history
 	await db.update(bookings).set({ serviceId: null }).where(eq(bookings.serviceId, id));
 	await db.delete(services).where(eq(services.id, id));
 	return { deleted: true };

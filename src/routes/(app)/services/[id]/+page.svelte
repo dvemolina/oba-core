@@ -190,6 +190,11 @@
 			</div>
 		{/if}
 
+		<!-- Global error (e.g. delete blocked) -->
+		{#if form?.error && !editing}
+			<p class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
+		{/if}
+
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
 			{#if data.service.type === 'camp' && data.service.campStartDate}
