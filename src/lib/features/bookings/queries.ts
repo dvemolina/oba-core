@@ -110,9 +110,11 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			clientId: bookingClients.clientId,
 			clientFirstName: clients.firstName,
 			clientLastName: clients.lastName,
+			status: bookingClients.status,
 			amountDue: bookingClients.amountDue,
 			amountPaid: bookingClients.amountPaid,
-			paymentStatus: bookingClients.paymentStatus
+			paymentStatus: bookingClients.paymentStatus,
+			cancelledAt: bookingClients.cancelledAt
 		})
 		.from(bookingClients)
 		.leftJoin(clients, eq(bookingClients.clientId, clients.id))
@@ -195,7 +197,7 @@ export async function getOrCreateCampBooking(service: Service): Promise<Booking>
 			date: service.campStartDate,
 			dateEnd: service.campEndDate ?? service.campStartDate,
 			isFlexible: false,
-			status: 'pending'
+			status: 'confirmed'
 		})
 		.returning();
 
@@ -243,6 +245,31 @@ export async function updateBookingClientPayment(
 	await db
 		.update(bookingClients)
 		.set({ amountPaid, paymentStatus })
+		.where(eq(bookingClients.id, bookingClientId));
+}
+
+export async function updateBookingClientAmountDue(
+	bookingClientId: string,
+	amountDue: string
+): Promise<void> {
+	const due = parseFloat(amountDue);
+	const [bc] = await db.select({ amountPaid: bookingClients.amountPaid }).from(bookingClients).where(eq(bookingClients.id, bookingClientId));
+	const paid = parseFloat(bc?.amountPaid ?? '0');
+	const paymentStatus = paid >= due ? 'paid' : paid > 0 ? 'partial' : 'pending';
+	await db.update(bookingClients).set({ amountDue, paymentStatus }).where(eq(bookingClients.id, bookingClientId));
+}
+
+export async function cancelBookingClient(bookingClientId: string): Promise<void> {
+	await db
+		.update(bookingClients)
+		.set({ status: 'cancelled', cancelledAt: new Date() })
+		.where(eq(bookingClients.id, bookingClientId));
+}
+
+export async function reenrollBookingClient(bookingClientId: string): Promise<void> {
+	await db
+		.update(bookingClients)
+		.set({ status: 'enrolled', cancelledAt: null })
 		.where(eq(bookingClients.id, bookingClientId));
 }
 

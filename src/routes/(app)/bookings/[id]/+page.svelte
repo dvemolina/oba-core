@@ -102,10 +102,15 @@
 		} finally { creatingClient = false; }
 	}
 
-	const enrolled = $derived(data.booking.clients.length);
+	const activeClients = $derived(data.booking.clients.filter((c) => c.status !== 'cancelled'));
+	const cancelledClients = $derived(data.booking.clients.filter((c) => c.status === 'cancelled'));
+	const enrolled = $derived(activeClients.length);
 	const maxStudents = $derived(data.booking.serviceMaxStudents);
 	const slotsLeft = $derived(maxStudents != null ? maxStudents - enrolled : null);
 	const fillPct = $derived(maxStudents ? Math.round((enrolled / maxStudents) * 100) : 0);
+
+	// Per-client editing state
+	let expandedClientId = $state<string | null>(null);
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
@@ -164,36 +169,83 @@
 		<div class="mb-4 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 			<p class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Roster & Payments</p>
 
-			{#if data.booking.clients.length === 0}
+			{#if activeClients.length === 0 && cancelledClients.length === 0}
 				<p class="py-4 text-center text-sm text-muted">No students enrolled yet.</p>
 			{:else}
 				<div class="divide-y divide-border/50">
-					{#each data.booking.clients as bc}
+					{#each activeClients as bc}
 						<div class="py-3">
-							<div class="mb-2 flex items-center justify-between">
-								<p class="text-sm font-medium text-gray-800">{bc.clientFirstName} {bc.clientLastName}</p>
+							<!-- Client header row -->
+							<div class="flex items-center justify-between">
+								<button type="button"
+									onclick={() => expandedClientId = expandedClientId === bc.id ? null : bc.id}
+									class="flex items-center gap-2 text-left">
+									<p class="text-sm font-medium text-gray-800">{bc.clientFirstName} {bc.clientLastName}</p>
+									<span class="text-[10px] text-muted">{expandedClientId === bc.id ? '▲' : '▼'}</span>
+								</button>
 								<div class="flex items-center gap-2">
 									<span class="rounded-full px-2 py-0.5 text-xs font-medium {paymentColors[bc.paymentStatus]}">{bc.paymentStatus}</span>
-									<form method="post" action="?/unenroll" use:enhance={withToast()}>
-										<input type="hidden" name="clientId" value={bc.clientId} />
-										<button type="submit"
-											onclick={(e) => { if (!confirm(`Remove ${bc.clientFirstName} from camp?`)) e.preventDefault(); }}
-											class="text-xs text-muted hover:text-red-500">✕</button>
-									</form>
+									<span class="text-xs text-muted">€{bc.amountPaid} / €{bc.amountDue}</span>
 								</div>
 							</div>
-							<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-center gap-2">
-								<input type="hidden" name="bookingClientId" value={bc.id} />
-								<input type="hidden" name="amountDue" value={bc.amountDue} />
-								<div class="flex-1">
-									<label class="text-xs text-muted">Paid (of €{bc.amountDue})</label>
-									<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
-										class="mt-0.5 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
+
+							<!-- Expanded controls -->
+							{#if expandedClientId === bc.id}
+								<div class="mt-3 space-y-3 rounded-lg bg-sand/50 p-3">
+									<!-- Amount due -->
+									<form method="post" action="?/updateAmountDue" use:enhance={withToast()} class="flex items-end gap-2">
+										<input type="hidden" name="bookingClientId" value={bc.id} />
+										<div class="flex-1">
+											<label class="text-xs text-muted">Amount due (€)</label>
+											<input name="amountDue" type="number" step="0.01" min="0" value={bc.amountDue}
+												class="mt-0.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
+										</div>
+										<button type="submit" class="rounded-lg bg-ocean/10 px-3 py-2 text-xs font-medium text-ocean hover:bg-ocean/20">Save</button>
+									</form>
+									<!-- Amount paid -->
+									<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-end gap-2">
+										<input type="hidden" name="bookingClientId" value={bc.id} />
+										<input type="hidden" name="amountDue" value={bc.amountDue} />
+										<div class="flex-1">
+											<label class="text-xs text-muted">Amount paid (€)</label>
+											<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
+												class="mt-0.5 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
+										</div>
+										<button type="submit" class="rounded-lg bg-ocean/10 px-3 py-2 text-xs font-medium text-ocean hover:bg-ocean/20">Save</button>
+									</form>
+									<!-- Cancel enrollment -->
+									<form method="post" action="?/cancelClient" use:enhance={withToast()} class="pt-1">
+										<input type="hidden" name="bookingClientId" value={bc.id} />
+										<button type="submit"
+											onclick={(e) => { if (!confirm(`Cancel ${bc.clientFirstName}'s enrollment? They stay in history and can be re-enrolled.`)) e.preventDefault(); }}
+											class="w-full rounded-lg py-2 text-xs font-medium text-flexible ring-1 ring-flexible hover:bg-flexible/5">
+											Cancel Enrollment
+										</button>
+									</form>
 								</div>
-								<button type="submit" class="mt-4 rounded-lg bg-ocean/10 px-3 py-2 text-xs font-medium text-ocean hover:bg-ocean/20">Save</button>
-							</form>
+							{/if}
 						</div>
 					{/each}
+
+					<!-- Cancelled students (collapsible) -->
+					{#if cancelledClients.length > 0}
+						<details class="pt-3">
+							<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
+								Cancelled ({cancelledClients.length})
+							</summary>
+							<div class="mt-2 space-y-2">
+								{#each cancelledClients as bc}
+									<div class="flex items-center justify-between rounded-lg bg-sand px-3 py-2 opacity-60">
+										<p class="text-sm text-gray-500 line-through">{bc.clientFirstName} {bc.clientLastName}</p>
+										<form method="post" action="?/reenrollClient" use:enhance={withToast()}>
+											<input type="hidden" name="bookingClientId" value={bc.id} />
+											<button type="submit" class="text-xs font-medium text-ocean hover:underline">Re-enroll</button>
+										</form>
+									</div>
+								{/each}
+							</div>
+						</details>
+					{/if}
 				</div>
 			{/if}
 
@@ -255,9 +307,15 @@
 		</div>
 
 		<!-- Camp actions -->
-		<div class="flex gap-3">
+		<div class="flex flex-col gap-2">
+			{#if data.booking.serviceId}
+				<a href="/services/{data.booking.serviceId}"
+					class="w-full rounded-lg py-2.5 text-center text-sm font-semibold ring-1 ring-border text-gray-700 hover:bg-sand">
+					Edit Camp Settings
+				</a>
+			{/if}
 			{#if data.booking.status === 'pending'}
-				<form method="post" action="?/update" use:enhance={withToast()} class="flex-1">
+				<form method="post" action="?/update" use:enhance={withToast()}>
 					<input type="hidden" name="status" value="confirmed" />
 					<input type="hidden" name="date" value={data.booking.date} />
 					<input type="hidden" name="isFlexible" value="false" />
@@ -267,11 +325,11 @@
 				</form>
 			{/if}
 			{#if data.booking.status !== 'cancelled'}
-				<form method="post" action="?/cancel" use:enhance={withToast()} class="flex-1">
+				<form method="post" action="?/cancel" use:enhance={withToast()}>
 					<button type="submit"
-						onclick={(e) => { if (!confirm('Cancel this booking?')) e.preventDefault(); }}
+						onclick={(e) => { if (!confirm('Cancel this camp? This will not automatically remove enrolled students.')) e.preventDefault(); }}
 						class="w-full rounded-lg py-2.5 text-sm font-semibold ring-1 ring-flexible text-flexible hover:bg-flexible/5">
-						Cancel Booking
+						Cancel Camp
 					</button>
 				</form>
 			{/if}

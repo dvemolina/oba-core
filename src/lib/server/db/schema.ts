@@ -103,9 +103,11 @@ export const bookingClients = pgTable('booking_clients', {
 	clientId: text('client_id')
 		.notNull()
 		.references(() => clients.id),
+	status: text('status').notNull().default('enrolled'), // 'enrolled' | 'cancelled'
 	amountDue: numeric('amount_due', { precision: 10, scale: 2 }).notNull(),
 	amountPaid: numeric('amount_paid', { precision: 10, scale: 2 }).notNull().default('0'),
-	paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending')
+	paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending'),
+	cancelledAt: timestamp('cancelled_at')
 });
 
 export const accommodationUnitTypes = pgTable('accommodation_unit_types', {

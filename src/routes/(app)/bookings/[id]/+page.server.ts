@@ -4,6 +4,9 @@ import {
 	getBooking,
 	updateBooking,
 	updateBookingClientPayment,
+	updateBookingClientAmountDue,
+	cancelBookingClient,
+	reenrollBookingClient,
 	addClientToBooking,
 	removeClientFromBooking
 } from '$lib/features/bookings/queries';
@@ -85,5 +88,30 @@ export const actions: Actions = {
 	cancel: async ({ params }) => {
 		await cancelBooking(params.id);
 		return { cancelled: true, message: 'Booking cancelled' };
+	},
+
+	updateAmountDue: async ({ request }) => {
+		const form = await request.formData();
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		const amountDue = form.get('amountDue')?.toString() ?? '0';
+		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
+		await updateBookingClientAmountDue(bookingClientId, amountDue);
+		return { error: null, message: 'Amount updated' };
+	},
+
+	cancelClient: async ({ request }) => {
+		const form = await request.formData();
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
+		await cancelBookingClient(bookingClientId);
+		return { error: null, message: 'Client enrollment cancelled' };
+	},
+
+	reenrollClient: async ({ request }) => {
+		const form = await request.formData();
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
+		await reenrollBookingClient(bookingClientId);
+		return { error: null, message: 'Client re-enrolled' };
 	}
 };

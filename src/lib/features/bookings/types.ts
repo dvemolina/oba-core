@@ -8,9 +8,11 @@ export interface BookingClient {
 	clientId: string;
 	clientFirstName: string;
 	clientLastName: string;
+	status: 'enrolled' | 'cancelled';
 	amountDue: string;
 	amountPaid: string;
 	paymentStatus: PaymentStatus;
+	cancelledAt: Date | null;
 }
 
 export type BookingSource = 'admin' | 'whatsapp_bot';
