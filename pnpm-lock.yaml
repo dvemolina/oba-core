@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       lucide-svelte:
-        specifier: ^1.0.1
-        version: 1.0.1(svelte@5.55.1)
+        specifier: 0.475.0
+        version: 0.475.0(svelte@5.55.1)
     devDependencies:
       '@better-auth/cli':
         specifier: ~1.4.21
@@ -2295,8 +2295,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-svelte@1.0.1:
-    resolution: {integrity: sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg==}
+  lucide-svelte@0.475.0:
+    resolution: {integrity: sha512-N5+hFTPHaZe9HhqJDxxxODfYuOmI6v+JIowzERcea/uxytN/JZlehVTcINBNp8wMo7l6ov1Jf5srrDbkI/WsJg==}
     deprecated: Package deprecated. Please use @lucide/svelte instead.
     peerDependencies:
       svelte: ^3 || ^4 || ^5.0.0-next.42
@@ -4828,7 +4828,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-svelte@1.0.1(svelte@5.55.1):
+  lucide-svelte@0.475.0(svelte@5.55.1):
     dependencies:
       svelte: 5.55.1
 
