@@ -180,7 +180,7 @@
 										{#if booking.isFlexible}<span class="text-flexible"> ⚡</span>{/if}
 									</p>
 								</div>
-								<span class="ml-2 shrink-0 text-xs {paymentDot(booking)}">{booking.status}</span>
+								<span class="ml-2 shrink-0 text-xs {statusText(booking)}">{booking.status}</span>
 							</a>
 						{/each}
 
