@@ -230,12 +230,13 @@
 										<!-- Full-cell link (behind everything) -->
 										<a href="/calendar/{dateStr}" class="absolute inset-0 z-0" aria-label="Open {dateStr}"></a>
 
-										<!-- Day number — always at top of cell -->
+										<!-- Day number — clickable link to day view -->
 										<div class="relative z-10 flex justify-end p-0.5">
-											<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold
-												{isToday ? 'bg-ocean text-white' : 'text-gray-500 group-hover:bg-ocean/15 group-hover:text-ocean'}">
+											<a href="/calendar/{dateStr}"
+												class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors
+												{isToday ? 'bg-ocean text-white' : 'text-gray-500 hover:bg-ocean/15 hover:text-ocean'}">
 												{dateStr.slice(-2).replace(/^0/, '')}
-											</span>
+											</a>
 										</div>
 
 										<!-- Events + single-day chips (padded to clear spanning pills) -->
