@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import ContactButtons from '$lib/components/ContactButtons.svelte';
 	import type { ActionData, PageData } from './$types';
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let editing = $state(false);
@@ -133,13 +134,25 @@
 			</button>
 		</form>
 	{:else}
-		<div class="mb-6 space-y-2 rounded-[var(--radius-card)] bg-surface p-4 ring-1 ring-border">
-			{#if data.client.phone}<p class="text-sm">📞 {data.client.phone}</p>{/if}
-			{#if data.client.email}<p class="text-sm">✉️ {data.client.email}</p>{/if}
-			{#if data.client.nationality}<p class="text-sm">🌍 {data.client.nationality}</p>{/if}
-			{#if data.client.notes}<p class="text-sm text-muted">{data.client.notes}</p>{/if}
-			{#if !data.client.phone && !data.client.email && !data.client.nationality && !data.client.notes}
-				<p class="text-sm text-muted">No contact info yet.</p>
+		<!-- Contact actions -->
+		<div class="mb-4 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+			<ContactButtons phone={data.client.phone} email={data.client.email} />
+
+			{#if data.client.phone || data.client.email}
+				<div class="mt-3 space-y-1 border-t border-border/60 pt-3">
+					{#if data.client.phone}
+						<p class="text-xs text-muted">{data.client.phone}</p>
+					{/if}
+					{#if data.client.email}
+						<p class="text-xs text-muted">{data.client.email}</p>
+					{/if}
+				</div>
+			{/if}
+			{#if data.client.nationality}
+				<p class="mt-2 text-xs text-muted">{data.client.nationality}</p>
+			{/if}
+			{#if data.client.notes}
+				<p class="mt-2 text-sm text-muted">{data.client.notes}</p>
 			{/if}
 		</div>
 	{/if}
