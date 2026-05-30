@@ -8,6 +8,8 @@ export interface BookingClient {
 	clientId: string;
 	clientFirstName: string;
 	clientLastName: string;
+	clientPhone: string | null;
+	clientEmail: string | null;
 	status: 'enrolled' | 'cancelled';
 	amountDue: string;
 	amountPaid: string;

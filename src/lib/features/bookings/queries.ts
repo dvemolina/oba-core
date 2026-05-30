@@ -110,6 +110,8 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			clientId: bookingClients.clientId,
 			clientFirstName: clients.firstName,
 			clientLastName: clients.lastName,
+			clientPhone: clients.phone,
+			clientEmail: clients.email,
 			status: bookingClients.status,
 			amountDue: bookingClients.amountDue,
 			amountPaid: bookingClients.amountPaid,
