@@ -28,11 +28,36 @@ export function formatDate(d: Date): string {
 	return `${y}-${m}-${day}`;
 }
 
+/** Returns the Monday of the week containing the given date string. */
+export function getWeekStart(dateStr: string): Date {
+	const d = new Date(dateStr + 'T00:00:00');
+	const dow = d.getDay(); // 0=Sun
+	const diff = dow === 0 ? -6 : 1 - dow; // shift to Monday
+	d.setDate(d.getDate() + diff);
+	return d;
+}
+
+/** Returns an array of 7 date strings (Mon–Sun) for the week containing dateStr. */
+export function getWeekDays(weekStart: Date): string[] {
+	return Array.from({ length: 7 }, (_, i) => {
+		const d = new Date(weekStart);
+		d.setDate(d.getDate() + i);
+		return formatDate(d);
+	});
+}
+
 export function getDateRange(
 	view: 'month' | 'week' | 'agenda',
 	year: number,
-	month: number
+	month: number,
+	weekStart?: string
 ): { from: string; to: string } {
+	if (view === 'week' && weekStart) {
+		const start = getWeekStart(weekStart);
+		const end = new Date(start);
+		end.setDate(end.getDate() + 6);
+		return { from: formatDate(start), to: formatDate(end) };
+	}
 	if (view === 'month') {
 		const days = getDaysInMonth(year, month);
 		const m = String(month).padStart(2, '0');
@@ -41,10 +66,10 @@ export function getDateRange(
 			to: `${year}-${m}-${String(days).padStart(2, '0')}`
 		};
 	}
-	// agenda: next 60 days from today
+	// agenda: next 90 days
 	const today = new Date();
 	const future = new Date(today);
-	future.setDate(future.getDate() + 60);
+	future.setDate(future.getDate() + 90);
 	return { from: formatDate(today), to: formatDate(future) };
 }
 

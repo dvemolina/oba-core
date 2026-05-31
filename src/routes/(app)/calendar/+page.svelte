@@ -10,23 +10,48 @@
 	const grouped = $derived(groupBookingsByDate(data.bookings));
 	const today = $derived(data.today);
 
-	function setView(v: 'agenda' | 'month') {
-		goto(`/calendar?view=${v}&year=${data.year}&month=${data.month}`);
+	function setView(v: 'month' | 'week') {
+		if (v === 'week') goto(`/calendar?view=week&week=${data.weekStart}`);
+		else goto(`/calendar?view=month&year=${data.year}&month=${data.month}`);
 	}
 	function prevMonth() {
 		let y = data.year, m = data.month - 1;
 		if (m < 1) { m = 12; y--; }
-		goto(`/calendar?view=${data.view}&year=${y}&month=${m}`);
+		goto(`/calendar?view=month&year=${y}&month=${m}`);
 	}
 	function nextMonth() {
 		let y = data.year, m = data.month + 1;
 		if (m > 12) { m = 1; y++; }
-		goto(`/calendar?view=${data.view}&year=${y}&month=${m}`);
+		goto(`/calendar?view=month&year=${y}&month=${m}`);
 	}
 
 	const monthName = $derived(
 		new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' })
 	);
+
+	// ── Week view helpers ─────────────────────────────────────────────────────
+	const weekBookingsByDate = $derived(
+		data.weekDays.reduce<Record<string, typeof data.bookings>>((acc, d) => {
+			acc[d] = data.bookings.filter(
+				b => b.status !== 'cancelled' && b.date <= d && (b.dateEnd ?? b.date) >= d
+			).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+			return acc;
+		}, {})
+	);
+
+	const weekLabel = $derived(() => {
+		if (!data.weekDays.length) return '';
+		const first = new Date(data.weekDays[0] + 'T00:00:00');
+		const last  = new Date(data.weekDays[6] + 'T00:00:00');
+		const sameMonth = first.getMonth() === last.getMonth();
+		const fmt = (d: Date, short = false) =>
+			d.toLocaleDateString('default', short
+				? { day: 'numeric' }
+				: { month: 'short', day: 'numeric' });
+		return sameMonth
+			? `${fmt(first, true)} – ${fmt(last)} ${last.getFullYear()}`
+			: `${fmt(first)} – ${fmt(last)} ${last.getFullYear()}`;
+	});
 
 	// ── Month grid ───────────────────────────────────────────────────────────
 	const firstDayOffset = $derived((new Date(data.year, data.month - 1, 1).getDay() + 6) % 7);
@@ -138,51 +163,25 @@
 		return status === 'confirmed' ? '●' : '○';
 	}
 
-	// ── Agenda ───────────────────────────────────────────────────────────────
-
-	function agendaBookingsForDate(date: string): BookingSummary[] {
-		return (grouped[date] ?? []).filter(
-			b => b.status !== 'cancelled' && (!b.dateEnd || b.dateEnd === b.date || b.date === date)
-		);
-	}
-
-	const cancelledBookings = $derived(() => {
-		const seen = new Set<string>();
-		const result: BookingSummary[] = [];
-		for (const list of Object.values(grouped)) {
-			for (const b of list) {
-				if (b.status === 'cancelled' && !seen.has(b.id)) {
-					seen.add(b.id);
-					result.push(b);
-				}
-			}
-		}
-		return result.sort((a, b) => b.date.localeCompare(a.date));
-	});
-
-	const upcomingDates = $derived(
-		Object.keys(grouped).filter(d => d >= today && agendaBookingsForDate(d).length > 0).sort()
-	);
-	const pastDates = $derived(
-		Object.keys(grouped).filter(d => d < today && agendaBookingsForDate(d).length > 0).sort().reverse()
-	);
-
-	function agendaCardClass(booking: BookingSummary): string {
-		const c = getServiceColor(booking.serviceColor ?? '');
-		if (booking.status === 'cancelled') return 'border-gray-300 bg-surface opacity-50 border-solid';
-		const style = booking.isFlexible ? 'border-dashed' : 'border-solid';
-		return `${c.border} bg-surface ${style}`;
+	function weekChipClasses(booking: BookingSummary): string {
+		return chipClasses(booking);
 	}
 </script>
 
-<div class="flex flex-col {data.view === 'month' ? 'h-full overflow-hidden' : ''}">
+<div class="flex h-full flex-col overflow-hidden">
 
 	<!-- Header -->
 	<div class="page-header">
 		<div class="flex items-center gap-1">
-			<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</button>
-			<h1 class="w-36 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
-			<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</button>
+			{#if data.view === 'month'}
+				<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</button>
+				<h1 class="w-36 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
+				<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</button>
+			{:else}
+				<a href="/calendar?view=week&week={data.prevWeek}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</a>
+				<h1 class="w-44 text-center text-sm font-semibold text-navy">{weekLabel()}</h1>
+				<a href="/calendar?view=week&week={data.nextWeek}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</a>
+			{/if}
 		</div>
 		<div class="flex items-center gap-3">
 			<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
@@ -191,7 +190,7 @@
 			</span>
 			<div class="flex overflow-hidden rounded-lg bg-slate-100 p-0.5">
 				<button onclick={() => setView('month')} class="rounded-md px-3 py-1 text-xs font-semibold transition-colors {data.view === 'month' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Month</button>
-				<button onclick={() => setView('agenda')} class="rounded-md px-3 py-1 text-xs font-semibold transition-colors {data.view === 'agenda' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Agenda</button>
+				<button onclick={() => setView('week')}  class="rounded-md px-3 py-1 text-xs font-semibold transition-colors {data.view === 'week'  ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Week</button>
 			</div>
 		</div>
 	</div>
@@ -294,114 +293,56 @@
 		</div>
 	{/if}
 
-	<!-- ─── AGENDA VIEW ─── -->
-	{#if data.view === 'agenda'}
-		<div class="space-y-6 px-4 py-4">
-			{#each data.events as event}
-				<a href="/events/{event.id}" class="block rounded-(--radius-card) border border-confirmed/30 bg-confirmed/10 p-3">
-					<div class="flex items-center gap-2">
-						<span class="text-base">🏕️</span>
-						<div>
-							<p class="text-sm font-semibold text-gray-800">{event.title}</p>
-							<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
+	<!-- ─── WEEK VIEW ─── -->
+	{#if data.view === 'week'}
+		<div class="flex flex-1 flex-col overflow-hidden">
+			<!-- Weekday column headers -->
+			<div class="grid shrink-0 grid-cols-7 border-b border-border bg-sand">
+				{#each data.weekDays as dateStr}
+					{@const isToday = dateStr === today}
+					{@const d = new Date(dateStr + 'T00:00:00')}
+					<a href="/calendar/{dateStr}"
+						class="flex flex-col items-center py-2 text-center transition-colors hover:bg-ocean/5">
+						<span class="text-[10px] font-semibold uppercase tracking-wide text-muted">
+							{d.toLocaleDateString('default', { weekday: 'short' })}
+						</span>
+						<span class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
+							{isToday ? 'bg-ocean text-white' : 'text-navy'}">
+							{d.getDate()}
+						</span>
+					</a>
+				{/each}
+			</div>
+
+			<!-- Day columns with bookings -->
+			<div class="flex flex-1 overflow-y-auto">
+				<div class="grid min-h-full w-full grid-cols-7 divide-x divide-border/40">
+					{#each data.weekDays as dateStr}
+						{@const isToday = dateStr === today}
+						{@const dayBookings = weekBookingsByDate[dateStr] ?? []}
+						<div class="flex flex-col gap-1 p-1 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
+							{#if dayBookings.length === 0}
+								<div class="flex flex-1 items-center justify-center">
+									<span class="text-[10px] text-border">—</span>
+								</div>
+							{:else}
+								{#each dayBookings as booking}
+									<a href="/bookings/{booking.id}"
+										class="block rounded px-1.5 py-1 text-[10px] leading-tight hover:brightness-95 {weekChipClasses(booking)}">
+										<span class="block font-semibold">
+											{statusDot(booking.status)} {booking.time ? booking.time.slice(0, 5) : '—'}
+										</span>
+										<span class="block truncate">{booking.serviceName}</span>
+										{#if booking.firstClientName}
+											<span class="block truncate opacity-70">{booking.firstClientName}</span>
+										{/if}
+									</a>
+								{/each}
+							{/if}
 						</div>
-					</div>
-				</a>
-			{/each}
-
-			{#if upcomingDates.length === 0 && data.events.length === 0}
-				<p class="py-12 text-center text-sm text-muted">No upcoming bookings.</p>
-			{/if}
-
-			{#each upcomingDates as date}
-				<div id={date}>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-						{date === today
-							? 'Today'
-							: new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
-					</p>
-					<div class="space-y-2">
-						{#each agendaBookingsForDate(date) as booking}
-							{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
-							<a href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {agendaCardClass(booking)}">
-								<div>
-									<p class="text-sm font-medium text-gray-800">
-										{#if isCamp}
-											🏕️ {booking.serviceName}
-											<span class="ml-1 text-xs text-muted">{booking.date} → {booking.dateEnd}</span>
-										{:else}
-											{booking.time ? booking.time.slice(0, 5) : '—'}
-											{#if booking.isFlexible}<span class="ml-1 text-flexible">⚡</span>{/if}
-											· {booking.serviceName}
-										{/if}
-									</p>
-									<p class="text-xs text-muted">
-										{#if isCamp}
-											{booking.clientCount}{booking.serviceMaxStudents != null ? ` / ${booking.serviceMaxStudents}` : ''} enrolled
-										{:else}
-											{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}
-										{/if}
-									</p>
-								</div>
-								<span class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
-									{booking.status}
-								</span>
-							</a>
-						{/each}
-					</div>
+					{/each}
 				</div>
-			{/each}
-
-			{#if pastDates.length > 0}
-				<details class="mt-6">
-					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Past bookings ({pastDates.reduce((n, d) => n + agendaBookingsForDate(d).length, 0)})
-					</summary>
-					<div class="mt-3 space-y-4">
-						{#each pastDates as date}
-							<div>
-								<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-									{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
-								</p>
-								<div class="space-y-2">
-									{#each agendaBookingsForDate(date) as booking}
-										{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
-										<a href="/bookings/{booking.id}"
-											class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-70 ring-1 ring-border {agendaCardClass(booking)}">
-											<p class="text-sm text-gray-700">
-												{isCamp ? '🏕️ ' : (booking.time?.slice(0, 5) ?? '—') + ' · '}{booking.serviceName}
-											</p>
-											<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
-										</a>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</details>
-			{/if}
-
-			{#if cancelledBookings().length > 0}
-				<details class="mt-4">
-					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Cancelled ({cancelledBookings().length})
-					</summary>
-					<div class="mt-2 space-y-1">
-						{#each cancelledBookings() as booking}
-							{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
-							<a href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 border-solid border-flexible bg-surface p-3 opacity-50 ring-1 ring-border">
-								<p class="text-sm text-gray-500 line-through">
-									{isCamp ? '🏕️ ' : ''}{booking.serviceName}
-									<span class="ml-1 text-xs no-underline">{booking.date}</span>
-								</p>
-								<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
-							</a>
-						{/each}
-					</div>
-				</details>
-			{/if}
+			</div>
 		</div>
 	{/if}
 </div>

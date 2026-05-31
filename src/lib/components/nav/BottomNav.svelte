@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Calendar, Users, UserCheck, LayoutGrid, Settings } from 'lucide-svelte';
+	import { Calendar, List, Users, UserCheck, LayoutGrid } from 'lucide-svelte';
 
 	const items = [
-		{ href: '/calendar',     label: 'Calendar',  icon: Calendar     },
-		{ href: '/clients',      label: 'Clients',   icon: Users        },
-		{ href: '/instructors',  label: 'Staff',     icon: UserCheck    },
-		{ href: '/services',     label: 'Services',  icon: LayoutGrid   },
-		{ href: '/settings',     label: 'Settings',  icon: Settings     }
+		{ href: '/calendar', label: 'Calendar', icon: Calendar   },
+		{ href: '/agenda',   label: 'Agenda',   icon: List       },
+		{ href: '/clients',  label: 'Clients',  icon: Users      },
+		{ href: '/instructors', label: 'Staff', icon: UserCheck  },
+		{ href: '/services', label: 'Services', icon: LayoutGrid }
 	];
 </script>
 
