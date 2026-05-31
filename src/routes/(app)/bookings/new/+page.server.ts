@@ -38,13 +38,13 @@ export const actions: Actions = {
 		if (!service) return fail(400, { error: 'Service not found' });
 
 		// ── Camp: enroll into single camp booking ────────────────────────────
-		if (service.type === 'camp') {
+		if (service.hasRoster) {
 			const clientIds = form.getAll('clientId').map(String).filter(Boolean);
 			if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
 			const campBooking = await getOrCreateCampBooking(service);
 			const enrolled = campBooking.clients.length;
-			const max = service.maxStudents ?? Infinity;
+			const max = service.maxCapacity ?? Infinity;
 			const available = max - enrolled;
 
 			if (clientIds.length > available)
@@ -63,7 +63,7 @@ export const actions: Actions = {
 		}
 
 		// ── Accommodation ─────────────────────────────────────────────────────
-		if (service.type === 'accommodation') {
+		if (service.hasInventoryUnits) {
 			const unitTypeId = form.get('accommodationUnitTypeId')?.toString() ?? '';
 			const checkIn = form.get('date')?.toString() ?? '';
 			const checkOut = form.get('dateEnd')?.toString() ?? '';

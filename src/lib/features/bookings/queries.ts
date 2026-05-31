@@ -21,7 +21,11 @@ export async function listBookingsForDateRange(
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceMaxStudents: services.maxStudents,
+			serviceHasSessions: services.hasSessions,
+			serviceHasRoster: services.hasRoster,
+			serviceHasDateRange: services.hasDateRange,
+			serviceRequiresInstructor: services.requiresInstructor,
+			serviceMaxCapacity: services.maxCapacity,
 			instructorName: instructors.name,
 			accommodationUnitName: accommodationUnits.name,
 			accommodationUnitTypeName: accommodationUnitTypes.name,
@@ -80,7 +84,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceMaxStudents: services.maxStudents,
+			serviceHasSessions: services.hasSessions,
+			serviceHasRoster: services.hasRoster,
+			serviceMaxCapacity: services.maxCapacity,
 			instructorId: bookings.instructorId,
 			instructorName: instructors.name,
 			accommodationUnitId: bookings.accommodationUnitId,
@@ -182,14 +188,14 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 
 /** For camps: find the single booking for this service, or create it (empty, no clients yet). */
 export async function getOrCreateCampBooking(service: Service): Promise<Booking> {
-	if (!service.campStartDate) throw new Error('Camp service has no start date');
+	if (!service.startDate) throw new Error('Service has no start date');
 
 	const [existing] = await db
 		.select({ id: bookings.id })
 		.from(bookings)
 		.where(and(
 			eq(bookings.serviceId, service.id),
-			eq(bookings.date, service.campStartDate),
+			eq(bookings.date, service.startDate),
 			ne(bookings.status, 'cancelled')
 		))
 		.limit(1);
@@ -200,8 +206,8 @@ export async function getOrCreateCampBooking(service: Service): Promise<Booking>
 		.insert(bookings)
 		.values({
 			serviceId: service.id,
-			date: service.campStartDate,
-			dateEnd: service.campEndDate ?? service.campStartDate,
+			date: service.startDate,
+			dateEnd: service.endDate ?? service.startDate,
 			isFlexible: false,
 			status: 'confirmed'
 		})

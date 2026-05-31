@@ -9,10 +9,16 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let editing = $state(false);
-	let selectedType = $state(data.service.type);
 	let loading = $state(false);
 
-	// Accommodation unit management state
+	// Edit-mode capability flags (initialised from service, user can modify)
+	let editHasSessions       = $state(data.service.hasSessions);
+	let editHasRoster         = $state(data.service.hasRoster);
+	let editHasDateRange      = $state(data.service.hasDateRange);
+	let editHasInventoryUnits = $state(data.service.hasInventoryUnits);
+	let editRequiresInstructor = $state(data.service.requiresInstructor);
+
+	// Inventory unit management state
 	let showAddUnitType = $state(false);
 	let addingUnitToTypeId = $state<string | null>(null);
 	const OCCUPANCY_LABELS: Record<string, string> = {
@@ -21,9 +27,19 @@
 		entire: 'Entire property'
 	};
 
-	const typeLabels: Record<string, string> = {
-		lesson: 'Lesson', camp: 'Camp', product: 'Product', rental: 'Rental', accommodation: 'Accommodation'
+	const TEMPLATE_LABELS: Record<string, string> = {
+		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
+		rental: 'Rental', accommodation: 'Accommodation'
 	};
+
+	// Capability badge labels for view mode
+	const capabilityBadges = $derived([
+		data.service.hasSessions       && 'Sessions',
+		data.service.hasRoster         && 'Roster',
+		data.service.hasDateRange      && 'Date range',
+		data.service.hasInventoryUnits && 'Inventory units',
+		data.service.requiresInstructor && 'Instructor',
+	].filter(Boolean) as string[]);
 
 	function serviceEnhance() {
 		return () => async ({ result, update }: { result: any; update: () => Promise<void> }) => {
@@ -43,7 +59,7 @@
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/services" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<div class="flex-1">
-			<p class="text-xs font-semibold uppercase tracking-wider text-muted">{typeLabels[data.service.type] ?? data.service.type}</p>
+			<p class="text-xs font-semibold uppercase tracking-wider text-muted">{TEMPLATE_LABELS[data.service.type] ?? data.service.type}</p>
 			<div class="flex items-center gap-2">
 				<span class="inline-block h-3 w-3 rounded-full" style="background-color: {DOT_COLORS[data.service.color as ServiceColorKey] ?? DOT_COLORS['ocean']}"></span>
 				<h1 class="text-xl font-bold text-navy">{data.service.name}</h1>
@@ -68,23 +84,33 @@
 					<span class="text-sm text-gray-800">{data.service.durationMinutes} min</span>
 				</div>
 			{/if}
-			{#if data.service.campStartDate}
+			{#if data.service.startDate}
 				<div class="flex items-center justify-between">
 					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Dates</span>
-					<span class="text-sm text-gray-800">{data.service.campStartDate} → {data.service.campEndDate}</span>
+					<span class="text-sm text-gray-800">{data.service.startDate} → {data.service.endDate}</span>
 				</div>
 			{/if}
-			{#if data.service.maxStudents}
+			{#if data.service.maxCapacity}
 				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Max students</span>
-					<span class="text-sm text-gray-800">{data.service.maxStudents}</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Max capacity</span>
+					<span class="text-sm text-gray-800">{data.service.maxCapacity}</span>
 				</div>
 			{/if}
-			{#if data.service.campInstructorIds?.length}
+			{#if capabilityBadges.length > 0}
+				<div>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Capabilities</span>
+					<div class="mt-1.5 flex flex-wrap gap-1">
+						{#each capabilityBadges as badge}
+							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{badge}</span>
+						{/each}
+					</div>
+				</div>
+			{/if}
+			{#if data.service.defaultInstructorIds?.length}
 				<div>
 					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructors</span>
 					<div class="mt-1.5 flex flex-wrap gap-1.5">
-						{#each data.instructors.filter(i => data.service.campInstructorIds?.includes(i.id)) as instructor}
+						{#each data.instructors.filter(i => data.service.defaultInstructorIds?.includes(i.id)) as instructor}
 							<span class="rounded-full bg-ocean/10 px-2.5 py-0.5 text-xs font-medium text-ocean">🌊 {instructor.name}</span>
 						{/each}
 					</div>
@@ -99,7 +125,7 @@
 		</div>
 
 		<!-- Accommodation unit management -->
-		{#if data.service.type === 'accommodation'}
+		{#if data.service.hasInventoryUnits}
 			<div class="mb-4">
 				<div class="mb-2 flex items-center justify-between">
 					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Unit Types & Inventory</h2>
@@ -197,7 +223,7 @@
 
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
-			{#if data.service.type === 'camp' && data.service.campStartDate}
+			{#if data.service.hasRoster && data.service.startDate}
 				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
 					Open Camp Roster
 				</a>
@@ -205,7 +231,14 @@
 			<div class="flex gap-2">
 				<button
 					type="button"
-					onclick={() => { selectedType = data.service.type; editing = true; }}
+					onclick={() => {
+					editHasSessions = data.service.hasSessions;
+					editHasRoster = data.service.hasRoster;
+					editHasDateRange = data.service.hasDateRange;
+					editHasInventoryUnits = data.service.hasInventoryUnits;
+					editRequiresInstructor = data.service.requiresInstructor;
+					editing = true;
+				}}
 					class="btn-secondary flex-1"
 				>Edit</button>
 				<form method="post" action="?/toggle" use:enhance={serviceEnhance()}>
@@ -229,61 +262,55 @@
 			class="space-y-4"
 			use:enhance={serviceEnhance()}
 		>
+			<!-- Hidden capability flags -->
+			<input type="hidden" name="hasSessions"        value={String(editHasSessions)} />
+			<input type="hidden" name="hasRoster"          value={String(editHasRoster)} />
+			<input type="hidden" name="hasDateRange"       value={String(editHasDateRange)} />
+			<input type="hidden" name="hasInventoryUnits"  value={String(editHasInventoryUnits)} />
+			<input type="hidden" name="requiresInstructor" value={String(editRequiresInstructor)} />
+
 			<div>
 				<label class="label">Name *</label>
-				<input name="name" required value={data.service.name}
-					class="input" />
+				<input name="name" required value={data.service.name} class="input" />
 			</div>
 
 			<div>
-				<label class="label">Type *</label>
-				<select name="type" bind:value={selectedType}
-					class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none">
-					{#each ['lesson', 'camp', 'product', 'rental'] as t}
-						<option value={t} selected={data.service.type === t}>{t}</option>
-					{/each}
-				</select>
-			</div>
-
-			<div>
-				<label class="mb-2 block text-sm font-medium text-gray-700">Color</label>
+				<label class="label">Color</label>
 				<ColorPicker selected={data.service.color} />
 			</div>
 
-			{#if selectedType === 'lesson'}
+			{#if editHasSessions && !editHasRoster}
 				<div>
-					<label class="label">Duration (minutes)</label>
-					<input name="durationMinutes" type="number" min="15" step="15" value={data.service.durationMinutes ?? ''}
-						class="input" />
+					<label class="label">Default duration (minutes)</label>
+					<input name="durationMinutes" type="number" min="15" step="15"
+						value={data.service.durationMinutes ?? ''} class="input" />
 				</div>
 			{/if}
 
-			{#if selectedType === 'camp'}
+			{#if editHasRoster && editHasDateRange}
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label class="label">Start date *</label>
-						<input name="campStartDate" type="date" required value={data.service.campStartDate ?? ''}
-							class="input" />
+						<input name="startDate" type="date" required value={data.service.startDate ?? ''} class="input" />
 					</div>
 					<div>
 						<label class="label">End date *</label>
-						<input name="campEndDate" type="date" required value={data.service.campEndDate ?? ''}
-							class="input" />
+						<input name="endDate" type="date" required value={data.service.endDate ?? ''} class="input" />
 					</div>
 				</div>
 				<div>
-					<label class="label">Max students *</label>
-					<input name="maxStudents" type="number" min="1" step="1" required value={data.service.maxStudents ?? ''}
-						class="input" />
+					<label class="label">Max capacity *</label>
+					<input name="maxCapacity" type="number" min="1" step="1" required
+						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
 				{#if data.instructors.length > 0}
 					<div>
-						<label class="mb-2 block text-sm font-medium text-gray-700">Instructors</label>
+						<label class="label mb-2">Default instructors</label>
 						<div class="space-y-2 rounded-lg border border-border p-3">
 							{#each data.instructors as instructor}
 								<label class="flex cursor-pointer items-center gap-3">
-									<input type="checkbox" name="campInstructorId" value={instructor.id}
-										checked={data.service.campInstructorIds?.includes(instructor.id) ?? false}
+									<input type="checkbox" name="defaultInstructorId" value={instructor.id}
+										checked={data.service.defaultInstructorIds?.includes(instructor.id) ?? false}
 										class="h-4 w-4 accent-ocean" />
 									<span class="text-sm text-gray-800">{instructor.name}</span>
 								</label>

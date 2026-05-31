@@ -35,7 +35,7 @@
 			<div class="space-y-2">
 				{#each items as service}
 					<div class="rounded-(--radius-card) bg-surface ring-1 ring-border hover:ring-ocean/50 {!service.active ? 'opacity-60' : ''}">
-						<a href="{service.type === 'camp' && service.campStartDate ? `/bookings/camp/${service.id}` : `/services/${service.id}`}" class="flex items-center justify-between p-4">
+						<a href="{service.hasRoster && service.startDate ? `/bookings/camp/${service.id}` : `/services/${service.id}`}" class="flex items-center justify-between p-4">
 							<div>
 								<div class="flex items-center gap-2">
 									<span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {DOT_COLORS[service.color as ServiceColorKey] ?? DOT_COLORS['ocean']}"></span>
@@ -46,11 +46,11 @@
 								{#if service.durationMinutes}
 									<p class="text-xs text-muted">{service.durationMinutes} min</p>
 								{/if}
-								{#if service.campStartDate && service.campEndDate}
-									<p class="text-xs text-muted">{service.campStartDate} → {service.campEndDate}</p>
+								{#if service.startDate && service.endDate}
+									<p class="text-xs text-muted">{service.startDate} → {service.endDate}</p>
 								{/if}
-								{#if service.maxStudents}
-									<p class="text-xs text-muted">Max {service.maxStudents} students</p>
+								{#if service.maxCapacity}
+									<p class="text-xs text-muted">Max {service.maxCapacity}</p>
 								{/if}
 							</div>
 							<div class="text-right">
@@ -60,7 +60,7 @@
 								{/if}
 							</div>
 						</a>
-						{#if service.type === 'camp' && service.campStartDate}
+						{#if service.hasRoster && service.startDate}
 							<div class="border-t border-border/50 px-4 py-2">
 								<a
 									href="/bookings/camp/{service.id}"

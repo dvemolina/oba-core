@@ -15,9 +15,9 @@
 	let selectedUnitTypeId = $state('');
 
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
-	const isCamp = $derived(selectedService?.type === 'camp');
-	const isLesson = $derived(selectedService?.type === 'lesson');
-	const isAccommodation = $derived(selectedService?.type === 'accommodation');
+	const isCamp = $derived(selectedService?.hasRoster);
+	const isLesson = $derived(selectedService?.hasSessions);
+	const isAccommodation = $derived(selectedService?.hasInventoryUnits);
 	const showInstructor = $derived(isLesson);
 	const showTimeAndFlexible = $derived(isLesson);
 
@@ -173,12 +173,12 @@
 
 		{#if isCamp}
 			<!-- ── CAMP ENROLL MODE ─────────────────────────────────── -->
-			{#if selectedService?.campStartDate}
+			{#if selectedService?.startDate}
 				<div class="rounded-lg bg-ocean/8 px-4 py-3 text-sm text-gray-700 ring-1 ring-ocean/20">
 					<p class="font-semibold text-navy">🏕️ {selectedService.name}</p>
 					<p class="mt-0.5 text-xs text-muted">
-						{selectedService.campStartDate} → {selectedService.campEndDate}
-						{#if selectedService.maxStudents}· {selectedService.maxStudents} slots max{/if}
+						{selectedService.startDate} → {selectedService.endDate}
+						{#if selectedService.maxCapacity}· {selectedService.maxCapacity} slots max{/if}
 					</p>
 				</div>
 			{/if}
@@ -368,13 +368,13 @@
 			<!-- ── REGULAR BOOKING MODE ─────────────────────────────── -->
 
 			<!-- Camp: fixed date info + hidden inputs -->
-			{#if selectedService?.campStartDate}
+			{#if selectedService?.startDate}
 				<div class="rounded-lg bg-sand/60 px-4 py-3 text-sm text-gray-700">
-					🏕️ Camp dates: <strong>{selectedService.campStartDate}</strong> → <strong>{selectedService.campEndDate}</strong>
-					{#if selectedService.maxStudents}· Max {selectedService.maxStudents} students{/if}
+					🏕️ Camp dates: <strong>{selectedService.startDate}</strong> → <strong>{selectedService.endDate}</strong>
+					{#if selectedService.maxCapacity}· Max {selectedService.maxCapacity} students{/if}
 				</div>
-				<input type="hidden" name="date" value={selectedService.campStartDate} />
-				<input type="hidden" name="dateEnd" value={selectedService.campEndDate ?? ''} />
+				<input type="hidden" name="date" value={selectedService.startDate} />
+				<input type="hidden" name="dateEnd" value={selectedService.endDate ?? ''} />
 			{:else}
 				<div class="grid grid-cols-2 gap-3">
 					<div>

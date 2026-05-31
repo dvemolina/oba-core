@@ -1,16 +1,27 @@
-export type ServiceType = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation';
+// `type` kept as a cosmetic template label — business logic driven by capability flags.
+export type ServiceTemplate = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation';
+
+// Legacy alias for code that still references ServiceType
+export type ServiceType = ServiceTemplate;
 
 export interface Service {
 	id: string;
 	name: string;
 	description: string | null;
-	type: ServiceType;
+	type: ServiceTemplate;
+	// ── Capability flags ──────────────────────────────────────────────────────
+	hasSessions: boolean;        // needs session scheduling
+	hasRoster: boolean;          // multi-client enrollment
+	hasDateRange: boolean;       // spans multiple days
+	hasInventoryUnits: boolean;  // limited physical units
+	requiresInstructor: boolean; // needs guide/instructor
+	// ── Config ────────────────────────────────────────────────────────────────
 	durationMinutes: number | null;
-	basePrice: string; // Drizzle returns numeric as string
-	campStartDate: string | null;
-	campEndDate: string | null;
-	maxStudents: number | null;
-	campInstructorIds: string[] | null;
+	basePrice: string;
+	startDate: string | null;           // was campStartDate
+	endDate: string | null;             // was campEndDate
+	maxCapacity: number | null;         // was maxStudents
+	defaultInstructorIds: string[] | null; // was campInstructorIds
 	color: string;
 	active: boolean;
 	createdAt: Date;
@@ -20,13 +31,18 @@ export interface Service {
 export interface CreateServiceInput {
 	name: string;
 	description?: string;
-	type: ServiceType;
+	type: ServiceTemplate;
+	hasSessions?: boolean;
+	hasRoster?: boolean;
+	hasDateRange?: boolean;
+	hasInventoryUnits?: boolean;
+	requiresInstructor?: boolean;
 	durationMinutes?: number;
 	basePrice: string;
-	campStartDate?: string;
-	campEndDate?: string;
-	maxStudents?: number;
-	campInstructorIds?: string[];
+	startDate?: string;
+	endDate?: string;
+	maxCapacity?: number;
+	defaultInstructorIds?: string[];
 	color?: string;
 }
 

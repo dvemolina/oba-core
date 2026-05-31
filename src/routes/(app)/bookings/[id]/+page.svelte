@@ -107,9 +107,9 @@
 	const activeClients = $derived(data.booking.clients.filter((c) => c.status !== 'cancelled'));
 	const cancelledClients = $derived(data.booking.clients.filter((c) => c.status === 'cancelled'));
 	const enrolled = $derived(activeClients.length);
-	const maxStudents = $derived(data.booking.serviceMaxStudents);
-	const slotsLeft = $derived(maxStudents != null ? maxStudents - enrolled : null);
-	const fillPct = $derived(maxStudents ? Math.round((enrolled / maxStudents) * 100) : 0);
+	const maxCapacity = $derived(data.booking.serviceMaxCapacity);
+	const slotsLeft = $derived(maxCapacity != null ? maxCapacity - enrolled : null);
+	const fillPct = $derived(maxCapacity ? Math.round((enrolled / maxCapacity) * 100) : 0);
 
 	// Per-client editing state
 	let expandedClientId = $state<string | null>(null);
@@ -148,10 +148,10 @@
 			<div class="mb-2 flex items-center justify-between">
 				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Enrollment</p>
 				<span class="text-sm font-semibold text-navy">
-					{enrolled}{maxStudents != null ? ` / ${maxStudents}` : ''} students
+					{enrolled}{maxCapacity != null ? ` / ${maxCapacity}` : ''} students
 				</span>
 			</div>
-			{#if maxStudents != null}
+			{#if maxCapacity != null}
 				<div class="h-2 overflow-hidden rounded-full bg-border">
 					<div class="h-full rounded-full transition-all {fillPct >= 100 ? 'bg-flexible' : fillPct >= 80 ? 'bg-pending' : 'bg-confirmed'}"
 						style="width: {Math.min(fillPct, 100)}%"></div>
@@ -163,11 +163,11 @@
 		</div>
 
 		<!-- Camp instructors -->
-		{#if data.service?.campInstructorIds?.length}
+		{#if data.service?.defaultInstructorIds?.length}
 			<div class="mb-4 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 				<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Instructors</p>
 				<div class="flex flex-wrap gap-2">
-					{#each data.instructors.filter((i) => data.service?.campInstructorIds?.includes(i.id)) as instructor}
+					{#each data.instructors.filter((i) => data.service?.defaultInstructorIds?.includes(i.id)) as instructor}
 						<span class="rounded-full bg-ocean/10 px-3 py-1 text-xs font-medium text-ocean">🌊 {instructor.name}</span>
 					{/each}
 				</div>

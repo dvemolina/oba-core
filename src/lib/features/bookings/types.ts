@@ -25,7 +25,9 @@ export interface Booking {
 	serviceName: string | null;
 	serviceType: string | null;
 	serviceColor: string | null;
-	serviceMaxStudents: number | null;
+	serviceHasSessions: boolean;
+	serviceHasRoster: boolean;
+	serviceMaxCapacity: number | null;
 	instructorId: string | null;
 	instructorName: string | null;
 	accommodationUnitId: string | null;
@@ -50,7 +52,12 @@ export interface BookingSummary {
 	serviceName: string | null;
 	serviceType: string | null;
 	serviceColor: string | null;
-	serviceMaxStudents: number | null;
+	// capability flags from service
+	serviceHasSessions: boolean;
+	serviceHasRoster: boolean;
+	serviceHasDateRange: boolean;
+	serviceRequiresInstructor: boolean;
+	serviceMaxCapacity: number | null;
 	instructorName: string | null;
 	accommodationUnitName: string | null;
 	accommodationUnitTypeName: string | null;

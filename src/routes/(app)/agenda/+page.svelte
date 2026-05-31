@@ -37,11 +37,11 @@
 	);
 
 	function bookingSubtitle(booking: BookingSummary): string {
-		if (booking.serviceType === 'camp') {
-			const max = booking.serviceMaxStudents;
+		if (booking.serviceHasRoster) {
+			const max = booking.serviceMaxCapacity;
 			return max != null ? `${booking.clientCount}/${max} enrolled` : `${booking.clientCount} enrolled`;
 		}
-		if (booking.serviceType === 'accommodation') {
+		if (booking.serviceHasInventoryUnits) {
 			return booking.accommodationUnitName ?? 'Accommodation';
 		}
 		return booking.instructorName ?? 'No instructor';
@@ -89,7 +89,7 @@
 					</p>
 					<div class="space-y-2">
 						{#each agendaBookingsForDate(date) as booking}
-							{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
+							{@const isCamp = booking.serviceHasRoster && !!booking.dateEnd && booking.dateEnd !== booking.date}
 							<a href="/bookings/{booking.id}"
 								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {cardClass(booking)}">
 								<div>
@@ -105,7 +105,7 @@
 									</p>
 									<p class="text-xs text-muted">
 										{#if isCamp}
-											{booking.clientCount}{booking.serviceMaxStudents != null ? ` / ${booking.serviceMaxStudents}` : ''} enrolled
+											{booking.clientCount}{booking.serviceMaxCapacity != null ? ` / ${booking.serviceMaxCapacity}` : ''} enrolled
 										{:else}
 											{bookingSubtitle(booking)}
 										{/if}
@@ -134,7 +134,7 @@
 								</p>
 								<div class="space-y-2">
 									{#each agendaBookingsForDate(date) as booking}
-										{@const isCamp = booking.serviceType === 'camp' && !!booking.dateEnd && booking.dateEnd !== booking.date}
+										{@const isCamp = booking.serviceHasRoster && !!booking.dateEnd && booking.dateEnd !== booking.date}
 										<a href="/bookings/{booking.id}"
 											class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-70 ring-1 ring-border {cardClass(booking)}">
 											<p class="text-sm text-gray-700">

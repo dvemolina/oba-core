@@ -58,13 +58,21 @@ export const services = pgTable('services', {
 		.$defaultFn(() => crypto.randomUUID()),
 	name: text('name').notNull(),
 	description: text('description'),
+	// `type` kept as a display template hint — business logic now driven by capability flags below
 	type: serviceTypeEnum('type').notNull(),
+	// ── Capability flags ──────────────────────────────────────────────────────
+	hasSessions: boolean('has_sessions').notNull().default(false),       // needs session scheduling (lessons, classes, tours)
+	hasRoster: boolean('has_roster').notNull().default(false),           // multi-client enrollment (camps, group classes)
+	hasDateRange: boolean('has_date_range').notNull().default(false),    // spans multiple days (camps, stays, expeditions)
+	hasInventoryUnits: boolean('has_inventory_units').notNull().default(false), // limited physical units (rooms, gear, boards)
+	requiresInstructor: boolean('requires_instructor').notNull().default(true), // needs guide/instructor assigned
+	// ── Type-specific config (kept for backward compat, reused across templates) ──
 	durationMinutes: integer('duration_minutes'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
-	campStartDate: date('camp_start_date'),
-	campEndDate: date('camp_end_date'),
-	maxStudents: integer('max_students'),
-	campInstructorIds: jsonb('camp_instructor_ids'),
+	startDate: date('start_date'),             // was campStartDate
+	endDate: date('end_date'),                 // was campEndDate
+	maxCapacity: integer('max_capacity'),      // was maxStudents — max clients per booking/roster
+	defaultInstructorIds: jsonb('default_instructor_ids'), // was campInstructorIds — suggested instructors
 	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	]);
 	if (!service) error(404, 'Service not found');
 
-	const unitTypes = service.type === 'accommodation'
+	const unitTypes = service.hasInventoryUnits
 		? await listUnitTypesByService(params.id)
 		: [];
 
@@ -31,31 +31,34 @@ export const actions: Actions = {
 	update: async ({ request, params }) => {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
-		const type = form.get('type')?.toString() as ServiceType;
 		const basePrice = form.get('basePrice')?.toString() ?? '';
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();
 		const durationMinutes = durationRaw ? parseInt(durationRaw) : undefined;
-		const campStartDate = form.get('campStartDate')?.toString() || undefined;
-		const campEndDate = form.get('campEndDate')?.toString() || undefined;
-		const maxStudentsRaw = form.get('maxStudents')?.toString();
-		const maxStudents = maxStudentsRaw ? parseInt(maxStudentsRaw) : undefined;
-		const campInstructorIds = form.getAll('campInstructorId').map(String);
+		const startDate = form.get('startDate')?.toString() || undefined;
+		const endDate = form.get('endDate')?.toString() || undefined;
+		const maxCapacityRaw = form.get('maxCapacity')?.toString();
+		const maxCapacity = maxCapacityRaw ? parseInt(maxCapacityRaw) : undefined;
+		const defaultInstructorIds = form.getAll('defaultInstructorId').map(String);
 		const colorRaw = form.get('color')?.toString() ?? '';
 		const color = isValidColorKey(colorRaw) ? colorRaw : DEFAULT_COLOR;
 
-		if (!name || !type || !basePrice) {
-			return fail(400, { error: 'Name, type, and price are required' });
-		}
+		const hasSessions        = form.get('hasSessions') === 'true';
+		const hasRoster          = form.get('hasRoster') === 'true';
+		const hasDateRange       = form.get('hasDateRange') === 'true';
+		const hasInventoryUnits  = form.get('hasInventoryUnits') === 'true';
+		const requiresInstructor = form.get('requiresInstructor') !== 'false';
 
-		if (type === 'camp' && (!campStartDate || !campEndDate || !maxStudents)) {
-			return fail(400, { error: 'Camp requires start date, end date, and max students' });
+		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
+		if (hasRoster && hasDateRange && (!startDate || !endDate || !maxCapacity)) {
+			return fail(400, { error: 'Roster + date range requires start date, end date, and max capacity' });
 		}
 
 		await updateService(params.id, {
-			name, type, basePrice, description, durationMinutes,
-			campStartDate, campEndDate, maxStudents,
-			campInstructorIds: campInstructorIds.length > 0 ? campInstructorIds : undefined,
+			name, basePrice, description, durationMinutes,
+			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
+			startDate, endDate, maxCapacity,
+			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,
 			color
 		});
 		return { message: 'Service updated' };

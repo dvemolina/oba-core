@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const [booking, instructors] = await Promise.all([getBooking(params.id), listInstructors()]);
 	if (!booking) error(404, 'Booking not found');
 
-	const isCamp = booking.serviceType === 'camp';
+	const isCamp = booking.serviceHasRoster;
 	const [service, clients] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
 		isCamp ? listClients() : Promise.resolve([])
@@ -67,7 +67,7 @@ export const actions: Actions = {
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });
 
-		const max = booking.serviceMaxStudents ?? Infinity;
+		const max = booking.serviceMaxCapacity ?? Infinity;
 		if (booking.clients.length >= max) return fail(400, { error: 'Camp is full' });
 
 		const alreadyEnrolled = booking.clients.some((c) => c.clientId === clientId);

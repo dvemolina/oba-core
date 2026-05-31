@@ -224,13 +224,13 @@
 	}
 	// Context-aware subtitle: camp shows enrollment, accommodation shows unit, lesson shows instructor
 	function bookingSubtitle(booking: BookingSummary): string {
-		if (booking.serviceType === 'camp') {
-			const max = booking.serviceMaxStudents;
+		if (booking.serviceHasRoster) {
+			const max = booking.serviceMaxCapacity;
 			return max != null
 				? `${booking.clientCount}/${max} enrolled`
 				: `${booking.clientCount} enrolled`;
 		}
-		if (booking.serviceType === 'accommodation') {
+		if (booking.serviceHasInventoryUnits) {
 			return booking.accommodationUnitName ?? 'Accommodation';
 		}
 		return booking.instructorName ?? 'No instructor';
@@ -360,8 +360,8 @@
 							>
 								{#if startsHere}
 									🏕️ {booking.serviceName}
-									{#if booking.serviceMaxStudents != null}
-										<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxStudents})</span>
+									{#if booking.serviceMaxCapacity != null}
+										<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxCapacity})</span>
 									{:else}
 										<span class="ml-1 opacity-70">({booking.clientCount})</span>
 									{/if}

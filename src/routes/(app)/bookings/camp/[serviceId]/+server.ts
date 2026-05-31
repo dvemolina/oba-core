@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const service = await getService(params.serviceId);
-	if (!service || service.type !== 'camp') error(404, 'Camp not found');
+	if (!service || !service.hasRoster) error(404, 'Camp not found');
 	const booking = await getOrCreateCampBooking(service);
 	redirect(302, `/bookings/${booking.id}`);
 };
