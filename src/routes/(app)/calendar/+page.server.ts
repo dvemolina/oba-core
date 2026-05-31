@@ -4,23 +4,46 @@ import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } f
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-	const view = (url.searchParams.get('view') ?? 'month') as 'month' | 'week';
 	const today = new Date();
+	const todayStr = getTodayString();
+	const view = (url.searchParams.get('view') ?? 'month') as 'month' | 'week' | 'day';
 	const year = parseInt(url.searchParams.get('year') ?? String(today.getFullYear()));
 	const month = parseInt(url.searchParams.get('month') ?? String(today.getMonth() + 1));
-	const weekStart = url.searchParams.get('week') ?? getTodayString();
+	const weekStart = url.searchParams.get('week') ?? todayStr;
+	const dayDate = url.searchParams.get('date') ?? todayStr;
 
-	const { from, to } = getDateRange(view, year, month, weekStart);
+	let from: string, to: string;
+
+	if (view === 'day') {
+		from = to = dayDate;
+	} else {
+		({ from, to } = getDateRange(view, year, month, weekStart));
+	}
+
 	const [bookings, events] = await Promise.all([
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(from, to)
 	]);
 
-	// Pre-compute week days for the week view
+	// Week view helpers
 	const weekStartDate = getWeekStart(weekStart);
 	const weekDays = getWeekDays(weekStartDate);
 	const prevWeek = formatDate(new Date(weekStartDate.getTime() - 7 * 86400000));
 	const nextWeek = formatDate(new Date(weekStartDate.getTime() + 7 * 86400000));
 
-	return { bookings, events, view, year, month, weekStart, weekDays, prevWeek, nextWeek, today: getTodayString() };
+	// Day view helpers
+	const prevDay = formatDate(new Date(new Date(dayDate + 'T00:00:00').getTime() - 86400000));
+	const nextDay = formatDate(new Date(new Date(dayDate + 'T00:00:00').getTime() + 86400000));
+	const dayLabel = view === 'day'
+		? new Date(dayDate + 'T00:00:00').toLocaleDateString('default', {
+				weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+		  })
+		: '';
+
+	return {
+		bookings, events, view, year, month,
+		weekStart, weekDays, prevWeek, nextWeek,
+		dayDate, prevDay, nextDay, dayLabel,
+		today: todayStr
+	};
 };
