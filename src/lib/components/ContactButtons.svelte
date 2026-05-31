@@ -18,10 +18,12 @@
 			? `https://wa.me/${phone.replace(/[\s\-\(\)\+]/g, '')}${whatsappMessage ? '?text=' + encodeURIComponent(whatsappMessage) : ''}`
 			: ''
 	);
+
+	const hasAny = $derived(!!(phone || email));
 </script>
 
 {#if compact}
-	<!-- Icon-only: for tight spaces (camp roster, lists) -->
+	<!-- Icon-only mode: show all available -->
 	<div class="flex items-center gap-1">
 		{#if phone}
 			<a href="tel:{phone}"
@@ -35,7 +37,8 @@
 				title="WhatsApp">
 				<MessageCircle size={14} strokeWidth={1.75} />
 			</a>
-		{:else if email}
+		{/if}
+		{#if email}
 			<a href="mailto:{email}"
 				class="btn-ghost btn-sm flex h-7 w-7 items-center justify-center rounded-lg p-0"
 				title="{email}">
@@ -43,8 +46,8 @@
 			</a>
 		{/if}
 	</div>
-{:else}
-	<!-- Full labeled buttons -->
+{:else if hasAny}
+	<!-- Full labeled buttons: show all available -->
 	<div class="flex gap-2">
 		{#if phone}
 			<a href="tel:{phone}" class="btn-secondary btn-sm flex-1 gap-1.5">
@@ -59,13 +62,12 @@
 			</a>
 		{/if}
 		{#if email}
-			<a href="mailto:{email}" class="btn-secondary btn-sm gap-1.5 {phone ? '' : 'flex-1'}">
+			<a href="mailto:{email}" class="btn-secondary btn-sm flex-1 gap-1.5">
 				<Mail size={14} strokeWidth={1.75} />
 				Email
 			</a>
 		{/if}
 	</div>
-	{#if !phone && !email}
-		<p class="text-xs text-muted italic">Sin información de contacto.</p>
-	{/if}
+{:else}
+	<p class="text-xs text-muted italic">Sin información de contacto.</p>
 {/if}
