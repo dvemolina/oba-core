@@ -1,5 +1,5 @@
 // src/lib/features/bookings/queries.ts
-import { and, eq, gte, lte, desc, inArray, ne } from 'drizzle-orm';
+import { and, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bookings, bookingClients, clients, services, instructors, accommodationUnits, accommodationUnitTypes } from '$lib/server/db/schema';
 import type { Service } from '$lib/features/services/types';
@@ -37,7 +37,11 @@ export async function listBookingsForDateRange(
 		.leftJoin(instructors, eq(bookings.instructorId, instructors.id))
 		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
 		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
-		.where(and(gte(bookings.date, from), lte(bookings.date, to)))
+		// Overlap: booking starts before range ends AND booking ends (or is same-day) after range starts
+		.where(and(
+			lte(bookings.date, to),
+			gte(sql`COALESCE(${bookings.dateEnd}, ${bookings.date})`, from)
+		))
 		.orderBy(bookings.date, bookings.time);
 
 	const ids = rows.map((r) => r.id);

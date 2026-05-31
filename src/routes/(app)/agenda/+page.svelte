@@ -36,6 +36,17 @@
 		Object.keys(grouped).filter(d => d < today && agendaBookingsForDate(d).length > 0).sort().reverse()
 	);
 
+	function bookingSubtitle(booking: BookingSummary): string {
+		if (booking.serviceType === 'camp') {
+			const max = booking.serviceMaxStudents;
+			return max != null ? `${booking.clientCount}/${max} enrolled` : `${booking.clientCount} enrolled`;
+		}
+		if (booking.serviceType === 'accommodation') {
+			return booking.accommodationUnitName ?? 'Accommodation';
+		}
+		return booking.instructorName ?? 'No instructor';
+	}
+
 	function cardClass(booking: BookingSummary): string {
 		const c = getServiceColor(booking.serviceColor ?? '');
 		if (booking.status === 'cancelled') return 'border-gray-300 bg-surface opacity-50 border-solid';
@@ -96,7 +107,7 @@
 										{#if isCamp}
 											{booking.clientCount}{booking.serviceMaxStudents != null ? ` / ${booking.serviceMaxStudents}` : ''} enrolled
 										{:else}
-											{booking.instructorName ?? 'No instructor'} · {booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}
+											{bookingSubtitle(booking)}
 										{/if}
 									</p>
 								</div>

@@ -11,9 +11,14 @@
 	const today = $derived(data.today);
 
 	function setView(v: 'month' | 'week' | 'day') {
-		if (v === 'week') goto(`/calendar?view=week&week=${data.weekStart}`);
-		else if (v === 'day') goto(`/calendar?view=day&date=${data.today}`);
-		else goto(`/calendar?view=month&year=${data.year}&month=${data.month}`);
+		// Preserve date context when switching views (Google Cal / iCal behaviour)
+		const ctx = data.view === 'day'  ? data.dayDate
+		          : data.view === 'week' ? data.weekStart
+		          : `${data.year}-${String(data.month).padStart(2, '0')}-01`;
+		const d = new Date(ctx + 'T00:00:00');
+		if (v === 'week')  goto(`/calendar?view=week&week=${ctx}`);
+		else if (v === 'day') goto(`/calendar?view=day&date=${ctx}`);
+		else goto(`/calendar?view=month&year=${d.getFullYear()}&month=${d.getMonth() + 1}`);
 	}
 	function prevMonth() {
 		let y = data.year, m = data.month - 1;
@@ -216,6 +221,19 @@
 	}
 	function dayStatusText(booking: BookingSummary): string {
 		return getServiceColor(booking.serviceColor ?? '').text;
+	}
+	// Context-aware subtitle: camp shows enrollment, accommodation shows unit, lesson shows instructor
+	function bookingSubtitle(booking: BookingSummary): string {
+		if (booking.serviceType === 'camp') {
+			const max = booking.serviceMaxStudents;
+			return max != null
+				? `${booking.clientCount}/${max} enrolled`
+				: `${booking.clientCount} enrolled`;
+		}
+		if (booking.serviceType === 'accommodation') {
+			return booking.accommodationUnitName ?? 'Accommodation';
+		}
+		return booking.instructorName ?? 'No instructor';
 	}
 </script>
 
@@ -438,7 +456,7 @@
 											{booking.serviceName}
 											{#if booking.firstClientName}<span class="font-normal text-muted"> · {booking.firstClientName}</span>{/if}
 										</p>
-										<p class="text-xs text-muted">{booking.instructorName ?? 'No instructor'}</p>
+										<p class="text-xs text-muted">{bookingSubtitle(booking)}</p>
 									</div>
 									<span class="text-xs {dayStatusText(booking)}">{booking.status}</span>
 								</a>
@@ -472,7 +490,7 @@
 												{/if}
 											</p>
 											<p class="text-xs text-muted">
-												{booking.instructorName ?? 'No instructor'}
+												{bookingSubtitle(booking)}
 												{#if booking.isFlexible}<span class="text-flexible"> ⚡</span>{/if}
 											</p>
 										</div>
