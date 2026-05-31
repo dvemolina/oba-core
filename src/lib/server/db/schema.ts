@@ -174,5 +174,50 @@ export const whatsappSessions = pgTable('whatsapp_sessions', {
 	lastActivity:  timestamp('last_activity').notNull().defaultNow()
 });
 
+// ── Sessions ──────────────────────────────────────────────────────────────────
+// Physical occurrences of a bookable service (individual surf/ski/yoga lessons
+// within a booking contract). Applies to any service with has_sessions=true.
+
+export const sessions = pgTable('sessions', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	bookingId: text('booking_id')
+		.notNull()
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	date: date('date').notNull(),
+	time: time('time'),                          // null = unscheduled
+	notes: text('notes'),                        // spot info, group description, etc.
+	status: text('status').notNull().default('unscheduled'), // 'unscheduled' | 'scheduled' | 'completed' | 'cancelled'
+	sortOrder: integer('sort_order').notNull().default(0), // ordering within same day
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	updatedAt: timestamp('updated_at').notNull().defaultNow()
+});
+
+export const sessionInstructors = pgTable('session_instructors', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	sessionId: text('session_id')
+		.notNull()
+		.references(() => sessions.id, { onDelete: 'cascade' }),
+	instructorId: text('instructor_id')
+		.notNull()
+		.references(() => instructors.id, { onDelete: 'cascade' })
+});
+
+// Multiple instructors on non-session bookings (rentals, products, accommodation)
+export const bookingInstructors = pgTable('booking_instructors', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	bookingId: text('booking_id')
+		.notNull()
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	instructorId: text('instructor_id')
+		.notNull()
+		.references(() => instructors.id, { onDelete: 'cascade' })
+});
+
 // Re-export Better Auth schema so db/index.ts imports everything from one place
 export * from './auth.schema';

@@ -1,5 +1,6 @@
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
+import { listSessionsForDate } from '$lib/features/sessions/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
 import type { PageServerLoad } from './$types';
 
@@ -20,9 +21,10 @@ export const load: PageServerLoad = async ({ url }) => {
 		({ from, to } = getDateRange(view, year, month, weekStart));
 	}
 
-	const [bookings, events] = await Promise.all([
+	const [bookings, events, daySessions] = await Promise.all([
 		listBookingsForDateRange(from, to),
-		listEventsForDateRange(from, to)
+		listEventsForDateRange(from, to),
+		view === 'day' ? listSessionsForDate(dayDate) : Promise.resolve([])
 	]);
 
 	// Week view helpers
@@ -41,7 +43,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		: '';
 
 	return {
-		bookings, events, view, year, month,
+		bookings, events, daySessions, view, year, month,
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
 		today: todayStr

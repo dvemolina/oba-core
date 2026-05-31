@@ -195,21 +195,38 @@
 		return `${String(Math.floor(snapped / 60)).padStart(2, '0')}:${String(snapped % 60).padStart(2, '0')}`;
 	}
 
-	const daySlottedBookings = $derived(() => {
+	// Day view: sessions take priority for has_sessions services.
+	// Non-session bookings (rentals, accommodation, products) still show as bookings.
+	const daySessionSlots = $derived(() => {
+		const map: Record<string, typeof data.daySessions> = {};
+		for (const s of data.daySessions) {
+			if (s.time && s.status !== 'cancelled') {
+				const key = toSlotKey(s.time);
+				(map[key] ??= []).push(s);
+			}
+		}
+		return map;
+	});
+
+	// Unscheduled sessions (no time) + non-session bookings without time
+	const dayUnscheduledSessions = $derived(
+		data.daySessions.filter(s => s.status === 'unscheduled')
+	);
+	const dayNonSessionBookings = $derived(
+		data.bookings.filter(b =>
+			b.status !== 'cancelled' && !b.serviceHasSessions && (!b.time || b.isFlexible)
+		)
+	);
+	const daySlottedNonSessionBookings = $derived(() => {
 		const map: Record<string, BookingSummary[]> = {};
 		for (const b of data.bookings) {
-			if (b.time && b.status !== 'cancelled') {
+			if (b.time && b.status !== 'cancelled' && !b.serviceHasSessions) {
 				const key = toSlotKey(b.time);
 				(map[key] ??= []).push(b);
 			}
 		}
 		return map;
 	});
-
-	// Non-cancelled unscheduled (no time OR flexible)
-	const dayUnscheduled = $derived(
-		data.bookings.filter(b => b.status !== 'cancelled' && (!b.time || b.isFlexible))
-	);
 	// Cancelled — collapsed at bottom
 	const dayCancelled = $derived(
 		data.bookings.filter(b => b.status === 'cancelled')
@@ -443,12 +460,24 @@
 					</a>
 				{/each}
 
-				<!-- Unscheduled / flexible (non-cancelled) -->
-				{#if dayUnscheduled.length > 0}
+				<!-- Unscheduled sessions + non-session flexible bookings -->
+				{#if dayUnscheduledSessions.length > 0 || dayNonSessionBookings.length > 0}
 					<div class="border-b border-border bg-pending/5 px-4 py-2">
-						<p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">⚡ Unscheduled / Flexible</p>
+						<p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Needs scheduling</p>
 						<div class="space-y-1.5">
-							{#each dayUnscheduled as booking}
+							{#each dayUnscheduledSessions as session}
+								<a href="/bookings/{session.bookingId}"
+									class="flex items-center justify-between rounded-lg border-l-4 border-dashed border-muted bg-surface px-3 py-2 ring-1 ring-border">
+									<div>
+										<p class="text-sm font-medium text-gray-800">{session.serviceName}</p>
+										<p class="text-xs text-muted">
+											{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
+										</p>
+									</div>
+									<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">unscheduled</span>
+								</a>
+							{/each}
+							{#each dayNonSessionBookings as booking}
 								<a href="/bookings/{booking.id}"
 									class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {dayBookingBg(booking)}">
 									<div>
@@ -468,9 +497,11 @@
 				<!-- Time grid -->
 				<div class="divide-y divide-border/50">
 					{#each daySlots as slot}
-						{@const bookingsHere = daySlottedBookings()[slot] ?? []}
+						{@const sessionsHere = daySessionSlots()[slot] ?? []}
+						{@const nonSessionHere = daySlottedNonSessionBookings()[slot] ?? []}
+						{@const anyHere = sessionsHere.length > 0 || nonSessionHere.length > 0}
 						{@const isHour = slot.endsWith(':00')}
-						<div class="flex min-h-12 gap-0 {bookingsHere.length > 0 ? '' : 'hover:bg-sand/60'}">
+						<div class="flex min-h-12 gap-0 {anyHere ? '' : 'hover:bg-sand/60'}">
 							<div class="w-14 shrink-0 border-r border-border/50 px-2 pt-1 text-right">
 								{#if isHour}
 									<span class="text-[11px] font-medium text-muted">{slot}</span>
@@ -478,26 +509,36 @@
 									<span class="text-[9px] text-border">{slot}</span>
 								{/if}
 							</div>
-							<div class="flex-1 px-2 py-1 {bookingsHere.length > 0 ? 'space-y-1' : ''}">
-								{#each bookingsHere as booking}
+							<div class="flex-1 px-2 py-1 {anyHere ? 'space-y-1' : ''}">
+								{#each sessionsHere as session}
+									{@const sc = getServiceColor(session.serviceColor ?? '')}
+									<a href="/bookings/{session.bookingId}"
+										class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {sc.border} {sc.bg}">
+										<div class="min-w-0">
+											<p class="truncate text-sm font-medium text-gray-800">
+												{session.time ? session.time.slice(0, 5) + ' ' : ''}{session.serviceName}
+											</p>
+											<p class="text-xs text-muted">
+												{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
+												{#if session.notes}<span class="ml-1">· {session.notes}</span>{/if}
+											</p>
+										</div>
+										<span class="ml-2 shrink-0 text-xs {sc.text}">{session.status}</span>
+									</a>
+								{/each}
+								{#each nonSessionHere as booking}
 									<a href="/bookings/{booking.id}"
 										class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {dayBookingBg(booking)}">
 										<div class="min-w-0">
 											<p class="truncate text-sm font-medium text-gray-800">
 												{booking.time ? booking.time.slice(0, 5) + ' ' : ''}{booking.serviceName}
-												{#if booking.firstClientName}
-													<span class="font-normal text-muted"> · {booking.firstClientName}{booking.clientCount > 1 ? ` +${booking.clientCount - 1}` : ''}</span>
-												{/if}
 											</p>
-											<p class="text-xs text-muted">
-												{bookingSubtitle(booking)}
-												{#if booking.isFlexible}<span class="text-flexible"> ⚡</span>{/if}
-											</p>
+											<p class="text-xs text-muted">{bookingSubtitle(booking)}</p>
 										</div>
 										<span class="ml-2 shrink-0 text-xs {dayStatusText(booking)}">{booking.status}</span>
 									</a>
 								{/each}
-								{#if bookingsHere.length === 0 && isHour}
+								{#if !anyHere && isHour}
 									<a href="/bookings/new?date={data.dayDate}&time={slot}"
 										class="block h-full w-full text-[10px] text-transparent hover:text-muted/60">+ {slot}</a>
 								{/if}

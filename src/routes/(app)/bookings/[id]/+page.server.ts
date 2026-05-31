@@ -10,6 +10,13 @@ import {
 	addClientToBooking,
 	removeClientFromBooking
 } from '$lib/features/bookings/queries';
+import {
+	listSessionsForBooking,
+	createSession,
+	updateSession,
+	cancelSession,
+	deleteSession
+} from '$lib/features/sessions/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -21,12 +28,14 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (!booking) error(404, 'Booking not found');
 
 	const isCamp = booking.serviceHasRoster;
-	const [service, clients] = await Promise.all([
+	const hasSessions = booking.serviceHasSessions;
+	const [service, clients, sessions] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
-		isCamp ? listClients() : Promise.resolve([])
+		isCamp ? listClients() : Promise.resolve([]),
+		hasSessions ? listSessionsForBooking(params.id) : Promise.resolve([])
 	]);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp };
+	return { booking, instructors, service: service ?? null, clients, isCamp, sessions };
 };
 
 export const actions: Actions = {
@@ -113,5 +122,43 @@ export const actions: Actions = {
 		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
 		await reenrollBookingClient(bookingClientId);
 		return { error: null, message: 'Client re-enrolled' };
+	},
+
+	addSession: async ({ request, params }) => {
+		const form = await request.formData();
+		const date = form.get('sessionDate')?.toString() ?? '';
+		const time = form.get('sessionTime')?.toString() || undefined;
+		const notes = form.get('sessionNotes')?.toString() || undefined;
+		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
+		if (!date) return fail(400, { error: 'Session date required' });
+		await createSession({ bookingId: params.id, date, time, notes, instructorIds });
+		return { error: null, message: 'Session added' };
+	},
+
+	updateSession: async ({ request }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		const time = form.get('sessionTime')?.toString() || null;
+		const notes = form.get('sessionNotes')?.toString() || null;
+		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		await updateSession(sessionId, { time, notes, instructorIds });
+		return { error: null, message: 'Session updated' };
+	},
+
+	cancelSession: async ({ request }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		await cancelSession(sessionId);
+		return { error: null, message: 'Session cancelled' };
+	},
+
+	deleteSession: async ({ request }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		await deleteSession(sessionId);
+		return { error: null, message: 'Session deleted' };
 	}
 };

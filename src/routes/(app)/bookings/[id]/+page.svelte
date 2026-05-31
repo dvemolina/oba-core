@@ -10,6 +10,20 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Sessions panel state
+	let showAddSession = $state(false);
+	let editingSessionId = $state<string | null>(null);
+	const sessionsByDate = $derived(() => {
+		const map: Record<string, typeof data.sessions> = {};
+		for (const s of data.sessions) {
+			(map[s.date] ??= []).push(s);
+		}
+		// Sort each day's sessions by sortOrder then time
+		for (const d in map) map[d].sort((a, b) => a.sortOrder - b.sortOrder || (a.time ?? '').localeCompare(b.time ?? ''));
+		return map;
+	});
+	const unscheduledSessions = $derived(data.sessions.filter(s => s.status === 'unscheduled'));
+
 	const statusColors: Record<string, string> = {
 		confirmed: 'bg-confirmed/15 text-green-700',
 		pending: 'bg-pending/30 text-amber-700',
@@ -412,6 +426,150 @@
 					</div>
 				{/if}
 			</div>
+
+			<!-- Sessions panel (for has_sessions services) -->
+			{#if data.booking.serviceHasSessions}
+				<div class="mb-4 rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
+					<div class="flex items-center justify-between px-4 pt-4 pb-3">
+						<p class="text-xs font-semibold uppercase tracking-wider text-muted">
+							Sessions
+							{#if unscheduledSessions.length > 0}
+								<span class="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{unscheduledSessions.length} unscheduled</span>
+							{/if}
+						</p>
+						<button type="button" onclick={() => showAddSession = !showAddSession}
+							class="text-xs font-medium text-ocean hover:underline">
+							{showAddSession ? 'Cancel' : '+ Add session'}
+						</button>
+					</div>
+
+					{#if showAddSession}
+						<form method="post" action="?/addSession" use:enhance={withToast(() => { showAddSession = false; })}
+							class="mx-4 mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
+							<p class="text-xs font-semibold text-ocean">New session</p>
+							<div class="grid grid-cols-2 gap-2">
+								<div>
+									<label class="text-xs text-muted">Date *</label>
+									<input name="sessionDate" type="date" required
+										value={data.booking.date}
+										class="mt-0.5 input text-xs" />
+								</div>
+								<div>
+									<label class="text-xs text-muted">Time</label>
+									<input name="sessionTime" type="time"
+										class="mt-0.5 input text-xs" />
+								</div>
+							</div>
+							<div>
+								<label class="text-xs text-muted">Notes / spot</label>
+								<input name="sessionNotes" placeholder="e.g. Playa Norte, morning group"
+									class="mt-0.5 input text-xs" />
+							</div>
+							{#if data.instructors.length > 0}
+								<div>
+									<label class="text-xs text-muted">Instructors</label>
+									<div class="mt-1 flex flex-wrap gap-2">
+										{#each data.instructors as instructor}
+											<label class="flex items-center gap-1.5">
+												<input type="checkbox" name="sessionInstructorId" value={instructor.id}
+													class="h-3.5 w-3.5 accent-ocean" />
+												<span class="text-xs text-gray-700">{instructor.name}</span>
+											</label>
+										{/each}
+									</div>
+								</div>
+							{/if}
+							<button type="submit" class="btn-primary btn-sm btn-block">Add session</button>
+						</form>
+					{/if}
+
+					{#if data.sessions.length === 0}
+						<p class="px-4 pb-4 text-sm text-muted">No sessions yet. Add the first one above.</p>
+					{:else}
+						<div class="divide-y divide-border/60">
+							{#each Object.entries(sessionsByDate()) as [date, daySessions]}
+								<div class="px-4 py-3">
+									<p class="mb-2 text-xs font-semibold text-muted">
+										{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
+									</p>
+									<div class="space-y-2">
+										{#each daySessions as session}
+											<div class="rounded-lg border border-border bg-sand/50 p-3">
+												<div class="flex items-start justify-between gap-2">
+													<div class="min-w-0">
+														<p class="text-sm font-medium text-gray-800">
+															{#if session.time}
+																{session.time.slice(0, 5)}
+															{:else}
+																<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">unscheduled</span>
+															{/if}
+															{#if session.notes}
+																<span class="ml-1 text-xs text-muted">· {session.notes}</span>
+															{/if}
+														</p>
+														<p class="text-xs text-muted">
+															{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
+														</p>
+													</div>
+													<div class="flex shrink-0 items-center gap-1.5">
+														<button type="button"
+															onclick={() => editingSessionId = editingSessionId === session.id ? null : session.id}
+															class="btn-ghost btn-sm p-1 text-xs">Edit</button>
+														<form method="post" action="?/cancelSession" use:enhance={withToast()}>
+															<input type="hidden" name="sessionId" value={session.id} />
+															<button type="submit" onclick={(e) => { if (!confirm('Cancel session?')) e.preventDefault(); }}
+																class="btn-destructive btn-sm p-1 text-xs">✕</button>
+														</form>
+													</div>
+												</div>
+
+												{#if editingSessionId === session.id}
+													<form method="post" action="?/updateSession" use:enhance={withToast(() => { editingSessionId = null; })}
+														class="mt-3 space-y-2 border-t border-border/60 pt-3">
+														<input type="hidden" name="sessionId" value={session.id} />
+														<div class="grid grid-cols-2 gap-2">
+															<div>
+																<label class="text-xs text-muted">Time</label>
+																<input name="sessionTime" type="time" value={session.time ?? ''}
+																	class="mt-0.5 input text-xs" />
+															</div>
+															<div>
+																<label class="text-xs text-muted">Notes</label>
+																<input name="sessionNotes" value={session.notes ?? ''}
+																	class="mt-0.5 input text-xs" />
+															</div>
+														</div>
+														{#if data.instructors.length > 0}
+															<div class="flex flex-wrap gap-2">
+																{#each data.instructors as instructor}
+																	<label class="flex items-center gap-1.5">
+																		<input type="checkbox" name="sessionInstructorId" value={instructor.id}
+																			checked={session.instructors.some(si => si.instructorId === instructor.id)}
+																			class="h-3.5 w-3.5 accent-ocean" />
+																		<span class="text-xs text-gray-700">{instructor.name}</span>
+																	</label>
+																{/each}
+															</div>
+														{/if}
+														<button type="submit" class="btn-primary btn-sm btn-block">Save session</button>
+													</form>
+												{/if}
+											</div>
+										{/each}
+										<!-- Add another session on this day -->
+										<form method="post" action="?/addSession" use:enhance={withToast()}
+											class="flex items-center gap-2">
+											<input type="hidden" name="sessionDate" value={date} />
+											<input name="sessionTime" type="time" class="input text-xs flex-1" />
+											<button type="submit" class="btn-secondary btn-sm whitespace-nowrap">+ Session</button>
+										</form>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Clients -->
 			<div class="mb-4 rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
