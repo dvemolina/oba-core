@@ -1,14 +1,13 @@
 import { eq, ne, sum, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bookingClients, bookings } from '$lib/server/db/schema';
-import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listSessionsForDateRange } from '$lib/features/sessions/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
+import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { getTodayString, formatDate } from '$lib/features/calendar/utils';
 import type { PageServerLoad } from './$types';
 
 async function loadStats(today: string) {
-	// Pending revenue: sum(amount_due - amount_paid) across enrolled clients on non-cancelled bookings
 	const [revenueRow] = await db
 		.select({
 			pendingRevenue: sum(
@@ -22,10 +21,7 @@ async function loadStats(today: string) {
 			AND ${bookings.status} != 'cancelled'
 			AND ${bookingClients.paymentStatus} != 'paid'`
 		);
-
-	return {
-		pendingRevenue: parseFloat(revenueRow?.pendingRevenue ?? '0') || 0
-	};
+	return { pendingRevenue: parseFloat(revenueRow?.pendingRevenue ?? '0') || 0 };
 }
 
 export const load: PageServerLoad = async () => {
@@ -39,34 +35,24 @@ export const load: PageServerLoad = async () => {
 	const from = formatDate(past);
 	const to = formatDate(future);
 
-	const [sessions, bookings, events, stats] = await Promise.all([
+	const [sessions, bookingsInRange, events, stats] = await Promise.all([
 		listSessionsForDateRange(from, to),
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(today, to),
 		loadStats(today)
 	]);
 
-	const activeCamps = bookings.filter(
+	// Active camps: roster + date range + not cancelled + end in future
+	const activeCamps = bookingsInRange.filter(
 		b => b.serviceHasRoster && b.dateEnd && b.status !== 'cancelled' && b.dateEnd >= today
 	);
-	const campIds = new Set(activeCamps.map(c => c.id));
 
-	// Exclude camps (already shown in the banner) and session-based services
-	const nonSessionBookings = bookings.filter(
-		b => !b.serviceHasSessions && b.status !== 'cancelled' && !campIds.has(b.id)
-	);
-
-	// Stats derived from loaded data
 	const todaySessions = sessions.filter(s => s.date === today);
 	const scheduledToday = todaySessions.filter(s => s.status === 'scheduled').length;
 	const unscheduledTotal = sessions.filter(s => s.status === 'unscheduled' && s.date >= today).length;
 
 	return {
-		sessions, nonSessionBookings, activeCamps, events, today,
-		stats: {
-			scheduledToday,
-			unscheduledTotal,
-			pendingRevenue: stats.pendingRevenue
-		}
+		sessions, activeCamps, events, today,
+		stats: { scheduledToday, unscheduledTotal, pendingRevenue: stats.pendingRevenue }
 	};
 };

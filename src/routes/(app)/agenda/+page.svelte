@@ -3,7 +3,6 @@
 	import { fmtTimeRange } from '$lib/features/calendar/utils';
 	import type { PageData } from './$types';
 	import type { AgendaSession } from '$lib/features/sessions/types';
-	import type { BookingSummary } from '$lib/features/bookings/types';
 
 	let { data }: { data: PageData } = $props();
 
@@ -29,20 +28,15 @@
 
 	// ── Date grouping ─────────────────────────────────────────────────────────────
 
-	// All unique dates that have sessions or non-session bookings
+	// All unique dates that have sessions
 	const allDates = $derived((): string[] => {
 		const set = new Set<string>();
 		for (const s of data.sessions) set.add(s.date);
-		for (const b of data.nonSessionBookings) set.add(b.date);
 		return [...set].sort();
 	});
 
 	function sessionsForDate(date: string): AgendaSession[] {
 		return data.sessions.filter(s => s.date === date);
-	}
-
-	function nonSessionBookingsForDate(date: string): BookingSummary[] {
-		return data.nonSessionBookings.filter(b => b.date === date);
 	}
 
 	const upcomingDates = $derived(allDates().filter(d => d >= today));
@@ -52,21 +46,12 @@
 	const unscheduled = $derived(
 		data.sessions.filter(s => s.status === 'unscheduled' && s.date >= today)
 	);
-
-	// ── Subtitle for non-session bookings ─────────────────────────────────────────
-	function nonSessionSubtitle(b: BookingSummary): string {
-		if (b.serviceHasRoster) {
-			const max = b.serviceMaxCapacity;
-			return max != null ? `${b.clientCount}/${max} enrolled` : `${b.clientCount} enrolled`;
-		}
-		return b.instructorName ?? (b.firstClientName ?? '—');
-	}
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
 	<!-- Header -->
 	<div class="page-header">
-		<h1 class="page-title">Agenda</h1>
+		<h1 class="page-title">Today</h1>
 	</div>
 
 	<!-- Stats strip -->
@@ -125,7 +110,7 @@
 							<a href="/bookings/{s.bookingId}" class="flex items-center gap-2 text-xs text-amber-700 hover:underline">
 								<span>·</span>
 								<span>{fmtDate(s.date)} · {s.serviceName ?? 'Session'}
-									{#if s.clientName} · {s.clientName}{/if}
+									{#if s.participantNames.length > 0} · {s.participantNames[0]}{/if}
 								</span>
 							</a>
 						{/each}
@@ -137,13 +122,12 @@
 			{/if}
 
 			{#if upcomingDates.length === 0 && data.events.length === 0 && data.activeCamps.length === 0}
-				<p class="py-16 text-center text-sm text-muted">No upcoming sessions or bookings.</p>
+				<p class="py-16 text-center text-sm text-muted">No upcoming sessions.</p>
 			{/if}
 
 			<!-- Upcoming dates -->
 			{#each upcomingDates as date}
 				{@const daySessions = sessionsForDate(date)}
-				{@const dayBookings = nonSessionBookingsForDate(date)}
 				<div id={date}>
 					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
 					<div class="space-y-2">
@@ -171,15 +155,13 @@
 									<p class="mt-0.5 text-xs text-muted">
 										{#if s.serviceHasRoster}
 											{s.enrolledCount}{s.maxCapacity != null ? `/${s.maxCapacity}` : ''} enrolled
-										{:else if s.clientName}
-											{s.clientName}
+										{:else if s.participantNames.length > 0}
+											{s.participantNames.join(' · ')}
 										{/if}
 										{#if s.instructors.length > 0}
 											· 🌊 {s.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}
 										{/if}
-										{#if s.notes}
-											· {s.notes}
-										{/if}
+										{#if s.notes}· {s.notes}{/if}
 									</p>
 								</div>
 								<span class="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] {s.bookingStatus === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
@@ -188,18 +170,6 @@
 							</a>
 						{/each}
 
-						<!-- Non-session bookings (rentals, accommodation, products) -->
-						{#each dayBookings as b}
-							{@const c = getServiceColor(b.serviceColor ?? '')}
-							<a href="/bookings/{b.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {c.border} bg-surface opacity-85">
-								<div>
-									<p class="text-sm font-medium text-gray-700">{b.serviceName ?? 'Booking'}</p>
-									<p class="text-xs text-muted">{nonSessionSubtitle(b)}{b.dateEnd && b.dateEnd !== b.date ? ` · until ${b.dateEnd}` : ''}</p>
-								</div>
-								<span class="rounded-full px-2 py-0.5 text-[10px] {b.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">{b.status}</span>
-							</a>
-						{/each}
 					</div>
 				</div>
 			{/each}
@@ -208,13 +178,12 @@
 			{#if pastDates.length > 0}
 				<details class="mt-6">
 					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Past ({pastDates.reduce((n, d) => n + sessionsForDate(d).length + nonSessionBookingsForDate(d).length, 0)})
+						Past ({pastDates.reduce((n, d) => n + sessionsForDate(d).length, 0)})
 					</summary>
 					<div class="mt-3 space-y-4">
 						{#each pastDates as date}
 							{@const daySessions = sessionsForDate(date)}
-							{@const dayBookings = nonSessionBookingsForDate(date)}
-							{#if daySessions.length > 0 || dayBookings.length > 0}
+							{#if daySessions.length > 0}
 								<div>
 									<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
 									<div class="space-y-1.5">
@@ -224,17 +193,9 @@
 												class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-60 ring-1 ring-border {c.border} bg-surface">
 												<p class="text-sm text-gray-700">
 													{fmtTime(s.time) ?? '—'} · {s.serviceName ?? 'Session'}
-													{#if s.clientName} · {s.clientName}{/if}
+													{#if s.participantNames.length > 0} · {s.participantNames[0]}{/if}
 												</p>
 												<span class="text-xs text-muted">{s.bookingStatus}</span>
-											</a>
-										{/each}
-										{#each dayBookings as b}
-											{@const c = getServiceColor(b.serviceColor ?? '')}
-											<a href="/bookings/{b.id}"
-												class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-60 ring-1 ring-border {c.border} bg-surface">
-												<p class="text-sm text-gray-700">{b.serviceName ?? 'Booking'}</p>
-												<span class="text-xs text-muted">{b.clientCount} client{b.clientCount !== 1 ? 's' : ''}</span>
 											</a>
 										{/each}
 									</div>
