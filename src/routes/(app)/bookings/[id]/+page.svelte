@@ -575,28 +575,58 @@
 								</p>
 								<div class="space-y-1.5">
 									{#each daySessions as session}
-										<div class="flex items-center justify-between rounded-lg border border-border bg-sand/50 px-3 py-2">
-											<div>
-												<p class="text-sm font-medium text-gray-800">
-													{#if session.time}
-														{fmtTimeRange(session.time, sessionDuration(session))}
-													{:else}
-														<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">unscheduled</span>
-													{/if}
-													{#if session.notes}<span class="ml-1 text-xs text-muted">· {session.notes}</span>{/if}
-												</p>
-												<p class="text-xs text-muted">
-													{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
-												</p>
+										<div class="rounded-lg border border-border bg-sand/50 px-3 py-2">
+											<div class="flex items-center justify-between">
+												<div>
+													<p class="text-sm font-medium text-gray-800">
+														{#if session.time}
+															{fmtTimeRange(session.time, sessionDuration(session))}
+														{:else}
+															<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">unscheduled</span>
+														{/if}
+														{#if session.notes}<span class="ml-1 text-xs text-muted">· {session.notes}</span>{/if}
+													</p>
+													<p class="text-xs text-muted">
+														{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
+													</p>
+												</div>
+												<div class="flex items-center gap-1.5">
+													<button type="button"
+														onclick={() => editingSessionId = editingSessionId === session.id ? null : session.id}
+														class="btn-ghost btn-sm p-1 text-xs">Edit</button>
+													<form method="post" action="?/cancelSession" use:enhance={withToast()}>
+														<input type="hidden" name="sessionId" value={session.id} />
+														<button type="submit" onclick={(e) => { if (!confirm('Cancel session?')) e.preventDefault(); }}
+															class="btn-destructive btn-sm p-1 text-xs">✕</button>
+													</form>
+												</div>
 											</div>
-											<div class="flex items-center gap-1.5">
-												<button type="button"
-													onclick={() => editingSessionId = editingSessionId === session.id ? null : session.id}
-													class="btn-ghost btn-sm p-1 text-xs">Edit</button>
-												<form method="post" action="?/cancelSession" use:enhance={withToast()}>
+											<!-- Participants -->
+											<div class="mt-2 border-t border-border/50 pt-2">
+												<p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+													Who's attending
+												</p>
+												{#if session.participants.length > 0}
+													<div class="flex flex-wrap gap-1.5">
+														{#each session.participants as p}
+															<div class="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 ring-1 ring-border">
+																<span class="text-xs text-gray-700">{p.name}</span>
+																<form method="post" action="?/removeParticipant" use:enhance={withToast()}>
+																	<input type="hidden" name="participantId" value={p.id} />
+																	<button type="submit" class="ml-0.5 text-muted hover:text-red-500 leading-none text-sm">×</button>
+																</form>
+															</div>
+														{/each}
+													</div>
+												{:else}
+													<p class="text-xs text-muted italic">No participants set — defaults to booking client</p>
+												{/if}
+												<form method="post" action="?/addParticipant" use:enhance={withToast()}
+													class="mt-2 flex gap-2">
 													<input type="hidden" name="sessionId" value={session.id} />
-													<button type="submit" onclick={(e) => { if (!confirm('Cancel session?')) e.preventDefault(); }}
-														class="btn-destructive btn-sm p-1 text-xs">✕</button>
+													<input name="participantName" placeholder="Add name…"
+														class="input input-sm flex-1 text-xs" />
+													<button type="submit" class="btn btn-sm btn-ghost text-xs">+ Add</button>
 												</form>
 											</div>
 										</div>
@@ -751,11 +781,13 @@
 						</div>
 					{/if}
 				{:else}
-					<!-- Instructor -->
-					<div class="flex items-center justify-between">
-						<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructor</span>
-						<span class="text-sm text-gray-800">{data.booking.instructorName ?? '—'}</span>
-					</div>
+					<!-- Instructor (only for non-session services) -->
+					{#if !data.booking.serviceHasSessions}
+						<div class="flex items-center justify-between">
+							<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructor</span>
+							<span class="text-sm text-gray-800">{data.booking.instructorName ?? '—'}</span>
+						</div>
+					{/if}
 				{/if}
 				<!-- Spot notes -->
 				{#if data.booking.spotNotes}
@@ -921,6 +953,35 @@
 																class="btn-destructive btn-sm p-1 text-xs">✕</button>
 														</form>
 													</div>
+												</div>
+
+												<!-- Participants -->
+												<div class="mt-2 border-t border-border/50 pt-2">
+													<p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+														Who's attending
+													</p>
+													{#if session.participants.length > 0}
+														<div class="flex flex-wrap gap-1.5">
+															{#each session.participants as p}
+																<div class="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 ring-1 ring-border">
+																	<span class="text-xs text-gray-700">{p.name}</span>
+																	<form method="post" action="?/removeParticipant" use:enhance={withToast()}>
+																		<input type="hidden" name="participantId" value={p.id} />
+																		<button type="submit" class="ml-0.5 text-muted hover:text-red-500 leading-none text-sm">×</button>
+																	</form>
+																</div>
+															{/each}
+														</div>
+													{:else}
+														<p class="text-xs text-muted italic">No participants set — defaults to booking client</p>
+													{/if}
+													<form method="post" action="?/addParticipant" use:enhance={withToast()}
+														class="mt-2 flex gap-2">
+														<input type="hidden" name="sessionId" value={session.id} />
+														<input name="participantName" placeholder="Add name…"
+															class="input input-sm flex-1 text-xs" />
+														<button type="submit" class="btn btn-sm btn-ghost text-xs">+ Add</button>
+													</form>
 												</div>
 
 												{#if editingSessionId === session.id}
@@ -1095,26 +1156,30 @@
 							<input name="date" type="date" bind:value={editDate} required
 								class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
 						</div>
+						{#if !data.booking.serviceHasSessions}
+							<div>
+								<label class="mb-1 block text-xs text-muted">Time</label>
+								<input name="time" type="time" bind:value={editTime} disabled={editFlexible}
+									class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
+							</div>
+						{/if}
+					</div>
+					{#if !data.booking.serviceHasSessions}
+						<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+							<input type="checkbox" name="isFlexible" bind:checked={editFlexible} class="h-4 w-4 accent-ocean" />
+							⚡ Flexible time
+						</label>
 						<div>
-							<label class="mb-1 block text-xs text-muted">Time</label>
-							<input name="time" type="time" bind:value={editTime} disabled={editFlexible}
-								class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
+							<label class="mb-1 block text-xs text-muted">Instructor</label>
+							<select name="instructorId" bind:value={editInstructorId}
+								class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none">
+								<option value="">— unassigned —</option>
+								{#each data.instructors as instructor}
+									<option value={instructor.id}>{instructor.name}</option>
+								{/each}
+							</select>
 						</div>
-					</div>
-					<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-						<input type="checkbox" name="isFlexible" bind:checked={editFlexible} class="h-4 w-4 accent-ocean" />
-						⚡ Flexible time
-					</label>
-					<div>
-						<label class="mb-1 block text-xs text-muted">Instructor</label>
-						<select name="instructorId" bind:value={editInstructorId}
-							class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none">
-							<option value="">— unassigned —</option>
-							{#each data.instructors as instructor}
-								<option value={instructor.id}>{instructor.name}</option>
-							{/each}
-						</select>
-					</div>
+					{/if}
 					<button type="submit" class="btn-primary btn-block">
 						Save Changes
 					</button>

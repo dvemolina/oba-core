@@ -120,9 +120,10 @@ export const actions: Actions = {
 			const sessionsIncluded = sessionsIncludedRaw ? Math.max(1, parseInt(sessionsIncludedRaw)) : 1;
 
 			const booking = await createBooking({
-				serviceId, instructorId, date, time, isFlexible, status, spotNotes, notes,
+				serviceId, date, isFlexible, status, spotNotes, notes,
 				sessionsIncluded,
 				clients: bookingClients
+				// NO instructorId for session-based services — instructor is set per-session
 			});
 
 			// Create sessions: first session gets the entered time (if not flexible), rest are unscheduled

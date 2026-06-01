@@ -19,7 +19,9 @@ import {
 	deleteSession,
 	deleteSessionsForBooking,
 	linkSessionToBooking,
-	unlinkSessionFromBooking
+	unlinkSessionFromBooking,
+	addParticipant,
+	removeParticipant
 } from '$lib/features/sessions/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -53,10 +55,16 @@ export const actions: Actions = {
 	update: async ({ request, params }) => {
 		const form = await request.formData();
 		const newStatus = form.get('status')?.toString() as BookingStatus;
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Not found' });
+
+		const isSessionBased = booking.serviceHasSessions;
 		await updateBooking(params.id, {
-			instructorId: form.get('instructorId')?.toString() || null,
+			...(isSessionBased ? {} : {
+				instructorId: form.get('instructorId')?.toString() || null,
+				time: form.get('time')?.toString() || null,
+			}),
 			date: form.get('date')?.toString(),
-			time: form.get('time')?.toString() || null,
 			isFlexible: form.get('isFlexible') === 'true',
 			status: newStatus,
 			spotNotes: form.get('spotNotes')?.toString() || null,
@@ -191,6 +199,23 @@ export const actions: Actions = {
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await unlinkSessionFromBooking(sessionId, params.id);
 		return { error: null, message: 'Unlinked from session' };
+	},
+
+	addParticipant: async ({ request }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		const name = form.get('participantName')?.toString().trim() ?? '';
+		if (!sessionId || !name) return fail(400, { error: 'Session and name are required' });
+		await addParticipant({ sessionId, name });
+		return { error: null, message: 'Participant added' };
+	},
+
+	removeParticipant: async ({ request }) => {
+		const form = await request.formData();
+		const participantId = form.get('participantId')?.toString() ?? '';
+		if (!participantId) return fail(400, { error: 'Missing participant id' });
+		await removeParticipant(participantId);
+		return { error: null, message: 'Participant removed' };
 	},
 
 	bulkGenerateSessions: async ({ request, params }) => {

@@ -18,8 +18,10 @@
 	const isCamp = $derived(selectedService?.hasRoster);
 	const isLesson = $derived(selectedService?.hasSessions);
 	const isAccommodation = $derived(selectedService?.hasInventoryUnits);
-	const showInstructor = $derived(isLesson);
-	const showTimeAndFlexible = $derived(isLesson);
+	const showInstructor = $derived(
+		!isLesson && !isCamp && !isAccommodation && (selectedService?.requiresInstructor ?? false)
+	);
+	const showTimeAndFlexible = $derived(!isLesson && !isCamp && !isAccommodation);
 
 	const unitTypes = $derived(
 		isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []
@@ -384,7 +386,7 @@
 					</div>
 					{#if showTimeAndFlexible}
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">{isLesson ? 'First session time' : 'Time'}</label>
+							<label class="mb-1 block text-sm font-medium text-gray-700">Time</label>
 							<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
 								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
 						</div>
