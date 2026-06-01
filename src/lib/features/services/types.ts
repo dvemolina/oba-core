@@ -17,6 +17,7 @@ export interface Service {
 	requiresInstructor: boolean; // needs guide/instructor
 	// ── Config ────────────────────────────────────────────────────────────────
 	durationMinutes: number | null;
+	defaultSessionsIncluded: number | null; // default sessions per booking (1, 5, 10, etc.)
 	basePrice: string;
 	startDate: string | null;           // was campStartDate
 	endDate: string | null;             // was campEndDate
@@ -38,6 +39,7 @@ export interface CreateServiceInput {
 	hasInventoryUnits?: boolean;
 	requiresInstructor?: boolean;
 	durationMinutes?: number;
+	defaultSessionsIncluded?: number;
 	basePrice: string;
 	startDate?: string;
 	endDate?: string;

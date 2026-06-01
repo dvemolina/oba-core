@@ -1,7 +1,7 @@
 // src/lib/features/bookings/queries.ts
 import { and, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookings, bookingClients, clients, services, instructors, accommodationUnits, accommodationUnitTypes } from '$lib/server/db/schema';
+import { bookings, bookingClients, bookingSessions, sessions, clients, services, instructors, accommodationUnits, accommodationUnitTypes } from '$lib/server/db/schema';
 import type { Service } from '$lib/features/services/types';
 import type {
 	Booking,
@@ -24,6 +24,7 @@ export async function listBookingsForDateRange(
 			serviceHasSessions: services.hasSessions,
 			serviceHasRoster: services.hasRoster,
 			serviceHasDateRange: services.hasDateRange,
+			serviceHasInventoryUnits: services.hasInventoryUnits,
 			serviceRequiresInstructor: services.requiresInstructor,
 			serviceMaxCapacity: services.maxCapacity,
 			instructorName: instructors.name,
@@ -33,6 +34,7 @@ export async function listBookingsForDateRange(
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			time: bookings.time,
+			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status
 		})
@@ -96,6 +98,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			time: bookings.time,
+			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status,
 			source: bookings.source,
@@ -163,6 +166,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			date: input.date,
 			dateEnd: input.dateEnd,
 			time: input.time,
+			sessionsIncluded: input.sessionsIncluded,
 			isFlexible: input.isFlexible,
 			status: input.status ?? (input.source === 'whatsapp_bot' ? 'pending' : 'confirmed'),
 			source: input.source ?? 'admin',
@@ -286,8 +290,55 @@ export async function reenrollBookingClient(bookingClientId: string): Promise<vo
 }
 
 export async function cancelBooking(id: string): Promise<void> {
-	await db
-		.update(bookings)
-		.set({ status: 'cancelled', updatedAt: new Date() })
-		.where(eq(bookings.id, id));
+	// Cancel the booking
+	await db.update(bookings).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(bookings.id, id));
+
+	// Cancel sessions that are exclusively linked to this booking (not shared with others)
+	const links = await db
+		.select({ sessionId: bookingSessions.sessionId })
+		.from(bookingSessions)
+		.where(eq(bookingSessions.bookingId, id));
+
+	for (const { sessionId } of links) {
+		const otherActiveLinks = await db
+			.select({ id: bookingSessions.id })
+			.from(bookingSessions)
+			.innerJoin(bookings, eq(bookingSessions.bookingId, bookings.id))
+			.where(and(
+				eq(bookingSessions.sessionId, sessionId),
+				ne(bookingSessions.bookingId, id),
+				ne(bookings.status, 'cancelled')
+			))
+			.limit(1);
+
+		if (otherActiveLinks.length === 0) {
+			// No other active booking holds this session — cancel it
+			await db.update(sessions)
+				.set({ status: 'cancelled', updatedAt: new Date() })
+				.where(eq(sessions.id, sessionId));
+		}
+	}
+}
+
+export async function deleteBooking(id: string): Promise<void> {
+	// Delete sessions exclusive to this booking before deleting the booking
+	const links = await db
+		.select({ sessionId: bookingSessions.sessionId })
+		.from(bookingSessions)
+		.where(eq(bookingSessions.bookingId, id));
+
+	for (const { sessionId } of links) {
+		const otherLinks = await db
+			.select({ id: bookingSessions.id })
+			.from(bookingSessions)
+			.where(and(eq(bookingSessions.sessionId, sessionId), ne(bookingSessions.bookingId, id)))
+			.limit(1);
+
+		if (otherLinks.length === 0) {
+			await db.delete(sessions).where(eq(sessions.id, sessionId));
+		}
+	}
+
+	// Deleting the booking cascades: booking_clients, booking_sessions
+	await db.delete(bookings).where(eq(bookings.id, id));
 }

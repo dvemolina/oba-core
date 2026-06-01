@@ -1,16 +1,33 @@
-import { and, eq, gte, lte, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { sessions, sessionInstructors, instructors, bookings, services } from '$lib/server/db/schema';
-import type { CreateSessionInput, Session, UpdateSessionInput } from './types';
+import {
+	sessions,
+	bookingSessions,
+	sessionInstructors,
+	instructors,
+	bookings,
+	bookingClients,
+	clients,
+	services
+} from '$lib/server/db/schema';
+import type {
+	AgendaSession,
+	CreateSessionInput,
+	Session,
+	SessionForDay,
+	SessionInstructor,
+	UpdateSessionInput
+} from './types';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Internal helpers ─────────────────────────────────────────────────────────
 
-async function attachInstructors(sessionRows: Omit<Session, 'instructors'>[]): Promise<Session[]> {
-	if (sessionRows.length === 0) return [];
+async function attachInstructors<T extends { id: string }>(
+	sessionRows: T[]
+): Promise<(T & { instructors: SessionInstructor[] })[]> {
+	if (sessionRows.length === 0) return sessionRows.map(s => ({ ...s, instructors: [] }));
+
 	const ids = sessionRows.map(s => s.id);
-
-	// Fetch all instructors for these sessions
-	const instrRows = await db
+	const rows = await db
 		.select({
 			id: sessionInstructors.id,
 			sessionId: sessionInstructors.sessionId,
@@ -21,8 +38,8 @@ async function attachInstructors(sessionRows: Omit<Session, 'instructors'>[]): P
 		.leftJoin(instructors, eq(sessionInstructors.instructorId, instructors.id))
 		.where(sql`${sessionInstructors.sessionId} = ANY(ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]::text[])`);
 
-	const bySession: Record<string, typeof instrRows> = {};
-	for (const row of instrRows) {
+	const bySession: Record<string, typeof rows> = {};
+	for (const row of rows) {
 		(bySession[row.sessionId] ??= []).push(row);
 	}
 
@@ -37,108 +54,206 @@ async function attachInstructors(sessionRows: Omit<Session, 'instructors'>[]): P
 	}));
 }
 
-// ── Queries ───────────────────────────────────────────────────────────────────
+// ── Core CRUD ────────────────────────────────────────────────────────────────
 
+/** All sessions linked to a booking, ordered by date then sortOrder. */
 export async function listSessionsForBooking(bookingId: string): Promise<Session[]> {
 	const rows = await db
-		.select()
+		.select({
+			id: sessions.id,
+			date: sessions.date,
+			time: sessions.time,
+			notes: sessions.notes,
+			status: sessions.status,
+			durationMinutes: sessions.durationMinutes,
+		sortOrder: sessions.sortOrder,
+			createdAt: sessions.createdAt,
+			updatedAt: sessions.updatedAt
+		})
 		.from(sessions)
-		.where(eq(sessions.bookingId, bookingId))
+		.innerJoin(bookingSessions, eq(bookingSessions.sessionId, sessions.id))
+		.where(eq(bookingSessions.bookingId, bookingId))
 		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
+
 	return attachInstructors(rows as Omit<Session, 'instructors'>[]);
 }
 
-/** Returns sessions (with booking context) for a given date. Used by the day view. */
-export async function listSessionsForDate(date: string): Promise<(Session & {
-	bookingId: string;
-	serviceName: string | null;
-	serviceColor: string | null;
-	serviceHasSessions: boolean;
-})[]> {
-	const rows = await db
+/** Sessions (with booking context) for a given date. Used by the calendar day view. */
+export async function listSessionsForDate(date: string): Promise<SessionForDay[]> {
+	// Step 1: sessions for this date (not cancelled)
+	const sessionRows = await db
 		.select({
 			id: sessions.id,
-			bookingId: sessions.bookingId,
 			date: sessions.date,
 			time: sessions.time,
 			notes: sessions.notes,
 			status: sessions.status,
-			sortOrder: sessions.sortOrder,
+			durationMinutes: sessions.durationMinutes,
+		sortOrder: sessions.sortOrder,
 			createdAt: sessions.createdAt,
-			updatedAt: sessions.updatedAt,
-			serviceName: services.name,
-			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions
+			updatedAt: sessions.updatedAt
 		})
 		.from(sessions)
-		.leftJoin(bookings, eq(sessions.bookingId, bookings.id))
-		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.where(and(eq(sessions.date, date), ne(sessions.status, 'cancelled')))
 		.orderBy(sessions.sortOrder, sessions.time);
 
-	const withInstructors = await attachInstructors(
-		rows.map(r => ({ ...r, bookingId: r.bookingId, serviceName: r.serviceName, serviceColor: r.serviceColor, serviceHasSessions: r.serviceHasSessions ?? false } as any))
-	);
+	if (sessionRows.length === 0) return [];
 
-	return withInstructors as any;
+	const sessionIds = sessionRows.map(r => r.id);
+
+	// Step 2: all booking links for these sessions
+	const links = await db
+		.select({
+			sessionId: bookingSessions.sessionId,
+			bookingId: bookingSessions.bookingId,
+			serviceName: services.name,
+			serviceColor: services.color,
+			serviceHasSessions: services.hasSessions,
+			serviceDurationMinutes: services.durationMinutes,
+			bookingStatus: bookings.status
+		})
+		.from(bookingSessions)
+		.leftJoin(bookings, eq(bookingSessions.bookingId, bookings.id))
+		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.where(and(
+			sql`${bookingSessions.sessionId} = ANY(ARRAY[${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}]::text[])`,
+			ne(bookings.status, 'cancelled')
+		));
+
+	// Step 3: enrolled clients for linked bookings
+	const bookingIds = [...new Set(links.map(l => l.bookingId).filter(Boolean))] as string[];
+	const clientRows = bookingIds.length > 0
+		? await db
+			.select({
+				bookingId: bookingClients.bookingId,
+				firstName: clients.firstName,
+				lastName: clients.lastName
+			})
+			.from(bookingClients)
+			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
+			.where(and(inArray(bookingClients.bookingId, bookingIds), eq(bookingClients.status, 'enrolled')))
+		: [];
+
+	// Index by session
+	const linksBySession: Record<string, typeof links> = {};
+	for (const l of links) {
+		(linksBySession[l.sessionId] ??= []).push(l);
+	}
+	const clientsByBooking: Record<string, string[]> = {};
+	for (const r of clientRows) {
+		(clientsByBooking[r.bookingId] ??= []).push(`${r.firstName} ${r.lastName}`);
+	}
+
+	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors'>[]);
+
+	return withInstructors
+		.filter(s => (linksBySession[s.id] ?? []).length > 0) // drop sessions with no active booking links
+		.map(s => {
+			const sl = linksBySession[s.id]!;
+			const firstLink = sl[0];
+			const allClientNames = sl.flatMap(l => clientsByBooking[l.bookingId] ?? []);
+			const svcDuration = firstLink.serviceDurationMinutes ?? null;
+			return {
+				...s,
+				bookingId: firstLink.bookingId ?? '',
+				bookingIds: sl.map(l => l.bookingId),
+				bookingStatus: firstLink.bookingStatus ?? 'pending',
+				serviceName: firstLink.serviceName ?? null,
+				serviceColor: firstLink.serviceColor ?? null,
+				serviceHasSessions: firstLink.serviceHasSessions ?? false,
+				serviceDurationMinutes: svcDuration,
+				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
+				clientNames: allClientNames,
+				totalClients: allClientNames.length
+			} satisfies SessionForDay;
+		});
 }
 
-/** All unscheduled sessions for upcoming bookings (time IS NULL, not cancelled). */
+/** Unscheduled sessions linked to any booking in [from, to]. */
 export async function listUnscheduledSessions(from: string, to: string): Promise<(Session & {
+	bookingId: string;
 	serviceName: string | null;
 	serviceColor: string | null;
 })[]> {
-	const rows = await db
+	const sessionRows = await db
 		.select({
 			id: sessions.id,
-			bookingId: sessions.bookingId,
 			date: sessions.date,
 			time: sessions.time,
 			notes: sessions.notes,
 			status: sessions.status,
-			sortOrder: sessions.sortOrder,
+			durationMinutes: sessions.durationMinutes,
+		sortOrder: sessions.sortOrder,
 			createdAt: sessions.createdAt,
-			updatedAt: sessions.updatedAt,
-			serviceName: services.name,
-			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions
+			updatedAt: sessions.updatedAt
 		})
 		.from(sessions)
-		.leftJoin(bookings, eq(sessions.bookingId, bookings.id))
-		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.where(and(
-			eq(sessions.status, 'unscheduled'),
-			gte(sessions.date, from),
-			lte(sessions.date, to)
-		))
+		.where(and(eq(sessions.status, 'unscheduled'), gte(sessions.date, from), lte(sessions.date, to)))
 		.orderBy(sessions.date, sessions.sortOrder);
 
-	return attachInstructors(rows as any) as any;
+	if (sessionRows.length === 0) return [];
+
+	const sessionIds = sessionRows.map(r => r.id);
+	const links = await db
+		.select({
+			sessionId: bookingSessions.sessionId,
+			bookingId: bookingSessions.bookingId,
+			serviceName: services.name,
+			serviceColor: services.color
+		})
+		.from(bookingSessions)
+		.leftJoin(bookings, eq(bookingSessions.bookingId, bookings.id))
+		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.where(
+			sql`${bookingSessions.sessionId} = ANY(ARRAY[${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}]::text[])`
+		);
+
+	const linksBySession: Record<string, typeof links[0]> = {};
+	for (const l of links) {
+		if (!linksBySession[l.sessionId]) linksBySession[l.sessionId] = l;
+	}
+
+	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors'>[]);
+
+	return withInstructors.map(s => ({
+		...s,
+		bookingId: linksBySession[s.id]?.bookingId ?? '',
+		serviceName: linksBySession[s.id]?.serviceName ?? null,
+		serviceColor: linksBySession[s.id]?.serviceColor ?? null
+	}));
 }
 
 export async function getSession(id: string): Promise<Session | undefined> {
-	const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
+	const [row] = await db
+		.select()
+		.from(sessions)
+		.where(eq(sessions.id, id));
 	if (!row) return undefined;
-	const [withInstructor] = await attachInstructors([row as Omit<Session, 'instructors'>]);
-	return withInstructor;
+	const [withInstructors] = await attachInstructors([row as Omit<Session, 'instructors'>]);
+	return withInstructors;
 }
 
+/** Create a session and automatically link it to bookingId via the junction table. */
 export async function createSession(input: CreateSessionInput): Promise<Session> {
 	const [row] = await db.insert(sessions).values({
-		bookingId: input.bookingId,
 		date: input.date,
 		time: input.time,
+		durationMinutes: input.durationMinutes,
 		notes: input.notes,
 		status: input.time ? 'scheduled' : 'unscheduled',
 		sortOrder: input.sortOrder ?? 0
 	}).returning();
 
+	// Link to booking via junction
+	await db.insert(bookingSessions).values({
+		sessionId: row.id,
+		bookingId: input.bookingId
+	});
+
+	// Assign instructors
 	if (input.instructorIds?.length) {
 		await db.insert(sessionInstructors).values(
-			input.instructorIds.map(instructorId => ({
-				sessionId: row.id,
-				instructorId
-			}))
+			input.instructorIds.map(instructorId => ({ sessionId: row.id, instructorId }))
 		);
 	}
 
@@ -147,15 +262,15 @@ export async function createSession(input: CreateSessionInput): Promise<Session>
 
 export async function updateSession(id: string, input: UpdateSessionInput): Promise<Session> {
 	const updates: Record<string, unknown> = { updatedAt: new Date() };
-	if (input.date !== undefined)    updates.date = input.date;
-	if (input.time !== undefined)    { updates.time = input.time; updates.status = input.time ? 'scheduled' : 'unscheduled'; }
-	if (input.notes !== undefined)   updates.notes = input.notes;
-	if (input.status !== undefined)  updates.status = input.status;
+	if (input.date !== undefined)      updates.date = input.date;
+	if (input.time !== undefined)      { updates.time = input.time; updates.status = input.time ? 'scheduled' : 'unscheduled'; }
+	if (input.durationMinutes !== undefined) updates.durationMinutes = input.durationMinutes;
+	if (input.notes !== undefined)     updates.notes = input.notes;
+	if (input.status !== undefined)    updates.status = input.status;
 	if (input.sortOrder !== undefined) updates.sortOrder = input.sortOrder;
 
 	await db.update(sessions).set(updates).where(eq(sessions.id, id));
 
-	// Replace instructors if provided
 	if (input.instructorIds !== undefined) {
 		await db.delete(sessionInstructors).where(eq(sessionInstructors.sessionId, id));
 		if (input.instructorIds.length > 0) {
@@ -168,10 +283,163 @@ export async function updateSession(id: string, input: UpdateSessionInput): Prom
 	return (await getSession(id))!;
 }
 
+export async function cancelSession(id: string): Promise<void> {
+	await db.update(sessions).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(sessions.id, id));
+}
+
 export async function deleteSession(id: string): Promise<void> {
+	// bookingSessions rows cascade-deleted via FK
 	await db.delete(sessions).where(eq(sessions.id, id));
 }
 
-export async function cancelSession(id: string): Promise<void> {
-	await db.update(sessions).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(sessions.id, id));
+/** Delete all sessions linked to a booking (used by bulk regenerate). */
+export async function deleteSessionsForBooking(bookingId: string): Promise<void> {
+	// Get session IDs linked to this booking
+	const links = await db
+		.select({ sessionId: bookingSessions.sessionId })
+		.from(bookingSessions)
+		.where(eq(bookingSessions.bookingId, bookingId));
+
+	if (links.length === 0) return;
+
+	const ids = links.map(l => l.sessionId);
+	// Only delete sessions that have no OTHER booking links (don't delete shared sessions)
+	for (const sessionId of ids) {
+		const otherLinks = await db
+			.select({ id: bookingSessions.id })
+			.from(bookingSessions)
+			.where(and(eq(bookingSessions.sessionId, sessionId), ne(bookingSessions.bookingId, bookingId)))
+			.limit(1);
+
+		if (otherLinks.length === 0) {
+			// Safe to delete: session belongs only to this booking
+			await db.delete(sessions).where(eq(sessions.id, sessionId));
+		} else {
+			// Shared session — only unlink, don't delete the session itself
+			await db.delete(bookingSessions).where(
+				and(eq(bookingSessions.sessionId, sessionId), eq(bookingSessions.bookingId, bookingId))
+			);
+		}
+	}
+}
+
+// ── Multi-booking session linking ────────────────────────────────────────────
+// These enable the scheduling board feature: assign multiple bookings to one session.
+
+/** Link an existing session to an additional booking. No-ops if already linked. */
+export async function linkSessionToBooking(sessionId: string, bookingId: string): Promise<void> {
+	await db.insert(bookingSessions).values({ sessionId, bookingId }).onConflictDoNothing();
+}
+
+/** Remove a booking's link to a session. Does NOT delete the session itself. */
+export async function unlinkSessionFromBooking(sessionId: string, bookingId: string): Promise<void> {
+	await db.delete(bookingSessions).where(
+		and(eq(bookingSessions.sessionId, sessionId), eq(bookingSessions.bookingId, bookingId))
+	);
+}
+
+// ── Agenda query ─────────────────────────────────────────────────────────────
+
+/** Sessions with full booking/client context for the Agenda view. */
+export async function listSessionsForDateRange(from: string, to: string): Promise<AgendaSession[]> {
+	const sessionRows = await db
+		.select({
+			id: sessions.id,
+			date: sessions.date,
+			time: sessions.time,
+			notes: sessions.notes,
+			status: sessions.status,
+			durationMinutes: sessions.durationMinutes,
+		sortOrder: sessions.sortOrder,
+			createdAt: sessions.createdAt,
+			updatedAt: sessions.updatedAt
+		})
+		.from(sessions)
+		.where(and(gte(sessions.date, from), lte(sessions.date, to), ne(sessions.status, 'cancelled')))
+		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
+
+	if (sessionRows.length === 0) return [];
+
+	const sessionIds = sessionRows.map(r => r.id);
+
+	// All booking links with service/booking context
+	const links = await db
+		.select({
+			sessionId: bookingSessions.sessionId,
+			bookingId: bookingSessions.bookingId,
+			serviceName: services.name,
+			serviceColor: services.color,
+			serviceHasRoster: services.hasRoster,
+			serviceHasSessions: services.hasSessions,
+			serviceMaxCapacity: services.maxCapacity,
+			serviceDurationMinutes: services.durationMinutes,
+			sessionsIncluded: bookings.sessionsIncluded,
+			bookingStatus: bookings.status,
+			bookingDate: bookings.date,
+			bookingDateEnd: bookings.dateEnd,
+			isFlexible: bookings.isFlexible
+		})
+		.from(bookingSessions)
+		.leftJoin(bookings, eq(bookingSessions.bookingId, bookings.id))
+		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.where(
+			and(
+				sql`${bookingSessions.sessionId} = ANY(ARRAY[${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}]::text[])`,
+				ne(bookings.status, 'cancelled')
+			)
+		);
+
+	// Enrolled clients for all linked bookings
+	const bookingIds = [...new Set(links.map(l => l.bookingId).filter(Boolean))] as string[];
+	const clientRows = bookingIds.length > 0
+		? await db
+			.select({
+				bookingId: bookingClients.bookingId,
+				firstName: clients.firstName,
+				lastName: clients.lastName,
+				phone: clients.phone
+			})
+			.from(bookingClients)
+			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
+			.where(and(inArray(bookingClients.bookingId, bookingIds), eq(bookingClients.status, 'enrolled')))
+		: [];
+
+	const linksBySession: Record<string, typeof links> = {};
+	for (const l of links) (linksBySession[l.sessionId] ??= []).push(l);
+
+	const clientsByBooking: Record<string, typeof clientRows> = {};
+	for (const r of clientRows) (clientsByBooking[r.bookingId] ??= []).push(r);
+
+	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors'>[]);
+
+	// Sessions with no active booking links (all linked bookings cancelled) get filtered
+	return withInstructors
+		.filter(s => (linksBySession[s.id] ?? []).length > 0)
+		.map(s => {
+			const sl = linksBySession[s.id]!;
+			const first = sl[0];
+			const bClients = sl.flatMap(l => clientsByBooking[l.bookingId] ?? []);
+			const firstClient = bClients[0];
+
+		const svcDuration = first.serviceDurationMinutes ?? null;
+			return {
+				...s,
+				bookingId: first.bookingId ?? '',
+				bookingIds: sl.map(l => l.bookingId).filter(Boolean) as string[],
+				serviceName: first.serviceName,
+				serviceColor: first.serviceColor,
+				serviceHasRoster: first.serviceHasRoster ?? false,
+				serviceDurationMinutes: svcDuration,
+				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
+				sessionsIncluded: first.sessionsIncluded,
+				bookingStatus: first.bookingStatus ?? 'pending',
+				bookingDate: first.bookingDate ?? s.date,
+				bookingDateEnd: first.bookingDateEnd,
+				isFlexible: first.isFlexible ?? false,
+				clientName: first.serviceHasRoster ? null : (firstClient ? `${firstClient.firstName} ${firstClient.lastName}` : null),
+				clientPhone: first.serviceHasRoster ? null : (firstClient?.phone ?? null),
+				enrolledCount: bClients.length,
+				maxCapacity: first.serviceMaxCapacity
+			} satisfies AgendaSession;
+		});
 }

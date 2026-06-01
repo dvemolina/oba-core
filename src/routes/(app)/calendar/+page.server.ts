@@ -1,8 +1,10 @@
+import { fail } from '@sveltejs/kit';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
-import { listSessionsForDate } from '$lib/features/sessions/queries';
+import { listSessionsForDate, updateSession } from '$lib/features/sessions/queries';
+import { listInstructors } from '$lib/features/instructors/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const today = new Date();
@@ -21,10 +23,11 @@ export const load: PageServerLoad = async ({ url }) => {
 		({ from, to } = getDateRange(view, year, month, weekStart));
 	}
 
-	const [bookings, events, daySessions] = await Promise.all([
+	const [bookings, events, daySessions, instructors] = await Promise.all([
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(from, to),
-		view === 'day' ? listSessionsForDate(dayDate) : Promise.resolve([])
+		view === 'day' ? listSessionsForDate(dayDate) : Promise.resolve([]),
+		view === 'day' ? listInstructors() : Promise.resolve([])
 	]);
 
 	// Week view helpers
@@ -43,9 +46,24 @@ export const load: PageServerLoad = async ({ url }) => {
 		: '';
 
 	return {
-		bookings, events, daySessions, view, year, month,
+		bookings, events, daySessions, instructors, view, year, month,
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
 		today: todayStr
 	};
+};
+
+export const actions: Actions = {
+	assignSession: async ({ request }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		const time = form.get('time')?.toString() || null;
+		const durRaw = form.get('duration')?.toString();
+		const durationMinutes = durRaw ? parseInt(durRaw) : null;
+		const notes = form.get('notes')?.toString() || null;
+		const instructorIds = form.getAll('instructorId').map(String).filter(Boolean);
+		await updateSession(sessionId, { time, durationMinutes, notes, instructorIds });
+		return { ok: true };
+	}
 };

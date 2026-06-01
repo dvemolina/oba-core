@@ -1,11 +1,40 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { groupBookingsByDate, getDaysInMonth } from '$lib/features/calendar/utils';
+	import { enhance } from '$app/forms';
+	import { groupBookingsByDate, getDaysInMonth, fmtTimeRange, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
 
 	let { data }: { data: PageData } = $props();
+
+	// Scheduling board: track which session is being inline-edited
+	let assigningSessionId = $state<string | null>(null);
+
+	// Track form values for the active inline edit (used for real-time conflict detection)
+	let editFormTime = $state('');
+	let editFormDuration = $state(60);
+
+	// When the active session changes, reset form values from that session's current data
+	$effect(() => {
+		const s = assigningSessionId ? data.daySessions.find(s => s.id === assigningSessionId) : null;
+		editFormTime = s?.time?.slice(0, 5) ?? '';
+		editFormDuration = s?.effectiveDuration ?? 60;
+	});
+
+	// Real-time instructor conflicts for the currently-editing session
+	const editConflicts = $derived(
+		assigningSessionId && editFormTime
+			? checkAllInstructorConflicts(
+				data.instructors.map(i => i.id),
+				data.dayDate,
+				editFormTime,
+				editFormDuration,
+				data.daySessions,
+				assigningSessionId
+			)
+			: {} as Record<string, import('$lib/features/calendar/utils').InstructorConflict[]>
+	);
 
 	const grouped = $derived(groupBookingsByDate(data.bookings));
 	const today = $derived(data.today);
@@ -208,6 +237,33 @@
 		return map;
 	});
 
+	// Slots "spanned" by sessions that started in previous slots.
+	// Maps slot → array (one entry per concurrent session spanning that slot).
+	const daySessionSpanned = $derived(() => {
+		const map: Record<string, { sessionId: string; serviceColor: string | null }[]> = {};
+		for (const s of data.daySessions) {
+			if (!s.time || s.status === 'cancelled') continue;
+			const [sh, sm] = s.time.split(':').map(Number);
+			const startMins = sh * 60 + sm;
+			const dur = s.effectiveDuration ?? 60;
+			let mins = startMins + slotMinutes;
+			while (mins < startMins + dur) {
+				const h = Math.floor(mins / 60);
+				const m = mins % 60;
+				const slot = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+				(map[slot] ??= []).push({ sessionId: s.id, serviceColor: s.serviceColor });
+				mins += slotMinutes;
+			}
+		}
+		return map;
+	});
+
+	// Height style for a session card based on its duration
+	function sessionCardStyle(dur: number): string {
+		const slots = Math.max(1, Math.ceil(dur / slotMinutes));
+		return `min-height: ${slots * 3}rem`;
+	}
+
 	// Unscheduled sessions (no time) + non-session bookings without time
 	const dayUnscheduledSessions = $derived(
 		data.daySessions.filter(s => s.status === 'unscheduled')
@@ -258,39 +314,45 @@
 
 	<!-- Header -->
 	<div class="page-header">
-		<div class="flex items-center gap-1">
+		<!-- Navigation: prev/title/next — shrinks to fit remaining space -->
+		<div class="flex min-w-0 flex-1 items-center gap-1">
 			{#if data.view === 'month'}
-				<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</button>
-				<h1 class="w-36 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
-				<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</button>
+				<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</button>
+				<h1 class="min-w-0 flex-1 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
+				<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</button>
 			{:else if data.view === 'week'}
-				<a href="/calendar?view=week&week={data.prevWeek}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</a>
-				<h1 class="w-44 text-center text-sm font-semibold text-navy">{weekLabel()}</h1>
-				<a href="/calendar?view=week&week={data.nextWeek}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</a>
+				<a href="/calendar?view=week&week={data.prevWeek}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</a>
+				<h1 class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-navy">{weekLabel()}</h1>
+				<a href="/calendar?view=week&week={data.nextWeek}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</a>
 			{:else}
-				<a href="/calendar?view=day&date={data.prevDay}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">‹</a>
-				<h1 class="max-w-52 truncate text-center text-sm font-semibold text-navy">{data.dayLabel}</h1>
-				<a href="/calendar?view=day&date={data.nextDay}" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0 text-base">›</a>
+				<a href="/calendar?view=day&date={data.prevDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</a>
+				<h1 class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-navy">
+					<!-- Short on mobile, full on sm+ -->
+					<span class="sm:hidden">{new Date(data.dayDate + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+					<span class="hidden sm:inline">{data.dayLabel}</span>
+				</h1>
+				<a href="/calendar?view=day&date={data.nextDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</a>
 			{/if}
 		</div>
-		<div class="flex items-center gap-2">
-			{#if data.view === 'day'}
-				<select bind:value={slotMinutes}
-					class="rounded-lg border border-border bg-surface px-2 py-1 text-xs font-medium text-slate-700 focus:border-ocean focus:outline-none">
-					{#each SLOT_OPTIONS as opt}
-						<option value={opt}>{opt} min</option>
-					{/each}
-				</select>
-			{:else}
+
+		<!-- Right: legend (month/week) + view toggle -->
+		<div class="ml-2 flex shrink-0 items-center gap-2">
+			{#if data.view !== 'day'}
 				<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
 					<span>● Confirmed</span>
 					<span>○ Pending</span>
 				</span>
 			{/if}
 			<div class="flex overflow-hidden rounded-lg bg-slate-100 p-0.5">
-				<button onclick={() => setView('month')} class="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors {data.view === 'month' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Month</button>
-				<button onclick={() => setView('week')}  class="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors {data.view === 'week'  ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Week</button>
-				<button onclick={() => setView('day')}   class="rounded-md px-2.5 py-1 text-xs font-semibold transition-colors {data.view === 'day'   ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">Day</button>
+				<button onclick={() => setView('month')} class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'month' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
+					<span class="sm:hidden">M</span><span class="hidden sm:inline">Month</span>
+				</button>
+				<button onclick={() => setView('week')}  class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'week'  ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
+					<span class="sm:hidden">W</span><span class="hidden sm:inline">Week</span>
+				</button>
+				<button onclick={() => setView('day')}   class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'day'   ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
+					<span class="sm:hidden">D</span><span class="hidden sm:inline">Day</span>
+				</button>
 			</div>
 		</div>
 	</div>
@@ -449,6 +511,18 @@
 	<!-- ─── DAY VIEW ─── -->
 	{#if data.view === 'day'}
 		<div class="flex flex-1 flex-col overflow-hidden">
+			<!-- Slot granularity control — lives in the grid, not the header -->
+			<div class="flex shrink-0 items-center justify-end gap-2 border-b border-border bg-surface/60 px-4 py-1.5">
+				<span class="text-[10px] text-muted">Slot size:</span>
+				<div class="flex overflow-hidden rounded-md bg-slate-100 p-0.5">
+					{#each SLOT_OPTIONS as opt}
+						<button type="button" onclick={() => slotMinutes = opt}
+							class="rounded px-2 py-0.5 text-[10px] font-semibold transition-colors {slotMinutes === opt ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
+							{opt}m
+						</button>
+					{/each}
+				</div>
+			</div>
 			<div class="flex-1 overflow-y-auto">
 				<!-- Events covering this day -->
 				{#each data.events as event}
@@ -466,16 +540,77 @@
 						<p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Needs scheduling</p>
 						<div class="space-y-1.5">
 							{#each dayUnscheduledSessions as session}
-								<a href="/bookings/{session.bookingId}"
-									class="flex items-center justify-between rounded-lg border-l-4 border-dashed border-muted bg-surface px-3 py-2 ring-1 ring-border">
-									<div>
-										<p class="text-sm font-medium text-gray-800">{session.serviceName}</p>
-										<p class="text-xs text-muted">
-											{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
-										</p>
+								{@const isAssigning = assigningSessionId === session.id}
+								<div class="rounded-lg border-l-4 border-dashed border-amber-300 bg-surface ring-1 ring-border overflow-hidden">
+									<div class="flex items-center justify-between px-3 py-2">
+										<div class="min-w-0">
+											<p class="text-sm font-medium text-gray-800">{session.serviceName}</p>
+											<p class="text-xs text-muted">
+												{session.clientNames?.join(', ') || session.totalClients > 0 ? `${session.totalClients} client${session.totalClients > 1 ? 's' : ''}` : 'No clients'}
+											</p>
+										</div>
+										<button type="button"
+											onclick={() => assigningSessionId = isAssigning ? null : session.id}
+											class="ml-2 shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700 hover:bg-amber-200 transition-colors">
+											{isAssigning ? 'Cancel' : '⚡ Assign'}
+										</button>
 									</div>
-									<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">unscheduled</span>
-								</a>
+									{#if isAssigning}
+										<form method="post" action="?/assignSession"
+											use:enhance={() => () => { assigningSessionId = null; }}
+											class="border-t border-amber-100 bg-amber-50/40 px-3 py-2.5 space-y-2">
+											<input type="hidden" name="sessionId" value={session.id} />
+											<div class="grid grid-cols-2 gap-2">
+												<div>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Time *</label>
+													<input name="time" type="time" required autofocus
+														bind:value={editFormTime}
+														class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+												</div>
+												<div>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Duration (min)</label>
+													<input name="duration" type="number" min="15" step="15"
+														bind:value={editFormDuration}
+														class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+												</div>
+											</div>
+											<div>
+												<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Notes</label>
+												<input name="notes" placeholder="Spot, group…"
+													value={session.notes ?? ''}
+													class="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+											</div>
+											{#if data.instructors.length > 0}
+												<div>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">Instructors</label>
+													<div class="space-y-1.5">
+														{#each data.instructors as instructor}
+															{@const conflicts = editConflicts[instructor.id] ?? []}
+															<label class="flex items-start gap-2 cursor-pointer">
+																<input type="checkbox" name="instructorId" value={instructor.id}
+																	checked={session.instructors.some(i => i.instructorId === instructor.id)}
+																	class="mt-0.5 h-3.5 w-3.5 accent-ocean shrink-0" />
+																<div class="min-w-0">
+																	<span class="text-xs text-gray-700">{instructor.name}</span>
+																	{#if conflicts.length > 0}
+																		<p class="text-[10px] text-amber-600 font-medium">
+																			⚠ {conflicts[0].startTime}–{conflicts[0].endTime} {conflicts[0].serviceName ?? 'session'}
+																			{conflicts[0].bookingStatus === 'pending' ? '(pending)' : ''}
+																		</p>
+																	{/if}
+																</div>
+															</label>
+														{/each}
+													</div>
+												</div>
+											{/if}
+											<div class="flex gap-2 pt-1">
+												<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Schedule</button>
+												<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">View booking</a>
+											</div>
+										</form>
+									{/if}
+								</div>
 							{/each}
 							{#each dayNonSessionBookings as booking}
 								<a href="/bookings/{booking.id}"
@@ -499,9 +634,10 @@
 					{#each daySlots as slot}
 						{@const sessionsHere = daySessionSlots()[slot] ?? []}
 						{@const nonSessionHere = daySlottedNonSessionBookings()[slot] ?? []}
+						{@const spannedList = daySessionSpanned()[slot] ?? []}
 						{@const anyHere = sessionsHere.length > 0 || nonSessionHere.length > 0}
 						{@const isHour = slot.endsWith(':00')}
-						<div class="flex min-h-12 gap-0 {anyHere ? '' : 'hover:bg-sand/60'}">
+						<div class="flex min-h-12 gap-0 {anyHere || spannedList.length > 0 ? '' : 'hover:bg-sand/60'}">
 							<div class="w-14 shrink-0 border-r border-border/50 px-2 pt-1 text-right">
 								{#if isHour}
 									<span class="text-[11px] font-medium text-muted">{slot}</span>
@@ -509,23 +645,102 @@
 									<span class="text-[9px] text-border">{slot}</span>
 								{/if}
 							</div>
-							<div class="flex-1 px-2 py-1 {anyHere ? 'space-y-1' : ''}">
-								{#each sessionsHere as session}
-									{@const sc = getServiceColor(session.serviceColor ?? '')}
-									<a href="/bookings/{session.bookingId}"
-										class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {sc.border} {sc.bg}">
-										<div class="min-w-0">
-											<p class="truncate text-sm font-medium text-gray-800">
-												{session.time ? session.time.slice(0, 5) + ' ' : ''}{session.serviceName}
-											</p>
-											<p class="text-xs text-muted">
-												{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}
-												{#if session.notes}<span class="ml-1">· {session.notes}</span>{/if}
-											</p>
-										</div>
-										<span class="ml-2 shrink-0 text-xs {sc.text}">{session.status}</span>
-									</a>
-								{/each}
+							<div class="min-w-0 flex-1 px-2 py-1">
+								{#if spannedList.length > 0 && sessionsHere.length === 0}
+									<!-- Continuation bars — one per session spanning this slot -->
+									<div class="flex h-full gap-0.5">
+										{#each spannedList as span}
+											{@const sc = getServiceColor(span.serviceColor ?? '')}
+											<div class="flex-1 rounded-r border-l-2 {sc.border} opacity-25"></div>
+										{/each}
+									</div>
+								{:else if sessionsHere.length > 0}
+									<!-- Sessions: side-by-side when concurrent, stacked when single -->
+									<div class="flex gap-1.5 {sessionsHere.length > 1 ? 'items-start' : ''}">
+										{#each sessionsHere as session}
+											{@const sc = getServiceColor(session.serviceColor ?? '')}
+											{@const isEditing = assigningSessionId === session.id}
+											{@const dur = session.effectiveDuration ?? 60}
+											{@const endTime = session.time ? addMinutesToTime(session.time.slice(0,5), dur) : null}
+											<div class="min-w-0 flex-1 rounded-lg border-l-4 ring-1 ring-border overflow-hidden {sc.border} {sc.bg}"
+												style={sessionCardStyle(dur)}>
+												<div class="flex items-start justify-between px-2.5 py-2 cursor-pointer"
+													onclick={() => assigningSessionId = isEditing ? null : session.id}
+													role="button" tabindex="0"
+													onkeydown={(e) => e.key === 'Enter' && (assigningSessionId = isEditing ? null : session.id)}>
+													<div class="min-w-0">
+														<p class="text-xs font-bold text-gray-900 tabular-nums">
+															{session.time?.slice(0,5)} – {endTime}
+														</p>
+														<p class="truncate text-xs font-medium text-gray-800">{session.serviceName}</p>
+														<p class="truncate text-[10px] text-muted">
+															{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || '—'}
+														</p>
+														{#if session.totalClients > 0}
+															<p class="truncate text-[10px] text-muted">{session.clientNames[0]}{session.totalClients > 1 ? ` +${session.totalClients - 1}` : ''}</p>
+														{/if}
+													</div>
+													<span class="ml-1 shrink-0 text-[9px] text-muted">{isEditing ? '▲' : '✎'}</span>
+												</div>
+												{#if isEditing}
+													<form method="post" action="?/assignSession"
+														use:enhance={() => () => { assigningSessionId = null; }}
+														class="border-t border-border/40 bg-white/70 px-3 py-2.5 space-y-2">
+														<input type="hidden" name="sessionId" value={session.id} />
+														<div class="grid grid-cols-2 gap-2">
+															<div>
+																<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Start</label>
+																<input name="time" type="time" autofocus
+																	bind:value={editFormTime}
+																	class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+															</div>
+															<div>
+																<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Duration (min)</label>
+																<input name="duration" type="number" min="15" step="15"
+																	bind:value={editFormDuration}
+																	class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+															</div>
+														</div>
+														<div>
+															<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Notes</label>
+															<input name="notes"
+																value={session.notes ?? ''}
+																class="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+														</div>
+														{#if data.instructors.length > 0}
+															<div>
+																<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">Instructors</label>
+																<div class="space-y-1.5">
+																	{#each data.instructors as instructor}
+																		{@const conflicts = editConflicts[instructor.id] ?? []}
+																		<label class="flex items-start gap-2 cursor-pointer">
+																			<input type="checkbox" name="instructorId" value={instructor.id}
+																				checked={session.instructors.some(i => i.instructorId === instructor.id)}
+																				class="mt-0.5 h-3.5 w-3.5 accent-ocean shrink-0" />
+																			<div class="min-w-0">
+																				<span class="text-xs text-gray-700">{instructor.name}</span>
+																				{#if conflicts.length > 0}
+																					<p class="text-[10px] text-amber-600 font-medium">
+																						⚠ {conflicts[0].startTime}–{conflicts[0].endTime} {conflicts[0].serviceName ?? 'session'}
+																						{conflicts[0].bookingStatus === 'pending' ? '(pending)' : ''}
+																					</p>
+																				{/if}
+																			</div>
+																		</label>
+																	{/each}
+																</div>
+															</div>
+														{/if}
+														<div class="flex gap-2 pt-1">
+															<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Save</button>
+															<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">Detail</a>
+														</div>
+													</form>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
 								{#each nonSessionHere as booking}
 									<a href="/bookings/{booking.id}"
 										class="flex items-center justify-between rounded-lg border-l-4 px-3 py-2 ring-1 ring-border {dayBookingBg(booking)}">

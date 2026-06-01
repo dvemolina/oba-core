@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { createBooking, getOrCreateCampBooking, addClientToBooking } from '$lib/features/bookings/queries';
+import { createSession } from '$lib/features/sessions/queries';
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -111,13 +112,48 @@ export const actions: Actions = {
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
 		const bookingClients = clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' }));
+		const status = isFlexible ? 'pending' : 'confirmed';
+
+		// For hasSessions services: read sessionsIncluded, ignore multi-day form fields
+		if (service.hasSessions) {
+			const sessionsIncludedRaw = form.get('sessionsIncluded')?.toString();
+			const sessionsIncluded = sessionsIncludedRaw ? Math.max(1, parseInt(sessionsIncludedRaw)) : 1;
+
+			const booking = await createBooking({
+				serviceId, instructorId, date, time, isFlexible, status, spotNotes, notes,
+				sessionsIncluded,
+				clients: bookingClients
+			});
+
+			// Create sessions: first session gets the entered time (if not flexible), rest are unscheduled
+			await Promise.all(
+				Array.from({ length: sessionsIncluded }, (_, i) =>
+					createSession({
+						bookingId: booking.id,
+						date,
+						time: i === 0 && !isFlexible ? time : undefined,
+						sortOrder: i
+					})
+				)
+			);
+
+			const scheduled = !isFlexible && time ? 1 : 0;
+			const remaining = sessionsIncluded - scheduled;
+			const msg = scheduled > 0
+				? remaining > 0
+					? `Booking created — 1 session at ${time!.slice(0,5)}, ${remaining} to schedule`
+					: `Booking created — session at ${time!.slice(0,5)}`
+				: `Booking created — ${sessionsIncluded} session${sessionsIncluded > 1 ? 's' : ''} to schedule`;
+			return { bookingId: booking.id, message: msg };
+		}
+
+		// Non-sessions services: support multi-day booking creation (separate contracts)
 		const extraDates = form.getAll('extraDate').map(String).filter(Boolean);
 		const extraTimes = form.getAll('extraTime').map(String);
 		const allDays = [
 			{ date, time },
 			...extraDates.map((d, i) => ({ date: d, time: extraTimes[i] || undefined }))
 		];
-		const status = isFlexible ? 'pending' : 'confirmed';
 
 		if (allDays.length === 1) {
 			const booking = await createBooking({

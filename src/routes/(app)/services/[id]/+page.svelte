@@ -262,7 +262,7 @@
 			class="space-y-4"
 			use:enhance={serviceEnhance()}
 		>
-			<!-- Hidden capability flags -->
+			<!-- Hidden capability flags (kept in sync with toggle UI below) -->
 			<input type="hidden" name="hasSessions"        value={String(editHasSessions)} />
 			<input type="hidden" name="hasRoster"          value={String(editHasRoster)} />
 			<input type="hidden" name="hasDateRange"       value={String(editHasDateRange)} />
@@ -279,45 +279,97 @@
 				<ColorPicker selected={data.service.color} />
 			</div>
 
+			<!-- Capability flags (same as new-service Advanced section) -->
+			<details class="rounded-lg border border-border">
+				<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-slate-700">
+					Capability flags
+				</summary>
+				<div class="space-y-2 border-t border-border px-4 py-3">
+					{#each [
+						{ key: 'hasSessions',        label: 'Has sessions',        desc: 'Needs scheduled occurrences (lessons, classes, guided tours)', value: editHasSessions },
+						{ key: 'hasRoster',          label: 'Has roster',          desc: 'Multiple clients enrolled together', value: editHasRoster },
+						{ key: 'hasDateRange',       label: 'Has date range',      desc: 'Spans multiple days (camps, stays, multi-day packages)', value: editHasDateRange },
+						{ key: 'hasInventoryUnits',  label: 'Has inventory units', desc: 'Limited physical units to allocate (rooms, gear)', value: editHasInventoryUnits },
+						{ key: 'requiresInstructor', label: 'Requires instructor', desc: 'Needs a guide or instructor assigned', value: editRequiresInstructor },
+					] as flag}
+						<label class="flex cursor-pointer items-start gap-3">
+							<input type="checkbox"
+								checked={flag.value}
+								onchange={(e) => {
+									const v = (e.target as HTMLInputElement).checked;
+									if (flag.key === 'hasSessions') editHasSessions = v;
+									else if (flag.key === 'hasRoster') editHasRoster = v;
+									else if (flag.key === 'hasDateRange') editHasDateRange = v;
+									else if (flag.key === 'hasInventoryUnits') editHasInventoryUnits = v;
+									else editRequiresInstructor = v;
+								}}
+								class="mt-0.5 h-4 w-4 accent-ocean" />
+							<div>
+								<p class="text-sm font-medium text-gray-800">{flag.label}</p>
+								<p class="text-xs text-muted">{flag.desc}</p>
+							</div>
+						</label>
+					{/each}
+				</div>
+			</details>
+
 			{#if editHasSessions && !editHasRoster}
-				<div>
-					<label class="label">Default duration (minutes)</label>
-					<input name="durationMinutes" type="number" min="15" step="15"
-						value={data.service.durationMinutes ?? ''} class="input" />
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="label">Session duration (min)</label>
+						<input name="durationMinutes" type="number" min="15" step="15"
+							value={data.service.durationMinutes ?? ''} class="input" />
+					</div>
+					<div>
+						<label class="label">Sessions / booking</label>
+						<input name="defaultSessionsIncluded" type="number" min="1" step="1"
+							value={data.service.defaultSessionsIncluded ?? ''} class="input" placeholder="1" />
+						<p class="mt-1 text-xs text-muted">Default when creating a booking</p>
+					</div>
 				</div>
 			{/if}
 
-			{#if editHasRoster && editHasDateRange}
+			{#if editHasDateRange}
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="label">Start date *</label>
-						<input name="startDate" type="date" required value={data.service.startDate ?? ''} class="input" />
+						<label class="label">Start date {editHasRoster ? '*' : ''}</label>
+						<input name="startDate" type="date" required={editHasRoster} value={data.service.startDate ?? ''} class="input" />
 					</div>
 					<div>
-						<label class="label">End date *</label>
-						<input name="endDate" type="date" required value={data.service.endDate ?? ''} class="input" />
+						<label class="label">End date {editHasRoster ? '*' : ''}</label>
+						<input name="endDate" type="date" required={editHasRoster} value={data.service.endDate ?? ''} class="input" />
 					</div>
 				</div>
+			{/if}
+
+			{#if editHasRoster}
 				<div>
-					<label class="label">Max capacity *</label>
+					<label class="label">Max participants *</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
-				{#if data.instructors.length > 0}
-					<div>
-						<label class="label mb-2">Default instructors</label>
-						<div class="space-y-2 rounded-lg border border-border p-3">
-							{#each data.instructors as instructor}
-								<label class="flex cursor-pointer items-center gap-3">
-									<input type="checkbox" name="defaultInstructorId" value={instructor.id}
-										checked={data.service.defaultInstructorIds?.includes(instructor.id) ?? false}
-										class="h-4 w-4 accent-ocean" />
-									<span class="text-sm text-gray-800">{instructor.name}</span>
-								</label>
-							{/each}
-						</div>
+			{:else if editHasInventoryUnits}
+				<div>
+					<label class="label">Available units *</label>
+					<input name="maxCapacity" type="number" min="1" step="1" required
+						value={data.service.maxCapacity ?? ''} class="input" />
+				</div>
+			{/if}
+
+			{#if editRequiresInstructor && data.instructors.length > 0}
+				<div>
+					<label class="label mb-2">Default instructor{editHasRoster ? 's' : ''}</label>
+					<div class="space-y-2 rounded-lg border border-border p-3">
+						{#each data.instructors as instructor}
+							<label class="flex cursor-pointer items-center gap-3">
+								<input type="checkbox" name="defaultInstructorId" value={instructor.id}
+									checked={data.service.defaultInstructorIds?.includes(instructor.id) ?? false}
+									class="h-4 w-4 accent-ocean" />
+								<span class="text-sm text-gray-800">{instructor.name}</span>
+							</label>
+						{/each}
 					</div>
-				{/if}
+				</div>
 			{/if}
 
 			<div>

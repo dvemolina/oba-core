@@ -1,4 +1,4 @@
-import { and, eq, gte, isNotNull } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bookings, bookingClients, events, services } from '$lib/server/db/schema';
 import type { CreateServiceInput, Service, UpdateServiceInput } from './types';
@@ -47,7 +47,7 @@ export async function deleteService(
 				eq(bookingClients.status, 'enrolled')
 			)
 		)
-		.where(and(eq(bookings.serviceId, id), gte(bookings.date, today)))
+		.where(and(eq(bookings.serviceId, id), gte(bookings.date, today), ne(bookings.status, 'cancelled')))
 		.limit(1);
 	if (futureBookingWithClients) return { deleted: false, reason: 'has_future_bookings' };
 

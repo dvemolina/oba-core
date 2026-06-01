@@ -37,6 +37,7 @@ export interface Booking {
 	date: string;
 	dateEnd: string | null;
 	time: string | null;
+	sessionsIncluded: number | null;
 	isFlexible: boolean;
 	status: BookingStatus;
 	source: BookingSource;
@@ -56,6 +57,7 @@ export interface BookingSummary {
 	serviceHasSessions: boolean;
 	serviceHasRoster: boolean;
 	serviceHasDateRange: boolean;
+	serviceHasInventoryUnits: boolean;
 	serviceRequiresInstructor: boolean;
 	serviceMaxCapacity: number | null;
 	instructorName: string | null;
@@ -65,6 +67,7 @@ export interface BookingSummary {
 	date: string;
 	dateEnd: string | null;
 	time: string | null;
+	sessionsIncluded: number | null;
 	isFlexible: boolean;
 	status: BookingStatus;
 	clientCount: number;
@@ -87,6 +90,7 @@ export interface CreateBookingInput {
 	date: string;
 	dateEnd?: string;
 	time?: string;
+	sessionsIncluded?: number;
 	isFlexible: boolean;
 	status?: BookingStatus;
 	source?: BookingSource;
@@ -103,6 +107,7 @@ export interface UpdateBookingInput {
 	date?: string;
 	dateEnd?: string | null;
 	time?: string | null;
+	sessionsIncluded?: number | null;
 	isFlexible?: boolean;
 	status?: BookingStatus;
 	spotNotes?: string | null;

@@ -27,7 +27,7 @@
 	<div class="flex items-center gap-1">
 		{#if phone}
 			<a href="tel:{phone}"
-				class="btn-ghost btn-sm flex h-7 w-7 items-center justify-center rounded-lg p-0"
+				class="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 transition-colors hover:bg-sky-200"
 				title="Llamar {phone}">
 				<Phone size={14} strokeWidth={1.75} />
 			</a>
@@ -40,7 +40,7 @@
 		{/if}
 		{#if email}
 			<a href="mailto:{email}"
-				class="btn-ghost btn-sm flex h-7 w-7 items-center justify-center rounded-lg p-0"
+				class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200"
 				title="{email}">
 				<Mail size={14} strokeWidth={1.75} />
 			</a>

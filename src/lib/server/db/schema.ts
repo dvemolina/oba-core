@@ -67,7 +67,8 @@ export const services = pgTable('services', {
 	hasInventoryUnits: boolean('has_inventory_units').notNull().default(false), // limited physical units (rooms, gear, boards)
 	requiresInstructor: boolean('requires_instructor').notNull().default(true), // needs guide/instructor assigned
 	// ── Type-specific config (kept for backward compat, reused across templates) ──
-	durationMinutes: integer('duration_minutes'),
+	durationMinutes: integer('duration_minutes'),        // default session duration in minutes
+	defaultSessionsIncluded: integer('default_sessions_included'), // default sessions per booking (e.g. 1, 5, 10)
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
 	startDate: date('start_date'),             // was campStartDate
 	endDate: date('end_date'),                 // was campEndDate
@@ -92,6 +93,7 @@ export const bookings = pgTable('bookings', {
 		.references(() => accommodationUnits.id, { onDelete: 'set null' }),
 	guestsCount: integer('guests_count'),
 	time: time('time'),
+	sessionsIncluded: integer('sessions_included'), // how many sessions were sold (null = not a sessions-based booking)
 	isFlexible: boolean('is_flexible').notNull().default(false),
 	status: bookingStatusEnum('status').notNull().default('pending'),
 	source: text('source').notNull().default('admin'),
@@ -175,23 +177,38 @@ export const whatsappSessions = pgTable('whatsapp_sessions', {
 });
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
-// Physical occurrences of a bookable service (individual surf/ski/yoga lessons
-// within a booking contract). Applies to any service with has_sessions=true.
+// Physical occurrences of a service. Independent of any single booking —
+// multiple bookings can be linked to the same session via booking_sessions.
+// Applies to any service with has_sessions=true.
 
 export const sessions = pgTable('sessions', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
-	bookingId: text('booking_id')
-		.notNull()
-		.references(() => bookings.id, { onDelete: 'cascade' }),
 	date: date('date').notNull(),
 	time: time('time'),                          // null = unscheduled
+	durationMinutes: integer('duration_minutes'), // null = use service default
 	notes: text('notes'),                        // spot info, group description, etc.
 	status: text('status').notNull().default('unscheduled'), // 'unscheduled' | 'scheduled' | 'completed' | 'cancelled'
 	sortOrder: integer('sort_order').notNull().default(0), // ordering within same day
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
+});
+
+// Junction: links sessions to bookings (many-to-many).
+// A session can serve clients from multiple bookings (group lessons, shared sessions).
+// A booking can have multiple sessions (lesson packages, multi-day camps).
+export const bookingSessions = pgTable('booking_sessions', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	sessionId: text('session_id')
+		.notNull()
+		.references(() => sessions.id, { onDelete: 'cascade' }),
+	bookingId: text('booking_id')
+		.notNull()
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').notNull().defaultNow()
 });
 
 export const sessionInstructors = pgTable('session_instructors', {

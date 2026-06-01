@@ -12,10 +12,14 @@ import {
 } from '$lib/features/bookings/queries';
 import {
 	listSessionsForBooking,
+	listSessionsForDate,
 	createSession,
 	updateSession,
 	cancelSession,
-	deleteSession
+	deleteSession,
+	deleteSessionsForBooking,
+	linkSessionToBooking,
+	unlinkSessionFromBooking
 } from '$lib/features/sessions/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -29,13 +33,20 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const isCamp = booking.serviceHasRoster;
 	const hasSessions = booking.serviceHasSessions;
-	const [service, clients, sessions] = await Promise.all([
+	const [service, clients, sessions, allDateSessions] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
 		isCamp ? listClients() : Promise.resolve([]),
-		hasSessions ? listSessionsForBooking(params.id) : Promise.resolve([])
+		hasSessions ? listSessionsForBooking(params.id) : Promise.resolve([]),
+		// For "link to existing session": sessions on booking's start date from other bookings
+		hasSessions ? listSessionsForDate(booking.date) : Promise.resolve([])
 	]);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp, sessions };
+	// Sessions on the same date not already linked to this booking
+	const linkableSessions = allDateSessions.filter(
+		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
+	);
+
+	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions };
 };
 
 export const actions: Actions = {
@@ -128,10 +139,12 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const date = form.get('sessionDate')?.toString() ?? '';
 		const time = form.get('sessionTime')?.toString() || undefined;
+		const durRaw = form.get('sessionDuration')?.toString();
+		const durationMinutes = durRaw ? parseInt(durRaw) : undefined;
 		const notes = form.get('sessionNotes')?.toString() || undefined;
 		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
 		if (!date) return fail(400, { error: 'Session date required' });
-		await createSession({ bookingId: params.id, date, time, notes, instructorIds });
+		await createSession({ bookingId: params.id, date, time, durationMinutes, notes, instructorIds });
 		return { error: null, message: 'Session added' };
 	},
 
@@ -139,10 +152,12 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		const time = form.get('sessionTime')?.toString() || null;
+		const durRaw = form.get('sessionDuration')?.toString();
+		const durationMinutes = durRaw ? parseInt(durRaw) : null;
 		const notes = form.get('sessionNotes')?.toString() || null;
 		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
-		await updateSession(sessionId, { time, notes, instructorIds });
+		await updateSession(sessionId, { time, durationMinutes, notes, instructorIds });
 		return { error: null, message: 'Session updated' };
 	},
 
@@ -160,5 +175,54 @@ export const actions: Actions = {
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await deleteSession(sessionId);
 		return { error: null, message: 'Session deleted' };
+	},
+
+	linkToSession: async ({ request, params }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		await linkSessionToBooking(sessionId, params.id);
+		return { error: null, message: 'Linked to session' };
+	},
+
+	unlinkFromSession: async ({ request, params }) => {
+		const form = await request.formData();
+		const sessionId = form.get('sessionId')?.toString() ?? '';
+		if (!sessionId) return fail(400, { error: 'Missing session id' });
+		await unlinkSessionFromBooking(sessionId, params.id);
+		return { error: null, message: 'Unlinked from session' };
+	},
+
+	bulkGenerateSessions: async ({ request, params }) => {
+		const form = await request.formData();
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+		if (!booking.dateEnd) return fail(400, { error: 'Booking has no end date' });
+		if (!booking.serviceHasSessions) return fail(400, { error: 'Service does not use sessions' });
+
+		const sessionsPerDay = Math.min(6, Math.max(1, parseInt(form.get('sessionsPerDay')?.toString() ?? '1')));
+		const times = Array.from({ length: sessionsPerDay }, (_, i) =>
+			form.get(`sessionTime_${i}`)?.toString() || undefined
+		);
+		const weekdaysOnly = form.get('weekdaysOnly') === 'on';
+		const clearExisting = form.get('clearExisting') === 'on';
+
+		if (clearExisting) await deleteSessionsForBooking(params.id);
+
+		const start = new Date(booking.date + 'T00:00:00');
+		const end = new Date(booking.dateEnd + 'T00:00:00');
+		const toCreate: { bookingId: string; date: string; time?: string; sortOrder: number }[] = [];
+
+		for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+			const dow = d.getDay();
+			if (weekdaysOnly && (dow === 0 || dow === 6)) continue;
+			const dateStr = d.toISOString().slice(0, 10);
+			for (let i = 0; i < sessionsPerDay; i++) {
+				toCreate.push({ bookingId: params.id, date: dateStr, time: times[i], sortOrder: i });
+			}
+		}
+
+		await Promise.all(toCreate.map(s => createSession(s)));
+		return { error: null, message: `${toCreate.length} sessions generated` };
 	}
 };

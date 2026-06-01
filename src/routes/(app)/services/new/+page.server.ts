@@ -19,6 +19,8 @@ export const actions: Actions = {
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();
 		const durationMinutes = durationRaw ? parseInt(durationRaw) : undefined;
+		const defaultSessionsRaw = form.get('defaultSessionsIncluded')?.toString();
+		const defaultSessionsIncluded = defaultSessionsRaw ? parseInt(defaultSessionsRaw) : undefined;
 		const startDate = form.get('startDate')?.toString() || undefined;
 		const endDate = form.get('endDate')?.toString() || undefined;
 		const maxCapacityRaw = form.get('maxCapacity')?.toString();
@@ -34,18 +36,23 @@ export const actions: Actions = {
 		const hasInventoryUnits = form.get('hasInventoryUnits') === 'true';
 		const requiresInstructor = form.get('requiresInstructor') !== 'false'; // default true
 
+		const values = { name, basePrice, description: description ?? '', color };
+
 		if (!name || !basePrice) {
-			return fail(400, { error: 'Name and price are required' });
+			return fail(400, { error: 'Name and price are required', values });
 		}
 		if (isNaN(parseFloat(basePrice))) {
-			return fail(400, { error: 'Price must be a number' });
+			return fail(400, { error: 'Price must be a number', values });
 		}
-		if (hasRoster && hasDateRange && (!startDate || !endDate || !maxCapacity)) {
-			return fail(400, { error: 'Roster services with date range require start date, end date, and max capacity' });
+		if (hasRoster && hasDateRange && (!startDate || !endDate)) {
+			return fail(400, { error: 'Services with a date range require start and end dates', values });
+		}
+		if ((hasRoster || hasInventoryUnits) && !maxCapacity) {
+			return fail(400, { error: 'Specify max participants / available units', values });
 		}
 
 		await createService({
-			name, type, basePrice, description, durationMinutes,
+			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
 			startDate, endDate, maxCapacity,
 			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,

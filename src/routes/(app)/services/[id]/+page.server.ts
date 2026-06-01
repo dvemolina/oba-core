@@ -35,6 +35,8 @@ export const actions: Actions = {
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();
 		const durationMinutes = durationRaw ? parseInt(durationRaw) : undefined;
+		const defaultSessionsRaw = form.get('defaultSessionsIncluded')?.toString();
+		const defaultSessionsIncluded = defaultSessionsRaw ? parseInt(defaultSessionsRaw) : undefined;
 		const startDate = form.get('startDate')?.toString() || undefined;
 		const endDate = form.get('endDate')?.toString() || undefined;
 		const maxCapacityRaw = form.get('maxCapacity')?.toString();
@@ -50,12 +52,15 @@ export const actions: Actions = {
 		const requiresInstructor = form.get('requiresInstructor') !== 'false';
 
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
-		if (hasRoster && hasDateRange && (!startDate || !endDate || !maxCapacity)) {
-			return fail(400, { error: 'Roster + date range requires start date, end date, and max capacity' });
+		if (hasRoster && hasDateRange && (!startDate || !endDate)) {
+			return fail(400, { error: 'Services with a date range require start and end dates' });
+		}
+		if ((hasRoster || hasInventoryUnits) && !maxCapacity) {
+			return fail(400, { error: 'Specify max participants / available units' });
 		}
 
 		await updateService(params.id, {
-			name, basePrice, description, durationMinutes,
+			name, basePrice, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
 			startDate, endDate, maxCapacity,
 			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,

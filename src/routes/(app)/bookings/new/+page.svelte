@@ -149,7 +149,7 @@
 					const data = result.data as { bookingId?: string; multiDay?: boolean; date?: string; message?: string };
 					toast(data.message ?? 'Done');
 					if (data.multiDay) await goto(`/calendar?date=${data.date}`);
-					else if (data.bookingId) await goto(`/bookings/${data.bookingId}`);
+					else if (data.bookingId) await goto(`/bookings/${data.bookingId}?new=1`);
 				} else {
 					await update();
 				}
@@ -384,7 +384,7 @@
 					</div>
 					{#if showTimeAndFlexible}
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Time</label>
+							<label class="mb-1 block text-sm font-medium text-gray-700">{isLesson ? 'First session time' : 'Time'}</label>
 							<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
 								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
 						</div>
@@ -400,13 +400,25 @@
 						<p class="text-xs text-muted">Confirm based on surf conditions</p>
 					</div>
 				</label>
+			{/if}
 
+			{#if isLesson}
+				<!-- Sessions-based: how many sessions does this booking include -->
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Sessions included *</label>
+					<input name="sessionsIncluded" type="number" min="1" step="1"
+						value={selectedService?.defaultSessionsIncluded ?? 1} required
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+					<p class="mt-1 text-xs text-muted">Sessions purchased. First one gets the time below if set.</p>
+				</div>
+			{:else if showTimeAndFlexible}
+				<!-- Non-sessions services: allow creating separate bookings on multiple days -->
 				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-sand/60 p-3">
 					<input type="checkbox" bind:checked={multiDay}
 						onchange={() => { if (!multiDay) extraDays = []; }} class="h-4 w-4 accent-ocean" />
 					<div>
 						<p class="text-sm font-medium text-gray-800">📅 Repeat on more days</p>
-						<p class="text-xs text-muted">Creates one booking per day, same clients</p>
+						<p class="text-xs text-muted">Creates one separate booking per day</p>
 					</div>
 				</label>
 

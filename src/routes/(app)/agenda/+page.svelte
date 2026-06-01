@@ -1,56 +1,65 @@
 <script lang="ts">
-	import { groupBookingsByDate } from '$lib/features/calendar/utils';
 	import { getServiceColor } from '$lib/features/services/colors';
+	import { fmtTimeRange } from '$lib/features/calendar/utils';
 	import type { PageData } from './$types';
+	import type { AgendaSession } from '$lib/features/sessions/types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
 
 	let { data }: { data: PageData } = $props();
 
-	const grouped = $derived(groupBookingsByDate(data.bookings));
 	const today = $derived(data.today);
 
-	function agendaBookingsForDate(date: string): BookingSummary[] {
-		return (grouped[date] ?? []).filter(
-			b => b.status !== 'cancelled' && (!b.dateEnd || b.dateEnd === b.date || b.date === date)
-		);
+	// ── Helpers ──────────────────────────────────────────────────────────────────
+
+	function fmtDate(d: string) {
+		const date = new Date(d + 'T00:00:00');
+		if (d === today) return 'Today';
+		return date.toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' });
 	}
 
-	const cancelledBookings = $derived(() => {
-		const seen = new Set<string>();
-		const result: BookingSummary[] = [];
-		for (const list of Object.values(grouped)) {
-			for (const b of list) {
-				if (b.status === 'cancelled' && !seen.has(b.id)) {
-					seen.add(b.id);
-					result.push(b);
-				}
-			}
-		}
-		return result.sort((a, b) => b.date.localeCompare(a.date));
+	function fmtTime(t: string | null) {
+		return t ? t.slice(0, 5) : null;
+	}
+
+	function sessionCardBorder(s: AgendaSession) {
+		if (s.status === 'unscheduled') return 'border-amber-300 bg-amber-50/40';
+		const c = getServiceColor(s.serviceColor ?? '');
+		return `${c.border} bg-surface`;
+	}
+
+	// ── Date grouping ─────────────────────────────────────────────────────────────
+
+	// All unique dates that have sessions or non-session bookings
+	const allDates = $derived((): string[] => {
+		const set = new Set<string>();
+		for (const s of data.sessions) set.add(s.date);
+		for (const b of data.nonSessionBookings) set.add(b.date);
+		return [...set].sort();
 	});
 
-	const upcomingDates = $derived(
-		Object.keys(grouped).filter(d => d >= today && agendaBookingsForDate(d).length > 0).sort()
-	);
-	const pastDates = $derived(
-		Object.keys(grouped).filter(d => d < today && agendaBookingsForDate(d).length > 0).sort().reverse()
-	);
-
-	function bookingSubtitle(booking: BookingSummary): string {
-		if (booking.serviceHasRoster) {
-			const max = booking.serviceMaxCapacity;
-			return max != null ? `${booking.clientCount}/${max} enrolled` : `${booking.clientCount} enrolled`;
-		}
-		if (booking.serviceHasInventoryUnits) {
-			return booking.accommodationUnitName ?? 'Accommodation';
-		}
-		return booking.instructorName ?? 'No instructor';
+	function sessionsForDate(date: string): AgendaSession[] {
+		return data.sessions.filter(s => s.date === date);
 	}
 
-	function cardClass(booking: BookingSummary): string {
-		const c = getServiceColor(booking.serviceColor ?? '');
-		if (booking.status === 'cancelled') return 'border-gray-300 bg-surface opacity-50 border-solid';
-		return `${c.border} bg-surface ${booking.isFlexible ? 'border-dashed' : 'border-solid'}`;
+	function nonSessionBookingsForDate(date: string): BookingSummary[] {
+		return data.nonSessionBookings.filter(b => b.date === date);
+	}
+
+	const upcomingDates = $derived(allDates().filter(d => d >= today));
+	const pastDates = $derived(allDates().filter(d => d < today).reverse());
+
+	// Unscheduled sessions in the upcoming window
+	const unscheduled = $derived(
+		data.sessions.filter(s => s.status === 'unscheduled' && s.date >= today)
+	);
+
+	// ── Subtitle for non-session bookings ─────────────────────────────────────────
+	function nonSessionSubtitle(b: BookingSummary): string {
+		if (b.serviceHasRoster) {
+			const max = b.serviceMaxCapacity;
+			return max != null ? `${b.clientCount}/${max} enrolled` : `${b.clientCount} enrolled`;
+		}
+		return b.instructorName ?? (b.firstClientName ?? '—');
 	}
 </script>
 
@@ -60,116 +69,182 @@
 		<h1 class="page-title">Agenda</h1>
 	</div>
 
+	<!-- Stats strip -->
+	<div class="grid grid-cols-3 divide-x divide-border border-b border-border bg-surface">
+		<div class="flex flex-col items-center py-3">
+			<span class="text-xl font-bold text-navy">{data.stats.scheduledToday}</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Today</span>
+		</div>
+		<div class="flex flex-col items-center py-3">
+			<span class="text-xl font-bold {data.stats.unscheduledTotal > 0 ? 'text-amber-600' : 'text-navy'}">
+				{data.stats.unscheduledTotal}
+			</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Unscheduled</span>
+		</div>
+		<div class="flex flex-col items-center py-3">
+			<span class="text-xl font-bold {data.stats.pendingRevenue > 0 ? 'text-flexible' : 'text-navy'}">
+				€{data.stats.pendingRevenue.toFixed(0)}
+			</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Pending</span>
+		</div>
+	</div>
+
 	<div class="flex-1 overflow-y-auto">
 		<div class="space-y-6 px-4 py-4">
 
-			<!-- Active events (surf camps, multi-day) -->
+			<!-- Active events (legacy event objects) -->
 			{#each data.events as event}
 				<a href="/events/{event.id}" class="block rounded-(--radius-card) border border-confirmed/30 bg-confirmed/10 p-3">
-					<div class="flex items-center gap-2">
+					<p class="text-sm font-semibold text-gray-800">{event.title}</p>
+					<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
+				</a>
+			{/each}
+
+			<!-- Active camp banners -->
+			{#each data.activeCamps as camp}
+				{@const c = getServiceColor(camp.serviceColor ?? '')}
+				<a href="/bookings/{camp.id}"
+					class="block rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {c.border} bg-surface">
+					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-sm font-semibold text-gray-800">{event.title}</p>
-							<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
+							<p class="text-xs font-semibold uppercase tracking-wider text-muted">Camp</p>
+							<p class="text-sm font-semibold text-gray-800">{camp.serviceName}</p>
+							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount}{camp.serviceMaxCapacity != null ? `/${camp.serviceMaxCapacity}` : ''} enrolled</p>
 						</div>
+						<span class="rounded-full px-2 py-0.5 text-xs {camp.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">{camp.status}</span>
 					</div>
 				</a>
 			{/each}
 
-			{#if upcomingDates.length === 0 && data.events.length === 0}
-				<p class="py-16 text-center text-sm text-muted">No upcoming bookings.</p>
+			<!-- Unscheduled sessions alert -->
+			{#if unscheduled.length > 0}
+				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50 p-3">
+					<p class="text-xs font-semibold text-amber-800">{unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need a time assigned</p>
+					<div class="mt-2 space-y-1.5">
+						{#each unscheduled.slice(0, 4) as s}
+							<a href="/bookings/{s.bookingId}" class="flex items-center gap-2 text-xs text-amber-700 hover:underline">
+								<span>·</span>
+								<span>{fmtDate(s.date)} · {s.serviceName ?? 'Session'}
+									{#if s.clientName} · {s.clientName}{/if}
+								</span>
+							</a>
+						{/each}
+						{#if unscheduled.length > 4}
+							<p class="text-xs text-amber-600">+{unscheduled.length - 4} more</p>
+						{/if}
+					</div>
+				</div>
 			{/if}
 
-			<!-- Upcoming -->
+			{#if upcomingDates.length === 0 && data.events.length === 0 && data.activeCamps.length === 0}
+				<p class="py-16 text-center text-sm text-muted">No upcoming sessions or bookings.</p>
+			{/if}
+
+			<!-- Upcoming dates -->
 			{#each upcomingDates as date}
+				{@const daySessions = sessionsForDate(date)}
+				{@const dayBookings = nonSessionBookingsForDate(date)}
 				<div id={date}>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-						{date === today
-							? 'Today'
-							: new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
-					</p>
+					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
 					<div class="space-y-2">
-						{#each agendaBookingsForDate(date) as booking}
-							{@const isCamp = booking.serviceHasRoster && !!booking.dateEnd && booking.dateEnd !== booking.date}
-							<a href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {cardClass(booking)}">
-								<div>
-									<p class="text-sm font-medium text-gray-800">
-										{#if isCamp}
-											{booking.serviceName}
-											<span class="ml-1 text-xs text-muted">{booking.date} → {booking.dateEnd}</span>
+
+						<!-- Sessions -->
+						{#each daySessions as s}
+							{@const c = getServiceColor(s.serviceColor ?? '')}
+							<a href="/bookings/{s.bookingId}"
+								class="flex items-start justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {sessionCardBorder(s)}">
+								<div class="min-w-0 flex-1">
+									<div class="flex items-center gap-2 flex-wrap">
+										{#if s.time}
+											<span class="text-sm font-semibold text-gray-900">{fmtTimeRange(s.time, s.effectiveDuration)}</span>
 										{:else}
-											{booking.time ? booking.time.slice(0, 5) : '—'}
-											{#if booking.isFlexible}<span class="ml-1 text-flexible">⚡</span>{/if}
-											· {booking.serviceName}
+											<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">⚡ Unscheduled</span>
 										{/if}
-									</p>
-									<p class="text-xs text-muted">
-										{#if isCamp}
-											{booking.clientCount}{booking.serviceMaxCapacity != null ? ` / ${booking.serviceMaxCapacity}` : ''} enrolled
-										{:else}
-											{bookingSubtitle(booking)}
+										<span class="inline-flex items-center gap-1 text-sm font-medium text-gray-800">
+											<span class="inline-block h-2 w-2 shrink-0 rounded-full {c.bg} ring-1 {c.border}"></span>
+											{s.serviceName ?? 'Session'}
+										</span>
+										{#if s.isFlexible}
+											<span class="text-flexible text-xs">⚡</span>
+										{/if}
+									</div>
+									<p class="mt-0.5 text-xs text-muted">
+										{#if s.serviceHasRoster}
+											{s.enrolledCount}{s.maxCapacity != null ? `/${s.maxCapacity}` : ''} enrolled
+										{:else if s.clientName}
+											{s.clientName}
+										{/if}
+										{#if s.instructors.length > 0}
+											· 🌊 {s.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}
+										{/if}
+										{#if s.notes}
+											· {s.notes}
 										{/if}
 									</p>
 								</div>
-								<span class="rounded-full px-2 py-0.5 text-xs {booking.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
-									{booking.status}
+								<span class="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] {s.bookingStatus === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
+									{s.bookingStatus}
 								</span>
+							</a>
+						{/each}
+
+						<!-- Non-session bookings (rentals, accommodation, products) -->
+						{#each dayBookings as b}
+							{@const c = getServiceColor(b.serviceColor ?? '')}
+							<a href="/bookings/{b.id}"
+								class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {c.border} bg-surface opacity-85">
+								<div>
+									<p class="text-sm font-medium text-gray-700">{b.serviceName ?? 'Booking'}</p>
+									<p class="text-xs text-muted">{nonSessionSubtitle(b)}{b.dateEnd && b.dateEnd !== b.date ? ` · until ${b.dateEnd}` : ''}</p>
+								</div>
+								<span class="rounded-full px-2 py-0.5 text-[10px] {b.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">{b.status}</span>
 							</a>
 						{/each}
 					</div>
 				</div>
 			{/each}
 
-			<!-- Past bookings -->
+			<!-- Past -->
 			{#if pastDates.length > 0}
 				<details class="mt-6">
 					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Past bookings ({pastDates.reduce((n, d) => n + agendaBookingsForDate(d).length, 0)})
+						Past ({pastDates.reduce((n, d) => n + sessionsForDate(d).length + nonSessionBookingsForDate(d).length, 0)})
 					</summary>
 					<div class="mt-3 space-y-4">
 						{#each pastDates as date}
-							<div>
-								<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-									{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
-								</p>
-								<div class="space-y-2">
-									{#each agendaBookingsForDate(date) as booking}
-										{@const isCamp = booking.serviceHasRoster && !!booking.dateEnd && booking.dateEnd !== booking.date}
-										<a href="/bookings/{booking.id}"
-											class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-70 ring-1 ring-border {cardClass(booking)}">
-											<p class="text-sm text-gray-700">
-												{isCamp ? '' : (booking.time?.slice(0, 5) ?? '—') + ' · '}{booking.serviceName}
-											</p>
-											<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
-										</a>
-									{/each}
+							{@const daySessions = sessionsForDate(date)}
+							{@const dayBookings = nonSessionBookingsForDate(date)}
+							{#if daySessions.length > 0 || dayBookings.length > 0}
+								<div>
+									<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
+									<div class="space-y-1.5">
+										{#each daySessions as s}
+											{@const c = getServiceColor(s.serviceColor ?? '')}
+											<a href="/bookings/{s.bookingId}"
+												class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-60 ring-1 ring-border {c.border} bg-surface">
+												<p class="text-sm text-gray-700">
+													{fmtTime(s.time) ?? '—'} · {s.serviceName ?? 'Session'}
+													{#if s.clientName} · {s.clientName}{/if}
+												</p>
+												<span class="text-xs text-muted">{s.bookingStatus}</span>
+											</a>
+										{/each}
+										{#each dayBookings as b}
+											{@const c = getServiceColor(b.serviceColor ?? '')}
+											<a href="/bookings/{b.id}"
+												class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-60 ring-1 ring-border {c.border} bg-surface">
+												<p class="text-sm text-gray-700">{b.serviceName ?? 'Booking'}</p>
+												<span class="text-xs text-muted">{b.clientCount} client{b.clientCount !== 1 ? 's' : ''}</span>
+											</a>
+										{/each}
+									</div>
 								</div>
-							</div>
+							{/if}
 						{/each}
 					</div>
 				</details>
 			{/if}
 
-			<!-- Cancelled -->
-			{#if cancelledBookings().length > 0}
-				<details class="mt-4">
-					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Cancelled ({cancelledBookings().length})
-					</summary>
-					<div class="mt-2 space-y-1">
-						{#each cancelledBookings() as booking}
-							<a href="/bookings/{booking.id}"
-								class="flex items-center justify-between rounded-(--radius-card) border-l-4 border-solid border-gray-300 bg-surface p-3 opacity-50 ring-1 ring-border">
-								<p class="text-sm text-gray-500 line-through">
-									{booking.serviceName}
-									<span class="ml-1 text-xs no-underline">{booking.date}</span>
-								</p>
-								<span class="text-xs text-muted">{booking.clientCount} client{booking.clientCount !== 1 ? 's' : ''}</span>
-							</a>
-						{/each}
-					</div>
-				</details>
-			{/if}
 		</div>
 	</div>
 </div>

@@ -127,43 +127,61 @@
 		</div>
 
 		{#if hasSessions && !hasRoster}
-			<div>
-				<label class="label">Default duration (minutes)</label>
-				<input name="durationMinutes" type="number" min="15" step="15"
-					class="input" placeholder="90" />
+			<div class="grid grid-cols-2 gap-3">
+				<div>
+					<label class="label">Session duration (min)</label>
+					<input name="durationMinutes" type="number" min="15" step="15"
+						class="input" placeholder="90" />
+				</div>
+				<div>
+					<label class="label">Sessions / booking</label>
+					<input name="defaultSessionsIncluded" type="number" min="1" step="1"
+						class="input" placeholder="1" />
+					<p class="mt-1 text-xs text-muted">Default when creating a booking</p>
+				</div>
 			</div>
 		{/if}
 
-		{#if hasRoster && hasDateRange}
+		{#if hasDateRange}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="label">Start date *</label>
-					<input name="startDate" type="date" required class="input" />
+					<label class="label">Start date {hasRoster ? '*' : ''}</label>
+					<input name="startDate" type="date" required={hasRoster} class="input" />
 				</div>
 				<div>
-					<label class="label">End date *</label>
-					<input name="endDate" type="date" required class="input" />
+					<label class="label">End date {hasRoster ? '*' : ''}</label>
+					<input name="endDate" type="date" required={hasRoster} class="input" />
 				</div>
 			</div>
+		{/if}
+
+		{#if hasRoster}
 			<div>
 				<label class="label">Max participants *</label>
 				<input name="maxCapacity" type="number" min="1" step="1" required
 					class="input" placeholder="12" />
 			</div>
-			{#if data.instructors.length > 0}
-				<div>
-					<label class="label mb-2">Default instructors</label>
-					<div class="space-y-2 rounded-lg border border-border p-3">
-						{#each data.instructors as instructor}
-							<label class="flex cursor-pointer items-center gap-3">
-								<input type="checkbox" name="defaultInstructorId" value={instructor.id}
-									class="h-4 w-4 accent-ocean" />
-								<span class="text-sm text-gray-800">{instructor.name}</span>
-							</label>
-						{/each}
-					</div>
+		{:else if hasInventoryUnits}
+			<div>
+				<label class="label">Available units *</label>
+				<input name="maxCapacity" type="number" min="1" step="1" required
+					class="input" placeholder="e.g. 8 boards, 4 rooms" />
+			</div>
+		{/if}
+
+		{#if requiresInstructor && data.instructors.length > 0}
+			<div>
+				<label class="label mb-2">Default instructor{hasRoster ? 's' : ''}</label>
+				<div class="space-y-2 rounded-lg border border-border p-3">
+					{#each data.instructors as instructor}
+						<label class="flex cursor-pointer items-center gap-3">
+							<input type="checkbox" name="defaultInstructorId" value={instructor.id}
+								class="h-4 w-4 accent-ocean" />
+							<span class="text-sm text-gray-800">{instructor.name}</span>
+						</label>
+					{/each}
 				</div>
-			{/if}
+			</div>
 		{/if}
 
 		<div>

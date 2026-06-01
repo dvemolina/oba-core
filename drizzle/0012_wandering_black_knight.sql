@@ -1,0 +1,1 @@
+-- no-op: snapshot correction (0011 snapshot was stale; 0012 snapshot reflects actual DB state)
