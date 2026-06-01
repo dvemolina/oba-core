@@ -120,6 +120,20 @@
       "when": 1780329170724,
       "tag": "0016_service_default_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1748822400000,
+      "tag": "0017_drop_booking_instructor_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1748822401000,
+      "tag": "0018_session_participants",
+      "breakpoints": true
     }
   ]
 }
