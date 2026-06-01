@@ -15,8 +15,6 @@ import {
 
 export const skillLevelEnum = pgEnum('skill_level', ['beginner', 'intermediate', 'advanced']);
 
-export const serviceTypeEnum = pgEnum('service_type', ['lesson', 'camp', 'product', 'rental', 'accommodation']);
-
 export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'cancelled']);
 
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'partial', 'paid']);
@@ -59,7 +57,7 @@ export const services = pgTable('services', {
 	name: text('name').notNull(),
 	description: text('description'),
 	// `type` kept as a display template hint — business logic now driven by capability flags below
-	type: serviceTypeEnum('type').notNull(),
+	type: text('type').notNull().default('other'),
 	// ── Capability flags ──────────────────────────────────────────────────────
 	hasSessions: boolean('has_sessions').notNull().default(false),       // needs session scheduling (lessons, classes, tours)
 	hasRoster: boolean('has_roster').notNull().default(false),           // multi-client enrollment (camps, group classes)

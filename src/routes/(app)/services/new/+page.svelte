@@ -39,9 +39,9 @@
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: false }
 		},
 		{
-			id: 'custom',
-			label: 'Custom',
-			description: 'Configure capabilities manually',
+			id: 'other',
+			label: 'Other',
+			description: 'Configure capabilities manually for any service type',
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: true }
 		},
 	] as const;

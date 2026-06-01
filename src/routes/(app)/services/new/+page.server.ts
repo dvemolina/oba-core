@@ -2,7 +2,6 @@ import { fail, redirect } from '@sveltejs/kit';
 import { createService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
-import type { ServiceTemplate } from '$lib/features/services/types';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -14,7 +13,7 @@ export const actions: Actions = {
 	default: async ({ request }) => {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
-		const type = (form.get('type')?.toString() ?? 'lesson') as ServiceTemplate;
+		const type = form.get('type')?.toString() ?? 'other';
 		const basePrice = form.get('basePrice')?.toString() ?? '';
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();

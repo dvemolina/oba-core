@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const defaultTime = url.searchParams.get('time') ?? '';
 
 	// Pre-load unit types for any accommodation services
-	const accommodationServices = services.filter((s) => s.type === 'accommodation');
+	const accommodationServices = services.filter((s) => s.hasInventoryUnits);
 	const unitTypesByService: Record<string, Awaited<ReturnType<typeof listUnitTypesByService>>> = {};
 	await Promise.all(
 		accommodationServices.map(async (s) => {

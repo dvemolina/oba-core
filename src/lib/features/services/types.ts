@@ -1,14 +1,15 @@
-// `type` kept as a cosmetic template label — business logic driven by capability flags.
-export type ServiceTemplate = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation';
+// Cosmetic label only — any string is valid. These are suggested presets shown in the UI.
+export type ServiceLabel = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation' | 'other' | (string & {});
 
-// Legacy alias for code that still references ServiceType
-export type ServiceType = ServiceTemplate;
+// Aliases kept for compatibility
+export type ServiceTemplate = ServiceLabel;
+export type ServiceType = ServiceLabel;
 
 export interface Service {
 	id: string;
 	name: string;
 	description: string | null;
-	type: ServiceTemplate;
+	type: string;
 	// ── Capability flags ──────────────────────────────────────────────────────
 	hasSessions: boolean;        // needs session scheduling
 	hasRoster: boolean;          // multi-client enrollment
@@ -32,7 +33,7 @@ export interface Service {
 export interface CreateServiceInput {
 	name: string;
 	description?: string;
-	type: ServiceTemplate;
+	type: string;
 	hasSessions?: boolean;
 	hasRoster?: boolean;
 	hasDateRange?: boolean;
