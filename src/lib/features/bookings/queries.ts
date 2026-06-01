@@ -1,5 +1,5 @@
 // src/lib/features/bookings/queries.ts
-import { and, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
+import { and, count, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	bookings,
@@ -311,6 +311,20 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 	}
 
 	return (await getBooking(booking.id))!;
+}
+
+/** Count enrolled clients across all active bookings for a service. Used for capacity checks. */
+export async function countEnrolledClientsForService(serviceId: string): Promise<number> {
+	const [row] = await db
+		.select({ total: count() })
+		.from(bookingClients)
+		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
+		.where(and(
+			eq(bookings.serviceId, serviceId),
+			ne(bookings.status, 'cancelled'),
+			eq(bookingClients.status, 'enrolled')
+		));
+	return Number(row?.total ?? 0);
 }
 
 /** For camps: find the single booking for this service, or create it (empty, no clients yet). */

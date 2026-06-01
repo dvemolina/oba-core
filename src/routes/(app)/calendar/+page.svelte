@@ -273,6 +273,21 @@
 			b.status !== 'cancelled' && !b.serviceHasSessions && (!b.time || b.isFlexible)
 		)
 	);
+	// Camp bookings active on this day with no sessions scheduled today
+	const campBanners = $derived(
+		data.view === 'day'
+			? data.bookings.filter(b =>
+				b.serviceHasRoster && b.serviceHasDateRange && b.dateEnd &&
+				b.status !== 'cancelled' &&
+				!data.daySessions.some(s => s.bookingIds.includes(b.id))
+			  )
+			: []
+	);
+	function campDayNumber(camp: BookingSummary, date: string): number {
+		const start = new Date(camp.date + 'T00:00:00');
+		const current = new Date(date + 'T00:00:00');
+		return Math.floor((current.getTime() - start.getTime()) / 86400000) + 1;
+	}
 	const daySlottedNonSessionBookings = $derived(() => {
 		const map: Record<string, BookingSummary[]> = {};
 		for (const b of data.bookings) {
@@ -526,6 +541,21 @@
 					</a>
 				{/each}
 
+				<!-- Camp active today but no sessions scheduled -->
+				{#each campBanners as camp}
+					{@const c = getServiceColor(camp.serviceColor ?? '')}
+					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 {c.bg}/20 border-l-4 {c.border}">
+						<div>
+							<p class="text-xs font-semibold text-gray-800">🏕️ {camp.serviceName} — Day {campDayNumber(camp, data.dayDate)}</p>
+							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount} enrolled · no sessions today</p>
+						</div>
+						<a href="/bookings/{camp.id}"
+							class="rounded-full bg-ocean/15 px-2.5 py-1 text-[10px] font-semibold text-ocean hover:bg-ocean/25 transition-colors">
+							+ Add session
+						</a>
+					</div>
+				{/each}
+
 				<!-- Unscheduled sessions + non-session flexible bookings -->
 				{#if dayUnscheduledSessions.length > 0 || dayNonSessionBookings.length > 0}
 					<div class="border-b border-border bg-pending/5 px-4 py-2">
@@ -538,7 +568,7 @@
 										<div class="min-w-0">
 											<p class="text-sm font-medium text-gray-800">{session.serviceName}</p>
 											<p class="text-xs text-muted">
-												{session.clientNames?.join(', ') || session.totalClients > 0 ? `${session.totalClients} client${session.totalClients > 1 ? 's' : ''}` : 'No clients'}
+												{session.participantNames.length > 0 ? session.participantNames.join(', ') : 'No participants'}
 											</p>
 										</div>
 										<button type="button"
@@ -668,8 +698,8 @@
 														<p class="truncate text-[10px] text-muted">
 															{session.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || '—'}
 														</p>
-														{#if session.totalClients > 0}
-															<p class="truncate text-[10px] text-muted">{session.clientNames[0]}{session.totalClients > 1 ? ` +${session.totalClients - 1}` : ''}</p>
+														{#if session.participantNames.length > 0}
+															<p class="truncate text-[10px] text-muted">{session.participantNames[0]}{session.participantNames.length > 1 ? ` +${session.participantNames.length - 1}` : ''}</p>
 														{/if}
 													</div>
 													<span class="ml-1 shrink-0 text-[9px] text-muted">{isEditing ? '▲' : '✎'}</span>

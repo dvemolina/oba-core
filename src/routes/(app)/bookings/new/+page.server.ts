@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { createBooking, getOrCreateCampBooking, addClientToBooking } from '$lib/features/bookings/queries';
+import { createBooking, countEnrolledClientsForService } from '$lib/features/bookings/queries';
 import { createSession } from '$lib/features/sessions/queries';
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -38,31 +38,6 @@ export const actions: Actions = {
 		const service = await getService(serviceId);
 		if (!service) return fail(400, { error: 'Service not found' });
 
-		// ── Camp: enroll into single camp booking ────────────────────────────
-		if (service.hasRoster) {
-			const clientIds = form.getAll('clientId').map(String).filter(Boolean);
-			if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
-
-			const campBooking = await getOrCreateCampBooking(service);
-			const enrolled = campBooking.clients.length;
-			const max = service.maxCapacity ?? Infinity;
-			const available = max - enrolled;
-
-			if (clientIds.length > available)
-				return fail(400, { error: `Only ${available} slot${available !== 1 ? 's' : ''} remaining in this camp` });
-
-			const existingIds = new Set(campBooking.clients.map((c) => c.clientId));
-			const duplicates = clientIds.filter((id) => existingIds.has(id));
-			if (duplicates.length > 0)
-				return fail(400, { error: 'One or more clients are already enrolled in this camp' });
-
-			const amounts = form.getAll('amountDue').map(String);
-			for (let i = 0; i < clientIds.length; i++) {
-				await addClientToBooking(campBooking.id, clientIds[i], amounts[i] ?? service.basePrice);
-			}
-			return { bookingId: campBooking.id, message: `${clientIds.length > 1 ? `${clientIds.length} clients` : 'Client'} enrolled in camp` };
-		}
-
 		// ── Accommodation ─────────────────────────────────────────────────────
 		if (service.hasInventoryUnits) {
 			const unitTypeId = form.get('accommodationUnitTypeId')?.toString() ?? '';
@@ -96,10 +71,11 @@ export const actions: Actions = {
 			return { bookingId: booking.id, message: `Booked — ${unit.name}` };
 		}
 
-		// ── Lesson / Product / Rental ──────────────────────────────────────────
+		// ── All non-accommodation services (lessons, camps, products, rentals) ──
 		const instructorId = form.get('instructorId')?.toString() || undefined;
-		const date = form.get('date')?.toString() ?? '';
-		const dateEnd = form.get('dateEnd')?.toString() || undefined;
+		// Camps pre-fill dates from the service; other services use form inputs
+		const date = form.get('date')?.toString() ?? service.startDate ?? '';
+		const dateEnd = form.get('dateEnd')?.toString() || service.endDate || undefined;
 		const time = form.get('time')?.toString() || undefined;
 		const isFlexible = form.get('isFlexible') === 'on';
 		const spotNotes = form.get('spotNotes')?.toString().trim() || undefined;
@@ -110,6 +86,14 @@ export const actions: Actions = {
 		const clientIds = form.getAll('clientId').map(String);
 		const amounts = form.getAll('amountDue').map(String);
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
+
+		// Capacity check for roster services (group lessons, camps)
+		if (service.hasRoster && service.maxCapacity) {
+			const enrolled = await countEnrolledClientsForService(serviceId);
+			const available = service.maxCapacity - enrolled;
+			if (clientIds.length > available)
+				return fail(400, { error: `Only ${available} slot${available !== 1 ? 's' : ''} remaining` });
+		}
 
 		const bookingClients = clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' }));
 		const status = isFlexible ? 'pending' : 'confirmed';
