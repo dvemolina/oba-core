@@ -1,4 +1,3 @@
-// src/lib/features/bookings/types.ts
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'partial' | 'paid';
 
@@ -28,6 +27,7 @@ export interface Booking {
 	serviceHasSessions: boolean;
 	serviceHasRoster: boolean;
 	serviceMaxCapacity: number | null;
+	// Instructor for non-session services (rentals, products, accommodation) only
 	instructorId: string | null;
 	instructorName: string | null;
 	accommodationUnitId: string | null;
@@ -53,13 +53,13 @@ export interface BookingSummary {
 	serviceName: string | null;
 	serviceType: string | null;
 	serviceColor: string | null;
-	// capability flags from service
 	serviceHasSessions: boolean;
 	serviceHasRoster: boolean;
 	serviceHasDateRange: boolean;
 	serviceHasInventoryUnits: boolean;
 	serviceRequiresInstructor: boolean;
 	serviceMaxCapacity: number | null;
+	// Instructor for non-session services only
 	instructorName: string | null;
 	accommodationUnitName: string | null;
 	accommodationUnitTypeName: string | null;
@@ -74,6 +74,12 @@ export interface BookingSummary {
 	firstClientName: string | null;
 }
 
+/** Extended summary used in the /bookings list page. */
+export interface BookingListItem extends BookingSummary {
+	sessionCount: number;
+	scheduledCount: number;
+}
+
 export interface ClientBookingSummary {
 	id: string;
 	date: string;
@@ -84,11 +90,13 @@ export interface ClientBookingSummary {
 
 export interface CreateBookingInput {
 	serviceId: string;
+	/** For non-session services (rentals, products, accommodation) only */
 	instructorId?: string;
 	accommodationUnitId?: string;
 	guestsCount?: number;
 	date: string;
 	dateEnd?: string;
+	/** For non-session services only */
 	time?: string;
 	sessionsIncluded?: number;
 	isFlexible: boolean;
@@ -103,9 +111,11 @@ export interface CreateBookingInput {
 }
 
 export interface UpdateBookingInput {
+	/** For non-session services only */
 	instructorId?: string | null;
 	date?: string;
 	dateEnd?: string | null;
+	/** For non-session services only */
 	time?: string | null;
 	sessionsIncluded?: number | null;
 	isFlexible?: boolean;

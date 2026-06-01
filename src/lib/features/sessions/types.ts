@@ -7,63 +7,67 @@ export interface SessionInstructor {
 	instructorName: string | null;
 }
 
-// Pure session row — no booking context. bookingId is NOT stored on the session itself;
-// the relationship lives in the booking_sessions junction table.
+export interface SessionParticipant {
+	id: string;
+	sessionId: string;
+	name: string;
+	notes: string | null;
+	sortOrder: number;
+}
+
+// Pure session row — no booking context.
 export interface Session {
 	id: string;
 	date: string;
-	time: string | null;            // null = unscheduled
-	durationMinutes: number | null; // null = use service default
+	time: string | null;
+	durationMinutes: number | null;
 	notes: string | null;
 	status: SessionStatus;
 	sortOrder: number;
 	instructors: SessionInstructor[];
+	participants: SessionParticipant[];
 	createdAt: Date;
 	updatedAt: Date;
 }
 
 // Session enriched with booking context for the calendar day view.
 export interface SessionForDay extends Session {
-	// Primary booking used for navigation (first linked booking).
-	// Populated from the booking_sessions junction.
 	bookingId: string;
-	bookingIds: string[];        // all linked booking IDs
-	bookingStatus: string;       // primary booking status (for conflict display)
+	bookingIds: string[];
+	bookingStatus: string;
 	serviceName: string | null;
 	serviceColor: string | null;
 	serviceHasSessions: boolean;
-	serviceDurationMinutes: number | null;  // service-level default duration
-	effectiveDuration: number;              // session override ?? service default ?? 60
-	// Aggregated across all linked bookings for this session
-	clientNames: string[];
-	totalClients: number;
+	serviceDurationMinutes: number | null;
+	effectiveDuration: number;
+	// Who attends: from session_participants if set, otherwise booking client names
+	participantNames: string[];
+	totalParticipants: number;
 }
 
-// Session enriched for the Agenda view.
+// Session enriched for the Today/Agenda view.
 export interface AgendaSession extends Session {
-	// Primary booking for navigation (first linked booking).
 	bookingId: string;
 	bookingIds: string[];
 	serviceName: string | null;
 	serviceColor: string | null;
 	serviceHasRoster: boolean;
 	serviceDurationMinutes: number | null;
-	effectiveDuration: number;              // session override ?? service default ?? 60
+	effectiveDuration: number;
 	sessionsIncluded: number | null;
 	bookingStatus: string;
 	bookingDate: string;
 	bookingDateEnd: string | null;
 	isFlexible: boolean;
-	// For lessons (non-roster): first client details
-	clientName: string | null;
-	clientPhone: string | null;
+	// Who attends: from session_participants if set, otherwise first booking client
+	participantNames: string[];
 	// For camps (roster): enrollment aggregate
 	enrolledCount: number;
 	maxCapacity: number | null;
 }
 
 export interface CreateSessionInput {
-	bookingId: string;          // creates the booking_sessions link automatically
+	bookingId: string;
 	date: string;
 	time?: string;
 	durationMinutes?: number;
@@ -79,5 +83,12 @@ export interface UpdateSessionInput {
 	notes?: string | null;
 	status?: SessionStatus;
 	instructorIds?: string[];
+	sortOrder?: number;
+}
+
+export interface CreateParticipantInput {
+	sessionId: string;
+	name: string;
+	notes?: string;
 	sortOrder?: number;
 }

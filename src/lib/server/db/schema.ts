@@ -86,7 +86,6 @@ export const bookings = pgTable('bookings', {
 		.$defaultFn(() => crypto.randomUUID()),
 	serviceId: text('service_id')
 		.references(() => services.id),
-	instructorId: text('instructor_id').references(() => instructors.id),
 	date: date('date').notNull(),
 	dateEnd: date('date_end'),
 	accommodationUnitId: text('accommodation_unit_id')
@@ -221,6 +220,19 @@ export const sessionInstructors = pgTable('session_instructors', {
 	instructorId: text('instructor_id')
 		.notNull()
 		.references(() => instructors.id, { onDelete: 'cascade' })
+});
+
+export const sessionParticipants = pgTable('session_participants', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	sessionId: text('session_id')
+		.notNull()
+		.references(() => sessions.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	notes: text('notes'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: timestamp('created_at').notNull().defaultNow()
 });
 
 // Multiple instructors on non-session bookings (rentals, products, accommodation)
