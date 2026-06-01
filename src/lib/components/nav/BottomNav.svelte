@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Calendar, List, Users, UserCheck, LayoutGrid } from 'lucide-svelte';
+	import { Calendar, BookOpen, Users, LayoutGrid, Sun } from 'lucide-svelte';
 
 	const items = [
-		{ href: '/calendar', label: 'Calendar', icon: Calendar   },
-		{ href: '/agenda',   label: 'Agenda',   icon: List       },
-		{ href: '/clients',  label: 'Clients',  icon: Users      },
-		{ href: '/instructors', label: 'Staff', icon: UserCheck  },
-		{ href: '/services', label: 'Services', icon: LayoutGrid }
+		{ href: '/agenda',    label: 'Today',     icon: Sun        },
+		{ href: '/calendar',  label: 'Calendar',  icon: Calendar   },
+		{ href: '/bookings',  label: 'Bookings',  icon: BookOpen   },
+		{ href: '/clients',   label: 'Clients',   icon: Users      },
+		{ href: '/services',  label: 'Services',  icon: LayoutGrid }
 	];
 </script>
 
@@ -17,7 +17,7 @@
 	style="padding-bottom: env(safe-area-inset-bottom);"
 >
 	{#each items as item}
-		{@const active = page.url.pathname.startsWith(item.href)}
+		{@const active = page.url.pathname === item.href || page.url.pathname.startsWith(item.href + '/')}
 		<a
 			href={item.href}
 			aria-current={active ? 'page' : undefined}
