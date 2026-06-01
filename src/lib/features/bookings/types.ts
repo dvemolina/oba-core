@@ -60,6 +60,7 @@ export interface BookingSummary {
 	serviceRequiresInstructor: boolean;
 	serviceMaxCapacity: number | null;
 	// Instructor for non-session services only
+	instructorId: string | null;
 	instructorName: string | null;
 	accommodationUnitName: string | null;
 	accommodationUnitTypeName: string | null;
