@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
-import { listSessionsForDate, updateSession } from '$lib/features/sessions/queries';
+import { listSessionsForDate, listSessionsForDateRange, updateSession } from '$lib/features/sessions/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,10 +23,11 @@ export const load: PageServerLoad = async ({ url }) => {
 		({ from, to } = getDateRange(view, year, month, weekStart));
 	}
 
-	const [bookings, events, daySessions, instructors] = await Promise.all([
+	const [bookings, events, daySessions, rangedSessions, instructors] = await Promise.all([
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(from, to),
 		view === 'day' ? listSessionsForDate(dayDate) : Promise.resolve([]),
+		view !== 'day' ? listSessionsForDateRange(from, to) : Promise.resolve([]),
 		view === 'day' ? listInstructors() : Promise.resolve([])
 	]);
 
@@ -46,7 +47,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		: '';
 
 	return {
-		bookings, events, daySessions, instructors, view, year, month,
+		bookings, events, daySessions, rangedSessions, instructors, view, year, month,
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
 		today: todayStr

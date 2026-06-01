@@ -382,8 +382,7 @@
 									<div class="border-r border-border/40 bg-sand/40 last:border-r-0"></div>
 								{:else}
 									{@const isToday = dateStr === today}
-									{@const dayChips = (singleGrouped[dateStr] ?? []).slice(0, 3)}
-									{@const overflow = (singleGrouped[dateStr] ?? []).length - dayChips.length}
+									{@const daySessionCount = data.rangedSessions.filter(s => s.date === dateStr).length}
 
 									<div class="group relative flex flex-col overflow-hidden border-r border-border/40 last:border-r-0
 										{isToday ? 'bg-ocean/5' : 'bg-surface'}">
@@ -400,28 +399,24 @@
 											</a>
 										</div>
 
-										<!-- Events + single-day chips (padded to clear spanning pills) -->
-										<div class="relative z-10 flex flex-col gap-px overflow-hidden px-0.5 pb-0.5" style={cellPt(maxRows)}>
+										<!-- Events banner + session count dot -->
+										<div class="relative z-10 flex flex-col items-center gap-px overflow-hidden px-0.5 pb-0.5 pt-1">
 											<!-- surf events -->
 											{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
 												<a href="/events/{event.id}"
-													class="block truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800 hover:bg-confirmed/35">
+													class="block w-full truncate rounded bg-confirmed/20 px-1 py-px text-[10px] font-medium leading-tight text-green-800 hover:bg-confirmed/35">
 													<span class="hidden sm:inline">🏕️ {event.title}</span>
 													<span class="sm:hidden">🏕️</span>
 												</a>
 											{/each}
-											<!-- single-day booking chips -->
-											{#each dayChips as booking}
-												<a href="/bookings/{booking.id}"
-													class="block truncate rounded px-1 py-px text-[10px] leading-tight hover:brightness-95 {chipClasses(booking)}">
-													<span class="hidden sm:inline">
-														{statusDot(booking.status)} {booking.time ? booking.time.slice(0,5) + ' ' : ''}{booking.serviceName}{booking.firstClientName ? ' · ' + booking.firstClientName : ''}
-													</span>
-													<span class="sm:hidden" style="color:inherit">{statusDot(booking.status)}</span>
-												</a>
-											{/each}
-											{#if overflow > 0}
-												<a href="/calendar?view=day&date={dateStr}" class="pl-1 text-[10px] text-muted hover:text-ocean">+{overflow} more</a>
+											<!-- session count dot -->
+											{#if daySessionCount > 0}
+												<span class="mt-0.5 flex items-center justify-center gap-0.5">
+													<span class="inline-block h-1.5 w-1.5 rounded-full bg-ocean/70"></span>
+													{#if daySessionCount > 1}
+														<span class="text-[9px] text-muted leading-none">{daySessionCount}</span>
+													{/if}
+												</span>
 											{/if}
 										</div>
 									</div>
@@ -429,25 +424,27 @@
 							{/each}
 						</div>
 
-						<!-- Multi-day spanning pills — absolutely positioned over the grid -->
+						<!-- Events spanning pills (multi-day events only — bookings replaced by session dots) -->
 						{#each layout as { booking, startCol, span, row }}
 							{@const startsHere = booking.date >= (weekDates.find(d => d !== null) ?? '')}
-							<a
-								href="/bookings/{booking.id}"
-								style={spanStyle(startCol, span, row)}
-								class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center hover:brightness-95 {pillRounded(booking, weekDates)} {pillClasses(booking)}"
-							>
-								{#if startsHere}
-									🏕️ {booking.serviceName}
-									{#if booking.serviceMaxCapacity != null}
-										<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxCapacity})</span>
+							{#if booking.serviceHasRoster}
+								<a
+									href="/bookings/{booking.id}"
+									style={spanStyle(startCol, span, row)}
+									class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center hover:brightness-95 {pillRounded(booking, weekDates)} {pillClasses(booking)}"
+								>
+									{#if startsHere}
+										🏕️ {booking.serviceName}
+										{#if booking.serviceMaxCapacity != null}
+											<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxCapacity})</span>
+										{:else}
+											<span class="ml-1 opacity-70">({booking.clientCount})</span>
+										{/if}
 									{:else}
-										<span class="ml-1 opacity-70">({booking.clientCount})</span>
+										&nbsp;
 									{/if}
-								{:else}
-									&nbsp;
-								{/if}
-							</a>
+								</a>
+							{/if}
 						{/each}
 					</div>
 				{/each}
@@ -476,28 +473,23 @@
 				{/each}
 			</div>
 
-			<!-- Day columns with bookings -->
+			<!-- Day columns with sessions -->
 			<div class="flex flex-1 overflow-y-auto">
 				<div class="grid min-h-full w-full grid-cols-7 divide-x divide-border/40">
-					{#each data.weekDays as dateStr}
-						{@const isToday = dateStr === today}
-						{@const dayBookings = weekBookingsByDate[dateStr] ?? []}
+					{#each data.weekDays as weekDay}
+						{@const isToday = weekDay === today}
+						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay)}
 						<div class="flex flex-col gap-1 p-1 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
-							{#if dayBookings.length === 0}
+							{#if daySessions.length === 0}
 								<div class="flex flex-1 items-center justify-center">
 									<span class="text-[10px] text-border">—</span>
 								</div>
 							{:else}
-								{#each dayBookings as booking}
-									<a href="/bookings/{booking.id}"
-										class="block rounded px-1.5 py-1 text-[10px] leading-tight hover:brightness-95 {weekChipClasses(booking)}">
-										<span class="block font-semibold">
-											{statusDot(booking.status)} {booking.time ? booking.time.slice(0, 5) : '—'}
-										</span>
-										<span class="block truncate">{booking.serviceName}</span>
-										{#if booking.firstClientName}
-											<span class="block truncate opacity-70">{booking.firstClientName}</span>
-										{/if}
+								{#each daySessions as s}
+									{@const c = getServiceColor(s.serviceColor ?? '')}
+									<a href="/bookings/{s.bookingId}"
+										class="block truncate rounded px-1.5 py-0.5 text-[10px] leading-tight {c.bg} {c.text} ring-1 {c.border} mb-0.5">
+										{s.time ? s.time.slice(0, 5) + ' ' : ''}{s.serviceName ?? 'Session'}
 									</a>
 								{/each}
 							{/if}
