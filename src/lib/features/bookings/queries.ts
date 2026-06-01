@@ -1,15 +1,58 @@
 // src/lib/features/bookings/queries.ts
 import { and, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookings, bookingClients, bookingSessions, sessions, clients, services, instructors, accommodationUnits, accommodationUnitTypes } from '$lib/server/db/schema';
+import {
+	bookings,
+	bookingClients,
+	bookingInstructors,
+	bookingSessions,
+	clients,
+	services,
+	instructors,
+	sessions,
+	accommodationUnits,
+	accommodationUnitTypes
+} from '$lib/server/db/schema';
 import type { Service } from '$lib/features/services/types';
 import type {
 	Booking,
+	BookingClient,
+	BookingListItem,
 	BookingSummary,
 	ClientBookingSummary,
 	CreateBookingInput,
 	UpdateBookingInput
 } from './types';
+
+async function attachInstructorsToBookings<T extends { id: string }>(
+	rows: T[]
+): Promise<(T & { instructorId: string | null; instructorName: string | null })[]> {
+	if (rows.length === 0) return rows.map(r => ({ ...r, instructorId: null, instructorName: null }));
+
+	const ids = rows.map(r => r.id);
+	const instrRows = await db
+		.select({
+			bookingId: bookingInstructors.bookingId,
+			instructorId: bookingInstructors.instructorId,
+			instructorName: instructors.name
+		})
+		.from(bookingInstructors)
+		.leftJoin(instructors, eq(bookingInstructors.instructorId, instructors.id))
+		.where(inArray(bookingInstructors.bookingId, ids));
+
+	const byBooking: Record<string, { instructorId: string; instructorName: string | null }> = {};
+	for (const r of instrRows) {
+		if (!byBooking[r.bookingId]) {
+			byBooking[r.bookingId] = { instructorId: r.instructorId, instructorName: r.instructorName };
+		}
+	}
+
+	return rows.map(r => ({
+		...r,
+		instructorId: byBooking[r.id]?.instructorId ?? null,
+		instructorName: byBooking[r.id]?.instructorName ?? null
+	}));
+}
 
 export async function listBookingsForDateRange(
 	from: string,
@@ -27,7 +70,6 @@ export async function listBookingsForDateRange(
 			serviceHasInventoryUnits: services.hasInventoryUnits,
 			serviceRequiresInstructor: services.requiresInstructor,
 			serviceMaxCapacity: services.maxCapacity,
-			instructorName: instructors.name,
 			accommodationUnitName: accommodationUnits.name,
 			accommodationUnitTypeName: accommodationUnitTypes.name,
 			guestsCount: bookings.guestsCount,
@@ -40,7 +82,6 @@ export async function listBookingsForDateRange(
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(instructors, eq(bookings.instructorId, instructors.id))
 		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
 		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		// Overlap: booking starts before range ends AND booking ends (or is same-day) after range starts
@@ -50,32 +91,99 @@ export async function listBookingsForDateRange(
 		))
 		.orderBy(bookings.date, bookings.time);
 
-	const ids = rows.map((r) => r.id);
+	const withInstructors = await attachInstructorsToBookings(rows);
+
+	const ids = withInstructors.map(r => r.id);
 	const counts: Record<string, number> = {};
 	const firstClientNames: Record<string, string> = {};
 	if (ids.length > 0) {
 		const clientRows = await db
-			.select({
-				bookingId: bookingClients.bookingId,
-				firstName: clients.firstName,
-				lastName: clients.lastName
-			})
+			.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName })
 			.from(bookingClients)
 			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
 			.where(inArray(bookingClients.bookingId, ids));
 		for (const row of clientRows) {
 			counts[row.bookingId] = (counts[row.bookingId] ?? 0) + 1;
-			if (!firstClientNames[row.bookingId] && row.firstName) {
-				firstClientNames[row.bookingId] = row.firstName;
-			}
+			if (!firstClientNames[row.bookingId] && row.firstName) firstClientNames[row.bookingId] = row.firstName;
 		}
 	}
 
-	return rows.map((r) => ({
+	return withInstructors.map(r => ({
 		...r,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
 	})) as BookingSummary[];
+}
+
+export async function listAllBookings(): Promise<BookingListItem[]> {
+	const rows = await db
+		.select({
+			id: bookings.id,
+			serviceName: services.name,
+			serviceType: services.type,
+			serviceColor: services.color,
+			serviceHasSessions: services.hasSessions,
+			serviceHasRoster: services.hasRoster,
+			serviceHasDateRange: services.hasDateRange,
+			serviceHasInventoryUnits: services.hasInventoryUnits,
+			serviceRequiresInstructor: services.requiresInstructor,
+			serviceMaxCapacity: services.maxCapacity,
+			accommodationUnitName: accommodationUnits.name,
+			accommodationUnitTypeName: accommodationUnitTypes.name,
+			guestsCount: bookings.guestsCount,
+			date: bookings.date,
+			dateEnd: bookings.dateEnd,
+			time: bookings.time,
+			sessionsIncluded: bookings.sessionsIncluded,
+			isFlexible: bookings.isFlexible,
+			status: bookings.status
+		})
+		.from(bookings)
+		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
+		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
+		.orderBy(desc(bookings.date));
+
+	const withInstructors = await attachInstructorsToBookings(rows);
+	const ids = withInstructors.map(r => r.id);
+	if (ids.length === 0) return [];
+
+	const [clientRows, sessionRows] = await Promise.all([
+		db.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName })
+			.from(bookingClients)
+			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
+			.where(inArray(bookingClients.bookingId, ids)),
+		db.select({
+			bookingId: bookingSessions.bookingId,
+			sessionId: bookingSessions.sessionId,
+			status: sessions.status
+		})
+			.from(bookingSessions)
+			.leftJoin(sessions, eq(bookingSessions.sessionId, sessions.id))
+			.where(inArray(bookingSessions.bookingId, ids))
+	]);
+
+	const counts: Record<string, number> = {};
+	const firstClientNames: Record<string, string> = {};
+	for (const r of clientRows) {
+		counts[r.bookingId] = (counts[r.bookingId] ?? 0) + 1;
+		if (!firstClientNames[r.bookingId] && r.firstName) firstClientNames[r.bookingId] = r.firstName;
+	}
+
+	const sessionCounts: Record<string, number> = {};
+	const scheduledCounts: Record<string, number> = {};
+	for (const r of sessionRows) {
+		sessionCounts[r.bookingId] = (sessionCounts[r.bookingId] ?? 0) + 1;
+		if (r.status === 'scheduled') scheduledCounts[r.bookingId] = (scheduledCounts[r.bookingId] ?? 0) + 1;
+	}
+
+	return withInstructors.map(r => ({
+		...r,
+		clientCount: counts[r.id] ?? 0,
+		firstClientName: firstClientNames[r.id] ?? null,
+		sessionCount: sessionCounts[r.id] ?? 0,
+		scheduledCount: scheduledCounts[r.id] ?? 0
+	})) as BookingListItem[];
 }
 
 export async function getBooking(id: string): Promise<Booking | undefined> {
@@ -89,8 +197,6 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceHasSessions: services.hasSessions,
 			serviceHasRoster: services.hasRoster,
 			serviceMaxCapacity: services.maxCapacity,
-			instructorId: bookings.instructorId,
-			instructorName: instructors.name,
 			accommodationUnitId: bookings.accommodationUnitId,
 			accommodationUnitName: accommodationUnits.name,
 			accommodationUnitTypeName: accommodationUnitTypes.name,
@@ -109,12 +215,18 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(instructors, eq(bookings.instructorId, instructors.id))
 		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
 		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.where(eq(bookings.id, id));
 
 	if (!booking) return undefined;
+
+	const [instrRow] = await db
+		.select({ instructorId: bookingInstructors.instructorId, instructorName: instructors.name })
+		.from(bookingInstructors)
+		.leftJoin(instructors, eq(bookingInstructors.instructorId, instructors.id))
+		.where(eq(bookingInstructors.bookingId, id))
+		.limit(1);
 
 	const bookingClientRows = await db
 		.select({
@@ -135,7 +247,12 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		.leftJoin(clients, eq(bookingClients.clientId, clients.id))
 		.where(eq(bookingClients.bookingId, id));
 
-	return { ...booking, clients: bookingClientRows } as Booking;
+	return {
+		...booking,
+		instructorId: instrRow?.instructorId ?? null,
+		instructorName: instrRow?.instructorName ?? null,
+		clients: bookingClientRows
+	} as Booking;
 }
 
 export async function getBookingsForClient(clientId: string): Promise<ClientBookingSummary[]> {
@@ -160,7 +277,6 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.insert(bookings)
 		.values({
 			serviceId: input.serviceId,
-			instructorId: input.instructorId,
 			accommodationUnitId: input.accommodationUnitId,
 			guestsCount: input.guestsCount,
 			date: input.date,
@@ -174,6 +290,13 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			notes: input.notes
 		})
 		.returning();
+
+	if (input.instructorId) {
+		await db.insert(bookingInstructors).values({
+			bookingId: booking.id,
+			instructorId: input.instructorId
+		});
+	}
 
 	if (input.clients.length > 0) {
 		await db.insert(bookingClients).values(
@@ -246,10 +369,19 @@ export async function removeClientFromBooking(
 }
 
 export async function updateBooking(id: string, input: UpdateBookingInput): Promise<Booking> {
+	const { instructorId, ...rest } = input;
 	await db
 		.update(bookings)
-		.set({ ...input, updatedAt: new Date() })
+		.set({ ...rest, updatedAt: new Date() })
 		.where(eq(bookings.id, id));
+
+	if (instructorId !== undefined) {
+		await db.delete(bookingInstructors).where(eq(bookingInstructors.bookingId, id));
+		if (instructorId) {
+			await db.insert(bookingInstructors).values({ bookingId: id, instructorId });
+		}
+	}
+
 	return (await getBooking(id))!;
 }
 
