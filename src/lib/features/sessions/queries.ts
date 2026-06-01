@@ -4,6 +4,7 @@ import {
 	sessions,
 	bookingSessions,
 	sessionInstructors,
+	sessionParticipants,
 	instructors,
 	bookings,
 	bookingClients,
@@ -12,9 +13,11 @@ import {
 } from '$lib/server/db/schema';
 import type {
 	AgendaSession,
+	CreateParticipantInput,
 	CreateSessionInput,
 	Session,
 	SessionForDay,
+	SessionParticipant,
 	SessionInstructor,
 	UpdateSessionInput
 } from './types';
@@ -54,6 +57,31 @@ async function attachInstructors<T extends { id: string }>(
 	}));
 }
 
+async function attachParticipants<T extends { id: string }>(
+	sessionRows: T[]
+): Promise<(T & { participants: SessionParticipant[] })[]> {
+	if (sessionRows.length === 0) return sessionRows.map(s => ({ ...s, participants: [] }));
+
+	const ids = sessionRows.map(s => s.id);
+	const rows = await db
+		.select({
+			id: sessionParticipants.id,
+			sessionId: sessionParticipants.sessionId,
+			name: sessionParticipants.name,
+			notes: sessionParticipants.notes,
+			sortOrder: sessionParticipants.sortOrder
+		})
+		.from(sessionParticipants)
+		.where(sql`${sessionParticipants.sessionId} = ANY(ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]::text[])`)
+		.orderBy(sessionParticipants.sortOrder);
+
+	const bySession: Record<string, SessionParticipant[]> = {};
+	for (const r of rows) {
+		(bySession[r.sessionId] ??= []).push(r);
+	}
+	return sessionRows.map(s => ({ ...s, participants: bySession[s.id] ?? [] }));
+}
+
 // ── Core CRUD ────────────────────────────────────────────────────────────────
 
 /** All sessions linked to a booking, ordered by date then sortOrder. */
@@ -75,7 +103,8 @@ export async function listSessionsForBooking(bookingId: string): Promise<Session
 		.where(eq(bookingSessions.bookingId, bookingId))
 		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
 
-	return attachInstructors(rows as Omit<Session, 'instructors'>[]);
+	const withInstructors = await attachInstructors(rows as Omit<Session, 'instructors' | 'participants'>[]);
+	return attachParticipants(withInstructors);
 }
 
 /** Sessions (with booking context) for a given date. Used by the calendar day view. */
@@ -144,15 +173,22 @@ export async function listSessionsForDate(date: string): Promise<SessionForDay[]
 		(clientsByBooking[r.bookingId] ??= []).push(`${r.firstName} ${r.lastName}`);
 	}
 
-	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors'>[]);
+	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors' | 'participants'>[]);
+	const withBoth = await attachParticipants(withInstructors);
 
-	return withInstructors
-		.filter(s => (linksBySession[s.id] ?? []).length > 0) // drop sessions with no active booking links
+	return withBoth
+		.filter(s => (linksBySession[s.id] ?? []).length > 0)
 		.map(s => {
 			const sl = linksBySession[s.id]!;
 			const firstLink = sl[0];
 			const allClientNames = sl.flatMap(l => clientsByBooking[l.bookingId] ?? []);
 			const svcDuration = firstLink.serviceDurationMinutes ?? null;
+
+			// Prefer explicit session_participants; fall back to booking client names
+			const participantNames = s.participants.length > 0
+				? s.participants.map(p => p.name)
+				: allClientNames;
+
 			return {
 				...s,
 				bookingId: firstLink.bookingId ?? '',
@@ -163,8 +199,8 @@ export async function listSessionsForDate(date: string): Promise<SessionForDay[]
 				serviceHasSessions: firstLink.serviceHasSessions ?? false,
 				serviceDurationMinutes: svcDuration,
 				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
-				clientNames: allClientNames,
-				totalClients: allClientNames.length
+				participantNames,
+				totalParticipants: participantNames.length
 			} satisfies SessionForDay;
 		});
 }
@@ -229,8 +265,9 @@ export async function getSession(id: string): Promise<Session | undefined> {
 		.from(sessions)
 		.where(eq(sessions.id, id));
 	if (!row) return undefined;
-	const [withInstructors] = await attachInstructors([row as Omit<Session, 'instructors'>]);
-	return withInstructors;
+	const [withInstructors] = await attachInstructors([row as Omit<Session, 'instructors' | 'participants'>]);
+	const [withBoth] = await attachParticipants([withInstructors]);
+	return withBoth;
 }
 
 /** Create a session and automatically link it to bookingId via the junction table. */
@@ -338,6 +375,40 @@ export async function unlinkSessionFromBooking(sessionId: string, bookingId: str
 	);
 }
 
+// ── Session participants ──────────────────────────────────────────────────────
+
+export async function listParticipantsForSession(sessionId: string): Promise<SessionParticipant[]> {
+	return db
+		.select({
+			id: sessionParticipants.id,
+			sessionId: sessionParticipants.sessionId,
+			name: sessionParticipants.name,
+			notes: sessionParticipants.notes,
+			sortOrder: sessionParticipants.sortOrder
+		})
+		.from(sessionParticipants)
+		.where(eq(sessionParticipants.sessionId, sessionId))
+		.orderBy(sessionParticipants.sortOrder);
+}
+
+export async function addParticipant(input: CreateParticipantInput): Promise<SessionParticipant> {
+	const [row] = await db
+		.insert(sessionParticipants)
+		.values({
+			id: crypto.randomUUID(),
+			sessionId: input.sessionId,
+			name: input.name.trim(),
+			notes: input.notes ?? null,
+			sortOrder: input.sortOrder ?? 0
+		})
+		.returning();
+	return row;
+}
+
+export async function removeParticipant(participantId: string): Promise<void> {
+	await db.delete(sessionParticipants).where(eq(sessionParticipants.id, participantId));
+}
+
 // ── Agenda query ─────────────────────────────────────────────────────────────
 
 /** Sessions with full booking/client context for the Agenda view. */
@@ -410,18 +481,24 @@ export async function listSessionsForDateRange(from: string, to: string): Promis
 	const clientsByBooking: Record<string, typeof clientRows> = {};
 	for (const r of clientRows) (clientsByBooking[r.bookingId] ??= []).push(r);
 
-	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors'>[]);
+	const withInstructors = await attachInstructors(sessionRows as Omit<Session, 'instructors' | 'participants'>[]);
+	const withBoth = await attachParticipants(withInstructors);
 
 	// Sessions with no active booking links (all linked bookings cancelled) get filtered
-	return withInstructors
+	return withBoth
 		.filter(s => (linksBySession[s.id] ?? []).length > 0)
 		.map(s => {
 			const sl = linksBySession[s.id]!;
 			const first = sl[0];
 			const bClients = sl.flatMap(l => clientsByBooking[l.bookingId] ?? []);
-			const firstClient = bClients[0];
+			const svcDuration = first.serviceDurationMinutes ?? null;
 
-		const svcDuration = first.serviceDurationMinutes ?? null;
+			const participantNames = s.participants.length > 0
+				? s.participants.map(p => p.name)
+				: first.serviceHasRoster
+					? []
+					: bClients.map(c => `${c.firstName} ${c.lastName}`);
+
 			return {
 				...s,
 				bookingId: first.bookingId ?? '',
@@ -436,8 +513,7 @@ export async function listSessionsForDateRange(from: string, to: string): Promis
 				bookingDate: first.bookingDate ?? s.date,
 				bookingDateEnd: first.bookingDateEnd,
 				isFlexible: first.isFlexible ?? false,
-				clientName: first.serviceHasRoster ? null : (firstClient ? `${firstClient.firstName} ${firstClient.lastName}` : null),
-				clientPhone: first.serviceHasRoster ? null : (firstClient?.phone ?? null),
+				participantNames,
 				enrolledCount: bClients.length,
 				maxCapacity: first.serviceMaxCapacity
 			} satisfies AgendaSession;
