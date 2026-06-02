@@ -128,7 +128,7 @@ services:
         - "traefik.http.routers.oba.rule=Host(`oba.tipitisurf.com`)"
         - "traefik.http.routers.oba.entrypoints=websecure"
         - "traefik.http.routers.oba.tls=true"
-        - "traefik.http.routers.oba.tls.certresolver=cloudflare"
+        - "traefik.http.routers.oba.tls.certresolver=letsencrypt"
         - "traefik.http.routers.oba.middlewares=oba-security"
         - "traefik.http.services.oba.loadbalancer.server.port=3000"
         - "traefik.http.services.oba.loadbalancer.healthcheck.path=/api/health"
