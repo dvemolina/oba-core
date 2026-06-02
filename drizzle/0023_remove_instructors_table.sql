@@ -67,11 +67,15 @@ ALTER TABLE booking_instructors ADD CONSTRAINT booking_instructors_user_id_fkey
 
 -- Step 7: Migrate services.default_instructor_ids
 -- Replace each instructor.id → user.id (or instructor.id itself if orphaned, which equals new user.id)
+-- LEFT JOIN so stale IDs are skipped; COALESCE prevents NULL when all IDs were stale
 UPDATE services s
 SET default_instructor_ids = (
-  SELECT jsonb_agg(COALESCE(i.user_id, i.id))
+  SELECT COALESCE(
+    jsonb_agg(COALESCE(i.user_id, i.id)) FILTER (WHERE i.id IS NOT NULL),
+    '[]'::jsonb
+  )
   FROM jsonb_array_elements_text(s.default_instructor_ids::jsonb) AS elem(iid)
-  JOIN instructors i ON i.id = elem.iid
+  LEFT JOIN instructors i ON i.id = elem.iid
 )
 WHERE default_instructor_ids IS NOT NULL
   AND jsonb_typeof(default_instructor_ids::jsonb) = 'array'
