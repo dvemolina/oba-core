@@ -4,43 +4,37 @@
 	import { cubicOut } from 'svelte/easing';
 	import { Calendar, BookOpen, Users, LayoutGrid, Sun, UserCheck, Settings, Grid2X2, X } from 'lucide-svelte';
 
-	const mainItems = [
-		{ href: '/agenda',    label: 'Today',     icon: Sun        },
-		{ href: '/calendar',  label: 'Calendar',  icon: Calendar   },
-		{ href: '/bookings',  label: 'Bookings',  icon: BookOpen   },
-		{ href: '/clients',   label: 'Clients',   icon: Users      },
-		{ href: '/services',  label: 'Services',  icon: LayoutGrid }
-	];
+	let { role = 'instructor' }: { role: string } = $props();
 
 	const allItems = [
-		{ href: '/agenda',      label: 'Today',    icon: Sun        },
-		{ href: '/calendar',    label: 'Calendar', icon: Calendar   },
-		{ href: '/bookings',    label: 'Bookings', icon: BookOpen   },
-		{ href: '/clients',     label: 'Clients',  icon: Users      },
-		{ href: '/services',    label: 'Services', icon: LayoutGrid },
-		{ href: '/instructors', label: 'Staff',    icon: UserCheck  },
-		{ href: '/settings',    label: 'Settings', icon: Settings   },
+		{ href: '/agenda',    label: 'Today',    icon: Sun,        roles: ['admin','owner','manager','instructor'] },
+		{ href: '/calendar',  label: 'Calendar', icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
+		{ href: '/bookings',  label: 'Bookings', icon: BookOpen,   roles: ['admin','owner','manager'] },
+		{ href: '/clients',   label: 'Clients',  icon: Users,      roles: ['admin','owner','manager'] },
+		{ href: '/services',  label: 'Services', icon: LayoutGrid, roles: ['admin','owner','manager'] },
+		{ href: '/staff',     label: 'Staff',    icon: UserCheck,  roles: ['admin','owner'] },
+		{ href: '/settings',  label: 'Settings', icon: Settings,   roles: ['admin','owner','manager','instructor'] },
 	];
+
+	const visibleItems = $derived(allItems.filter(i => i.roles.includes(role)));
+	const mainItems = $derived(visibleItems.slice(0, 4));
+	const moreItems = $derived(visibleItems);
 
 	let moreOpen = $state(false);
 	function close() { moreOpen = false; }
-
 	function isActive(href: string) {
 		return page.url.pathname === href || page.url.pathname.startsWith(href + '/');
 	}
 </script>
 
-<!-- Wrapper: fixed at bottom, contains the expandable grid + nav bar -->
 <div class="fixed right-0 bottom-0 left-0 z-50 md:hidden">
-
-	<!-- Expanded grid panel — slides up from nav bar -->
 	{#if moreOpen}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
 			class="border-t border-border bg-surface/98 backdrop-blur-md"
 		>
 			<div class="grid grid-cols-4 gap-0 px-2 pt-3 pb-1">
-				{#each allItems as item}
+				{#each moreItems as item}
 					{@const active = isActive(item.href)}
 					<a
 						href={item.href}
@@ -49,9 +43,7 @@
 						       {active ? 'text-ocean' : 'text-gray-700 hover:bg-sand'}"
 					>
 						<span class="relative flex h-6 w-6 items-center justify-center">
-							{#if active}
-								<span class="absolute inset-0 rounded-lg bg-ocean/12"></span>
-							{/if}
+							{#if active}<span class="absolute inset-0 rounded-lg bg-ocean/12"></span>{/if}
 							<item.icon size={20} strokeWidth={active ? 2.5 : 1.75} />
 						</span>
 						<span class="text-[10px] font-medium">{item.label}</span>
@@ -61,7 +53,6 @@
 		</div>
 	{/if}
 
-	<!-- Main nav bar (always visible) -->
 	<nav
 		aria-label="Main navigation"
 		class="flex justify-around border-t border-border bg-surface/95 backdrop-blur-md"
@@ -79,16 +70,13 @@
 				       {active ? 'text-ocean' : 'text-muted hover:text-slate-700'}"
 			>
 				<span class="relative flex h-6 w-6 items-center justify-center">
-					{#if active}
-						<span class="absolute inset-x-0 -bottom-1 h-0.5 rounded-full bg-ocean"></span>
-					{/if}
+					{#if active}<span class="absolute inset-x-0 -bottom-1 h-0.5 rounded-full bg-ocean"></span>{/if}
 					<item.icon size={20} strokeWidth={active ? 2.5 : 1.75} />
 				</span>
 				<span class="truncate">{item.label}</span>
 			</a>
 		{/each}
 
-		<!-- More / Close toggle -->
 		<button
 			onclick={() => moreOpen = !moreOpen}
 			aria-label={moreOpen ? 'Close menu' : 'More'}

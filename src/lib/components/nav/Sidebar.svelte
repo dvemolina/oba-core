@@ -2,14 +2,18 @@
 	import { page } from '$app/state';
 	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun } from 'lucide-svelte';
 
-	const items = [
-		{ href: '/agenda',      label: 'Today',     icon: Sun        },
-		{ href: '/calendar',    label: 'Calendar',  icon: Calendar   },
-		{ href: '/bookings',    label: 'Bookings',  icon: BookOpen   },
-		{ href: '/clients',     label: 'Clients',   icon: Users      },
-		{ href: '/instructors', label: 'Staff',     icon: UserCheck  },
-		{ href: '/services',    label: 'Services',  icon: LayoutGrid }
+	let { role = 'instructor' }: { role: string } = $props();
+
+	const allItems = [
+		{ href: '/agenda',    label: 'Today',    icon: Sun,        roles: ['admin','owner','manager','instructor'] },
+		{ href: '/calendar',  label: 'Calendar', icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
+		{ href: '/bookings',  label: 'Bookings', icon: BookOpen,   roles: ['admin','owner','manager'] },
+		{ href: '/clients',   label: 'Clients',  icon: Users,      roles: ['admin','owner','manager'] },
+		{ href: '/staff',     label: 'Staff',    icon: UserCheck,  roles: ['admin','owner'] },
+		{ href: '/services',  label: 'Services', icon: LayoutGrid, roles: ['admin','owner','manager'] },
 	];
+
+	const items = $derived(allItems.filter(i => i.roles.includes(role)));
 </script>
 
 <nav
@@ -19,7 +23,6 @@
 	onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.width = '13rem')}
 	onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.width = '3.75rem')}
 >
-	<!-- Brand -->
 	<div class="flex h-14 items-center gap-3 px-3.5 border-b border-white/10">
 		<span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ocean text-white">
 			<Waves size={16} strokeWidth={2} />
@@ -29,7 +32,6 @@
 		</span>
 	</div>
 
-	<!-- Main nav items -->
 	<div class="flex flex-1 flex-col gap-0.5 p-2 pt-3">
 		{#each items as item}
 			{@const active = page.url.pathname === item.href || page.url.pathname.startsWith(item.href + '/')}
@@ -38,9 +40,7 @@
 				aria-current={active ? 'page' : undefined}
 				aria-label={item.label}
 				class="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-colors duration-150
-				       {active
-				         ? 'bg-ocean text-white'
-				         : 'text-white/55 hover:bg-white/8 hover:text-white'}"
+				       {active ? 'bg-ocean text-white' : 'text-white/55 hover:bg-white/8 hover:text-white'}"
 			>
 				<span class="flex h-5 w-5 shrink-0 items-center justify-center">
 					<item.icon size={18} strokeWidth={active ? 2.5 : 1.75} />
@@ -52,7 +52,6 @@
 		{/each}
 	</div>
 
-	<!-- Settings pinned at bottom -->
 	<div class="border-t border-white/10 p-2">
 		<a
 			href="/settings"
