@@ -29,6 +29,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
+          no-cache: true
           tags: |
             ghcr.io/dvemolina/oba-core:latest
             ghcr.io/dvemolina/oba-core:${{ github.sha }}
