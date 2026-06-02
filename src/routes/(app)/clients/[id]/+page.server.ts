@@ -3,8 +3,10 @@ import { deleteClient, getClient, updateClient } from '$lib/features/clients/que
 import { getBookingsForClient } from '$lib/features/bookings/queries';
 import type { SkillLevel } from '$lib/features/clients/types';
 import type { Actions, PageServerLoad } from './$types';
+import { requireRole } from '$lib/server/permissions';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
+	requireRole(locals, 'admin', 'owner', 'manager');
 	const client = await getClient(params.id);
 	if (!client) error(404, 'Client not found');
 	const bookings = await getBookingsForClient(params.id);
@@ -12,7 +14,8 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
-	update: async ({ request, params }) => {
+	update: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const firstName = form.get('firstName')?.toString().trim() ?? '';
 		const lastName = form.get('lastName')?.toString().trim() ?? '';
@@ -30,7 +33,8 @@ export const actions: Actions = {
 		return { error: null };
 	},
 
-	delete: async ({ params }) => {
+	delete: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const result = await deleteClient(params.id);
 		if (!result.deleted) {
 			return fail(409, { error: 'This client has booking history and cannot be deleted. Remove them from all bookings first.' });

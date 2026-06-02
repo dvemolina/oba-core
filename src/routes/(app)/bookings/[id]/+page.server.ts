@@ -28,8 +28,10 @@ import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
 import type { BookingStatus } from '$lib/features/bookings/types';
 import type { Actions, PageServerLoad } from './$types';
+import { requireRole, canSeeFinancials } from '$lib/server/permissions';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
+	requireRole(locals, 'admin', 'owner', 'manager');
 	const [booking, instructors] = await Promise.all([getBooking(params.id), listInstructors()]);
 	if (!booking) error(404, 'Booking not found');
 
@@ -48,11 +50,12 @@ export const load: PageServerLoad = async ({ params }) => {
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
 	);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions };
+	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals) };
 };
 
 export const actions: Actions = {
-	update: async ({ request, params }) => {
+	update: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const newStatus = form.get('status')?.toString() as BookingStatus;
 		const booking = await getBooking(params.id);
@@ -74,7 +77,8 @@ export const actions: Actions = {
 		return { error: null, message };
 	},
 
-	updatePayment: async ({ request }) => {
+	updatePayment: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		const amountPaid = form.get('amountPaid')?.toString() ?? '0';
@@ -86,7 +90,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Payment updated' };
 	},
 
-	enroll: async ({ request, params }) => {
+	enroll: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const clientId = form.get('clientId')?.toString() ?? '';
 		const amountDue = form.get('amountDue')?.toString() ?? '0';
@@ -105,7 +110,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Student enrolled' };
 	},
 
-	unenroll: async ({ request, params }) => {
+	unenroll: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const clientId = form.get('clientId')?.toString() ?? '';
 		if (!clientId) return fail(400, { error: 'Client is required' });
@@ -113,12 +119,14 @@ export const actions: Actions = {
 		return { error: null, message: 'Student removed' };
 	},
 
-	cancel: async ({ params }) => {
+	cancel: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		await cancelBooking(params.id);
 		return { cancelled: true, message: 'Booking cancelled' };
 	},
 
-	updateAmountDue: async ({ request }) => {
+	updateAmountDue: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		const amountDue = form.get('amountDue')?.toString() ?? '0';
@@ -127,7 +135,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Amount updated' };
 	},
 
-	cancelClient: async ({ request }) => {
+	cancelClient: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
@@ -135,7 +144,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Client enrollment cancelled' };
 	},
 
-	reenrollClient: async ({ request }) => {
+	reenrollClient: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
@@ -143,7 +153,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Client re-enrolled' };
 	},
 
-	addSession: async ({ request, params }) => {
+	addSession: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const date = form.get('sessionDate')?.toString() ?? '';
 		const time = form.get('sessionTime')?.toString() || undefined;
@@ -156,7 +167,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Session added' };
 	},
 
-	updateSession: async ({ request }) => {
+	updateSession: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		const time = form.get('sessionTime')?.toString() || null;
@@ -169,7 +181,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Session updated' };
 	},
 
-	cancelSession: async ({ request }) => {
+	cancelSession: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
@@ -177,7 +190,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Session cancelled' };
 	},
 
-	deleteSession: async ({ request }) => {
+	deleteSession: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
@@ -185,7 +199,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Session deleted' };
 	},
 
-	linkToSession: async ({ request, params }) => {
+	linkToSession: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
@@ -193,7 +208,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Linked to session' };
 	},
 
-	unlinkFromSession: async ({ request, params }) => {
+	unlinkFromSession: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
@@ -201,7 +217,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Unlinked from session' };
 	},
 
-	addParticipant: async ({ request }) => {
+	addParticipant: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		const name = form.get('participantName')?.toString().trim() ?? '';
@@ -210,7 +227,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Participant added' };
 	},
 
-	removeParticipant: async ({ request }) => {
+	removeParticipant: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const participantId = form.get('participantId')?.toString() ?? '';
 		if (!participantId) return fail(400, { error: 'Missing participant id' });
@@ -218,7 +236,8 @@ export const actions: Actions = {
 		return { error: null, message: 'Participant removed' };
 	},
 
-	bulkGenerateSessions: async ({ request, params }) => {
+	bulkGenerateSessions: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });

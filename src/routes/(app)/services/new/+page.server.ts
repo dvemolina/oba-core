@@ -3,14 +3,17 @@ import { createService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
+import { requireRole } from '$lib/server/permissions';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
+	requireRole(locals, 'admin', 'owner', 'manager');
 	const instructors = await listInstructors();
 	return { instructors };
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const type = form.get('type')?.toString() ?? 'other';

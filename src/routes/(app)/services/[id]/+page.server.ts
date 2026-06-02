@@ -12,8 +12,10 @@ import type { ServiceType } from '$lib/features/services/types';
 import type { OccupancyType } from '$lib/features/accommodation/types';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
+import { requireRole, canEditServices } from '$lib/server/permissions';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
+	requireRole(locals, 'admin', 'owner', 'manager');
 	const [service, instructors] = await Promise.all([
 		getService(params.id),
 		listInstructors()
@@ -24,11 +26,12 @@ export const load: PageServerLoad = async ({ params }) => {
 		? await listUnitTypesByService(params.id)
 		: [];
 
-	return { service, instructors, unitTypes };
+	return { service, instructors, unitTypes, canEditServices: canEditServices(locals) };
 };
 
 export const actions: Actions = {
-	update: async ({ request, params }) => {
+	update: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const type = form.get('type')?.toString().trim() || undefined;
@@ -70,14 +73,16 @@ export const actions: Actions = {
 		return { message: 'Service updated' };
 	},
 
-	toggle: async ({ params }) => {
+	toggle: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const service = await getService(params.id);
 		if (!service) error(404);
 		await updateService(params.id, { active: !service.active });
 		return { message: service.active ? 'Service deactivated' : 'Service activated' };
 	},
 
-	delete: async ({ params }) => {
+	delete: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const result = await deleteService(params.id);
 		if (!result.deleted) {
 			const msg = result.reason === 'has_future_bookings'
@@ -88,7 +93,8 @@ export const actions: Actions = {
 		return { deleted: true, message: 'Service deleted' };
 	},
 
-	addUnitType: async ({ request, params }) => {
+	addUnitType: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const name = form.get('utName')?.toString().trim() ?? '';
 		const occupancyType = (form.get('occupancyType')?.toString() ?? 'private') as OccupancyType;
@@ -103,7 +109,8 @@ export const actions: Actions = {
 		return { message: 'Unit type added' };
 	},
 
-	deleteUnitType: async ({ request }) => {
+	deleteUnitType: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const id = form.get('unitTypeId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'Missing unit type ID' });
@@ -111,7 +118,8 @@ export const actions: Actions = {
 		return { message: 'Unit type deleted' };
 	},
 
-	addUnit: async ({ request }) => {
+	addUnit: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const unitTypeId = form.get('unitTypeId')?.toString() ?? '';
 		const name = form.get('unitName')?.toString().trim() ?? '';
@@ -120,7 +128,8 @@ export const actions: Actions = {
 		return { message: 'Unit added' };
 	},
 
-	deleteUnit: async ({ request }) => {
+	deleteUnit: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const id = form.get('unitId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'Missing unit ID' });

@@ -6,8 +6,10 @@ import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
 import { listUnitTypesByService, getAvailableUnits } from '$lib/features/accommodation/queries';
 import type { Actions, PageServerLoad } from './$types';
+import { requireRole } from '$lib/server/permissions';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
+	requireRole(locals, 'admin', 'owner', 'manager');
 	const [services, instructors, clients] = await Promise.all([
 		listServices(),
 		listInstructors(),
@@ -29,7 +31,8 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 
 		const serviceId = form.get('serviceId')?.toString() ?? '';
