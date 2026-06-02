@@ -101,22 +101,38 @@
 				</a>
 			{/each}
 
-			<!-- Unscheduled sessions alert -->
+			<!-- Unscheduled sessions — link to calendar day view to schedule inline -->
 			{#if unscheduled.length > 0}
-				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50 p-3">
-					<p class="text-xs font-semibold text-amber-800">{unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need a time assigned</p>
-					<div class="mt-2 space-y-1.5">
-						{#each unscheduled.slice(0, 4) as s}
-							<a href="/bookings/{s.bookingId}" class="flex items-center gap-2 text-xs text-amber-700 hover:underline">
-								<span>·</span>
-								<span>{fmtDate(s.date)} · {s.serviceName ?? 'Session'}
-									{#if s.participantNames.length > 0} · {s.participantNames[0]}{/if}
-								</span>
-							</a>
+				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50">
+					<div class="flex items-center justify-between px-3 pt-3 pb-2">
+						<p class="text-xs font-semibold text-amber-800">
+							⚡ {unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need scheduling
+						</p>
+						<a href="/bookings?statusFilter=unscheduled" class="text-[10px] text-amber-600 hover:underline">
+							View all →
+						</a>
+					</div>
+					<div class="divide-y divide-amber-100">
+						{#each unscheduled as s}
+							<div class="flex items-center justify-between px-3 py-2">
+								<div class="min-w-0">
+									<p class="truncate text-xs font-medium text-amber-900">
+										{s.serviceName ?? 'Session'}
+										{#if s.participantNames.length > 0}
+											<span class="font-normal text-amber-700"> · {s.participantNames[0]}</span>
+										{/if}
+									</p>
+									<p class="text-[10px] text-amber-600">{fmtDate(s.date)}</p>
+								</div>
+								<a href="/calendar?view=day&date={s.date}"
+									class="ml-3 shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800 hover:bg-amber-200 transition-colors">
+									Schedule →
+								</a>
+							</div>
 						{/each}
-						{#if unscheduled.length > 4}
-							<p class="text-xs text-amber-600">+{unscheduled.length - 4} more</p>
-						{/if}
+					</div>
+					<div class="px-3 pb-3 pt-1">
+						<p class="text-[10px] text-amber-600">Tap Schedule → to assign time in the day view</p>
 					</div>
 				</div>
 			{/if}

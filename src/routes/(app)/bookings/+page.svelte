@@ -4,11 +4,18 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let statusFilter = $state<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+	type FilterTab = 'all' | 'pending' | 'confirmed' | 'cancelled' | 'unscheduled';
+	let statusFilter = $state<FilterTab>('all');
 	let search = $state('');
+
+	const needsSchedulingCount = $derived(
+		data.bookings.filter(b => b.serviceHasSessions && b.sessionCount > 0 && b.scheduledCount < b.sessionCount && b.status !== 'cancelled').length
+	);
 
 	const filtered = $derived(
 		data.bookings.filter(b => {
+			if (statusFilter === 'unscheduled')
+				return b.serviceHasSessions && b.sessionCount > 0 && b.scheduledCount < b.sessionCount && b.status !== 'cancelled';
 			if (statusFilter !== 'all' && b.status !== statusFilter) return false;
 			if (search.length > 1) {
 				const q = search.toLowerCase();
@@ -40,22 +47,29 @@
 	</div>
 
 	<!-- Filters -->
-	<div class="flex items-center gap-2 border-b border-border px-4 py-2.5">
+	<div class="border-b border-border px-4 py-2.5 space-y-2">
 		<input
 			bind:value={search}
 			placeholder="Search client or service…"
-			class="input input-sm flex-1 text-sm"
+			class="input input-sm w-full text-sm"
 		/>
-		<div class="flex gap-1">
+		<div class="flex gap-1 overflow-x-auto pb-0.5">
 			{#each (['all', 'pending', 'confirmed', 'cancelled'] as const) as s}
 				<button
 					onclick={() => statusFilter = s}
-					class="rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors
+					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors
 					       {statusFilter === s ? 'bg-ocean text-white' : 'bg-surface text-muted ring-1 ring-border hover:text-gray-700'}"
-				>
-					{s}
-				</button>
+				>{s}</button>
 			{/each}
+			{#if needsSchedulingCount > 0}
+				<button
+					onclick={() => statusFilter = 'unscheduled'}
+					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors
+					       {statusFilter === 'unscheduled' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100'}"
+				>
+					⚡ needs scheduling ({needsSchedulingCount})
+				</button>
+			{/if}
 		</div>
 	</div>
 
