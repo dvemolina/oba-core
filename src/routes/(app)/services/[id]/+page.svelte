@@ -29,8 +29,9 @@
 
 	const TEMPLATE_LABELS: Record<string, string> = {
 		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
-		rental: 'Rental', accommodation: 'Accommodation'
+		rental: 'Rental', accommodation: 'Accommodation', other: 'Other'
 	};
+	const LABEL_OPTIONS = ['lesson', 'camp', 'rental', 'accommodation', 'product', 'other'] as const;
 
 	// Capability badge labels for view mode
 	const capabilityBadges = $derived([
@@ -111,7 +112,7 @@
 					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructors</span>
 					<div class="mt-1.5 flex flex-wrap gap-1.5">
 						{#each data.instructors.filter(i => data.service.defaultInstructorIds?.includes(i.id)) as instructor}
-							<span class="rounded-full bg-ocean/10 px-2.5 py-0.5 text-xs font-medium text-ocean">🌊 {instructor.name}</span>
+							<span class="rounded-full bg-ocean/10 px-2.5 py-0.5 text-xs font-medium text-ocean">{instructor.name}</span>
 						{/each}
 					</div>
 				</div>
@@ -272,6 +273,21 @@
 			<div>
 				<label class="label">Name *</label>
 				<input name="name" required value={data.service.name} class="input" />
+			</div>
+
+			<div>
+				<label class="label">Label / category</label>
+				<select name="type" class="input">
+					{#each LABEL_OPTIONS as opt}
+						<option value={opt} selected={data.service.type === opt}>
+							{TEMPLATE_LABELS[opt] ?? opt}
+						</option>
+					{/each}
+					{#if !LABEL_OPTIONS.includes(data.service.type as any)}
+						<option value={data.service.type} selected>{data.service.type}</option>
+					{/if}
+				</select>
+				<p class="mt-1 text-xs text-muted">Display label only — doesn't affect behaviour</p>
 			</div>
 
 			<div>

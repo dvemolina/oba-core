@@ -9,6 +9,7 @@
 	import type { ServiceColorKey } from '$lib/features/services/colors';
 	import type { BookingClient } from '$lib/features/bookings/types';
 	import ContactButtons from '$lib/components/ContactButtons.svelte';
+	import { Zap, Waves, Bell, Tent, Shuffle } from 'lucide-svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -224,7 +225,7 @@
 					{data.booking.date} → {data.booking.dateEnd}
 				{:else}
 					{data.booking.date}{data.booking.time ? ' · ' + data.booking.time.slice(0, 5) : ''}
-					{#if data.booking.isFlexible}<span class="ml-1 text-flexible">⚡</span>{/if}
+					{#if data.booking.isFlexible}<Zap size={12} class="ml-1 inline text-flexible" />{/if}
 				{/if}
 			</p>
 			{#if data.booking.source === 'whatsapp_bot'}
@@ -263,7 +264,7 @@
 				{#if !hasSessions && data.booking.instructorName}
 					<div class="flex items-center justify-between">
 						<span class="text-xs text-muted">Instructor</span>
-						<span class="text-sm text-gray-800">🌊 {data.booking.instructorName}</span>
+						<span class="flex items-center gap-1.5 text-sm text-gray-800"><Waves size={13} class="shrink-0 text-ocean/60" />{data.booking.instructorName}</span>
 					</div>
 				{/if}
 				{#if data.booking.sessionsIncluded != null}
@@ -313,7 +314,7 @@
 				{#if !hasSessions}
 					<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
 						<input type="checkbox" name="isFlexible" bind:checked={editFlexible} class="h-4 w-4 accent-ocean" />
-						⚡ Flexible time
+						<Zap size={14} class="shrink-0" /> Flexible time
 					</label>
 					<div>
 						<label class="mb-1 block text-xs text-muted">Instructor</label>
@@ -442,7 +443,7 @@
 						<ContactButtons phone={bc.clientPhone} email={bc.clientEmail} whatsappMessage={waMessage(bc, 'confirmation')} />
 						{#if bc.clientPhone}
 							<a href={waUrl(bc.clientPhone, waMessage(bc, 'reminder'))} target="_blank" rel="noopener noreferrer"
-								class="btn-secondary btn-sm btn-block gap-1.5">⏰ Send reminder</a>
+								class="btn-secondary btn-sm btn-block gap-1.5"><Bell size={13} /> Send reminder</a>
 						{/if}
 					</div>
 					<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-end gap-2">
@@ -513,7 +514,7 @@
 					{#if hasDateRange}
 						<button type="button" onclick={() => { showBulkGenerate = !showBulkGenerate; showAddSession = false; }}
 							class="text-xs font-medium text-muted hover:text-slate-700">
-							{showBulkGenerate ? 'Cancel' : '⚡ Generate'}
+							{showBulkGenerate ? 'Cancel' : 'Generate'}
 						</button>
 					{/if}
 					<button type="button" onclick={() => { showAddSession = !showAddSession; showBulkGenerate = false; }}
@@ -607,7 +608,7 @@
 				<p class="px-4 pb-4 text-sm text-muted">
 					{data.booking.sessionsIncluded != null
 						? `${data.booking.sessionsIncluded} session${data.booking.sessionsIncluded > 1 ? 's' : ''} to schedule — tap + Add.`
-						: hasDateRange ? 'No sessions yet — use ⚡ Generate or + Add.' : 'No sessions yet.'}
+						: hasDateRange ? 'No sessions yet — use Generate or + Add.' : 'No sessions yet.'}
 				</p>
 			{:else}
 				<div class="divide-y divide-border/60">
@@ -682,8 +683,7 @@
 												<div class="grid grid-cols-2 gap-2">
 													<div>
 														<label class="text-xs text-muted">Time</label>
-														<input name="sessionTime" type="time" value={session.time?.slice(0,5) ?? ''}
-															bind:value={editFormTime}
+														<input name="sessionTime" type="time" bind:value={editFormTime}
 															class="mt-0.5 input text-xs" />
 													</div>
 													<div>
@@ -747,7 +747,7 @@
 							<div class="flex items-center justify-between rounded-lg bg-sand/60 px-3 py-2 ring-1 ring-border">
 								<div>
 									<p class="text-xs font-medium text-gray-800">
-										{ls.time ? ls.time.slice(0,5) : '⚡ unscheduled'} · {ls.serviceName ?? 'Session'}
+										{ls.time ? ls.time.slice(0,5) : 'unscheduled'} · {ls.serviceName ?? 'Session'}
 									</p>
 									<p class="text-[11px] text-muted">
 										{ls.instructors.map(i => i.instructorName).filter(Boolean).join(', ') || 'No instructor'}

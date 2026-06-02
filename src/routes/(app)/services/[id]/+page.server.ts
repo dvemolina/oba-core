@@ -31,6 +31,7 @@ export const actions: Actions = {
 	update: async ({ request, params }) => {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
+		const type = form.get('type')?.toString().trim() || undefined;
 		const basePrice = form.get('basePrice')?.toString() ?? '';
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();
@@ -60,7 +61,7 @@ export const actions: Actions = {
 		}
 
 		await updateService(params.id, {
-			name, basePrice, description, durationMinutes, defaultSessionsIncluded,
+			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
 			startDate, endDate, maxCapacity,
 			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,

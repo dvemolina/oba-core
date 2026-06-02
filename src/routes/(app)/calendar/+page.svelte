@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { groupBookingsByDate, getDaysInMonth, fmtTimeRange, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
+	import { Zap, Tent } from 'lucide-svelte';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
@@ -449,7 +450,7 @@
 									class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center hover:brightness-95 {pillRounded(booking, weekDates)} {pillClasses(booking)}"
 								>
 									{#if startsHere}
-										🏕️ {booking.serviceName}
+										<Tent size={11} class="inline mr-0.5" />{booking.serviceName}
 										{#if booking.serviceMaxCapacity != null}
 											<span class="ml-1 opacity-70">({booking.clientCount}/{booking.serviceMaxCapacity})</span>
 										{:else}
@@ -546,7 +547,7 @@
 					{@const c = getServiceColor(camp.serviceColor ?? '')}
 					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 {c.bg}/20 border-l-4 {c.border}">
 						<div>
-							<p class="text-xs font-semibold text-gray-800">🏕️ {camp.serviceName} — Day {campDayNumber(camp, data.dayDate)}</p>
+							<p class="text-xs font-semibold text-gray-800"><Tent size={13} class="inline mr-0.5" />{camp.serviceName} — Day {campDayNumber(camp, data.dayDate)}</p>
 							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount} enrolled · no sessions today</p>
 						</div>
 						<a href="/bookings/{camp.id}"
@@ -574,7 +575,7 @@
 										<button type="button"
 											onclick={() => assigningSessionId = isAssigning ? null : session.id}
 											class="ml-2 shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700 hover:bg-amber-200 transition-colors">
-											{isAssigning ? 'Cancel' : '⚡ Assign'}
+											{isAssigning ? 'Cancel' : 'Assign'}
 										</button>
 									</div>
 									{#if isAssigning}

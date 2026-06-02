@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getServiceColor } from '$lib/features/services/colors';
+	import { Zap, Waves, Tent, ArrowRight } from 'lucide-svelte';
 	import { fmtTimeRange } from '$lib/features/calendar/utils';
 	import type { PageData } from './$types';
 	import type { AgendaSession } from '$lib/features/sessions/types';
@@ -106,7 +107,7 @@
 				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50">
 					<div class="flex items-center justify-between px-3 pt-3 pb-2">
 						<p class="text-xs font-semibold text-amber-800">
-							⚡ {unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need scheduling
+							<Zap size={13} class="inline mr-0.5" />{unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need scheduling
 						</p>
 						<a href="/bookings?statusFilter=unscheduled" class="text-[10px] text-amber-600 hover:underline">
 							View all →
@@ -158,14 +159,14 @@
 										{#if s.time}
 											<span class="text-sm font-semibold text-gray-900">{fmtTimeRange(s.time, s.effectiveDuration)}</span>
 										{:else}
-											<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">⚡ Unscheduled</span>
+											<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Zap size={10} /> Unscheduled</span>
 										{/if}
 										<span class="inline-flex items-center gap-1 text-sm font-medium text-gray-800">
 											<span class="inline-block h-2 w-2 shrink-0 rounded-full {c.bg} ring-1 {c.border}"></span>
 											{s.serviceName ?? 'Session'}
 										</span>
 										{#if s.isFlexible}
-											<span class="text-flexible text-xs">⚡</span>
+											<Zap size={11} class="text-flexible shrink-0" />
 										{/if}
 									</div>
 									<p class="mt-0.5 text-xs text-muted">
@@ -175,7 +176,7 @@
 											{s.participantNames.join(' · ')}
 										{/if}
 										{#if s.instructors.length > 0}
-											· 🌊 {s.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}
+											<span class="inline-flex items-center gap-0.5"><Waves size={10} class="text-ocean/60 shrink-0" />{s.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}</span>
 										{/if}
 										{#if s.notes}· {s.notes}{/if}
 									</p>

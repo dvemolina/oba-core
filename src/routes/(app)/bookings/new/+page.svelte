@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { Zap, Tent } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
@@ -294,7 +295,7 @@
 			<!-- Camp: fixed date info + hidden inputs -->
 			{#if selectedService?.startDate}
 				<div class="rounded-lg bg-sand/60 px-4 py-3 text-sm text-gray-700">
-					🏕️ Camp dates: <strong>{selectedService.startDate}</strong> → <strong>{selectedService.endDate}</strong>
+					<span class="flex items-center gap-1.5"><Tent size={14} /> Camp dates:</span> <strong>{selectedService.startDate}</strong> → <strong>{selectedService.endDate}</strong>
 					{#if selectedService.maxCapacity}· Max {selectedService.maxCapacity} students{/if}
 				</div>
 				<input type="hidden" name="date" value={selectedService.startDate} />
@@ -320,7 +321,7 @@
 				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">
 					<input type="checkbox" name="isFlexible" bind:checked={isFlexible} class="h-4 w-4 accent-ocean" />
 					<div>
-						<p class="text-sm font-medium text-gray-800">⚡ Flexible time</p>
+						<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> Flexible time</p>
 						<p class="text-xs text-muted">Confirm based on surf conditions</p>
 					</div>
 				</label>

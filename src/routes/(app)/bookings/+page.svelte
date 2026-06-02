@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getServiceColor } from '$lib/features/services/colors';
+	import { Zap } from 'lucide-svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -67,7 +68,7 @@
 					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors
 					       {statusFilter === 'unscheduled' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100'}"
 				>
-					⚡ needs scheduling ({needsSchedulingCount})
+					<Zap size={11} class="inline mr-0.5" />needs scheduling ({needsSchedulingCount})
 				</button>
 			{/if}
 		</div>
