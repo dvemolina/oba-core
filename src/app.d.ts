@@ -10,6 +10,7 @@ declare global {
 				createdAt: Date;
 				updatedAt: Date;
 				role: string | null;
+				roles: string[];
 				banned: boolean | null;
 				banReason: string | null;
 				banExpires: Date | null;

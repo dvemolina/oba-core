@@ -3,9 +3,20 @@
 	import type { PageData, ActionData } from './$types';
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	const ALL_ROLES = ['admin', 'owner', 'manager', 'instructor'] as const;
 	const ROLE_LABELS: Record<string, string> = {
 		admin: 'Admin', owner: 'Owner', manager: 'Manager', instructor: 'Instructor'
 	};
+	const ROLE_DESC: Record<string, string> = {
+		admin: 'Full system access',
+		owner: 'Full school access',
+		manager: 'Operations — no pricing/financials',
+		instructor: 'Own sessions only'
+	};
+
+	const currentRoles = $derived(
+		(data.member.roles?.length ? data.member.roles : data.member.role ? [data.member.role] : []) as string[]
+	);
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
@@ -27,14 +38,27 @@
 	</section>
 
 	<section class="mb-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-border">
-		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Role</h2>
-		<form method="POST" action="?/updateRole" use:enhance class="flex items-center gap-3">
-			<select name="role" class="input flex-1">
-				{#each ['instructor', 'manager', 'owner', 'admin'] as r}
-					<option value={r} selected={data.member.role === r}>{ROLE_LABELS[r]}</option>
-				{/each}
-			</select>
-			<button type="submit" class="btn-primary btn-sm">Save</button>
+		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Roles</h2>
+		<p class="mb-3 text-xs text-muted">Multiple roles allowed. Permissions = union of all assigned roles.</p>
+		<form method="POST" action="?/updateRole" use:enhance class="space-y-2">
+			{#each ALL_ROLES as r}
+				<label class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ring-border hover:bg-sand">
+					<input
+						type="checkbox"
+						name="roles"
+						value={r}
+						checked={currentRoles.includes(r)}
+						class="h-4 w-4 rounded border-gray-300 text-ocean"
+					/>
+					<span class="flex-1">
+						<span class="text-sm font-medium text-gray-800">{ROLE_LABELS[r]}</span>
+						<span class="ml-2 text-xs text-muted">{ROLE_DESC[r]}</span>
+					</span>
+				</label>
+			{/each}
+			<div class="pt-2">
+				<button type="submit" class="btn-primary btn-sm">Save roles</button>
+			</div>
 		</form>
 	</section>
 

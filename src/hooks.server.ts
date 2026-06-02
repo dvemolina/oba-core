@@ -23,10 +23,18 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 
 	if (session) {
 		event.locals.session = session.session;
+		const rawRoles = (session.user as Record<string, unknown>).roles as string[] | null | undefined;
+		const singleRole = (session.user as Record<string, unknown>).role as string | null | undefined;
+		const roles: string[] = rawRoles?.length
+			? rawRoles
+			: singleRole
+				? [singleRole]
+				: [];
 		event.locals.user = {
 			...session.user,
 			image: session.user.image ?? null,
 			role: session.user.role ?? null,
+			roles,
 			banned: session.user.banned ?? null,
 			banReason: session.user.banReason ?? null,
 			banExpires: session.user.banExpires ?? null

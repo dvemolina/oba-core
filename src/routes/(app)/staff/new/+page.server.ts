@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { requireRole } from '$lib/server/permissions';
+import { requireRole, primaryRole } from '$lib/server/permissions';
+import type { Role } from '$lib/server/permissions';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { instructors } from '$lib/server/db/schema';
@@ -25,13 +26,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const email = form.get('email')?.toString().trim() ?? '';
-		const role = form.get('role')?.toString() ?? 'instructor';
+		const selectedRoles = form.getAll('roles')
+			.map(r => r.toString())
+			.filter(r => ['admin', 'owner', 'manager', 'instructor'].includes(r)) as Role[];
 		const instructorProfileId = form.get('instructorProfileId')?.toString() || null;
 
 		if (!name) return fail(400, { error: 'Name is required' });
 		if (!email) return fail(400, { error: 'Email is required' });
-		if (!['owner', 'manager', 'instructor'].includes(role))
-			return fail(400, { error: 'Invalid role' });
+		if (selectedRoles.length === 0) return fail(400, { error: 'At least one role is required' });
 
 		const tempPassword = generateTempPassword();
 
@@ -46,7 +48,10 @@ export const actions: Actions = {
 			return fail(400, { error: 'Failed to create account (email may already exist)' });
 		}
 
-		await db.update(userTable).set({ role }).where(eq(userTable.id, newUserId));
+		const primary = primaryRole(selectedRoles);
+		await db.update(userTable)
+			.set({ roles: selectedRoles, role: primary })
+			.where(eq(userTable.id, newUserId));
 
 		if (instructorProfileId) {
 			await db
@@ -55,7 +60,7 @@ export const actions: Actions = {
 				.where(eq(instructors.id, instructorProfileId));
 		}
 
-		await sendStaffInvite({ to: email, name, role, tempPassword });
+		await sendStaffInvite({ to: email, name, role: primary ?? selectedRoles[0], tempPassword });
 
 		redirect(302, '/staff');
 	}

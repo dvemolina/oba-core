@@ -25,12 +25,23 @@
 		</div>
 
 		<div>
-			<label for="role" class="mb-1 block text-sm font-medium text-gray-700">Role</label>
-			<select id="role" name="role" class="input w-full">
-				<option value="instructor">Instructor — own sessions only</option>
-				<option value="manager">Manager — full operations, no pricing</option>
-				<option value="owner">Owner — full access</option>
-			</select>
+			<p class="mb-2 block text-sm font-medium text-gray-700">Roles <span class="text-muted">(select all that apply)</span></p>
+			<div class="space-y-2">
+				{#each [
+					{ value: 'instructor', label: 'Instructor', desc: 'Own sessions only' },
+					{ value: 'manager',   label: 'Manager',    desc: 'Full operations, no pricing' },
+					{ value: 'owner',     label: 'Owner',      desc: 'Full access' },
+					{ value: 'admin',     label: 'Admin',      desc: 'Full system access' }
+				] as r}
+					<label class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ring-border hover:bg-sand">
+						<input type="checkbox" name="roles" value={r.value} class="h-4 w-4 rounded border-gray-300 text-ocean" />
+						<span class="flex-1">
+							<span class="text-sm font-medium text-gray-800">{r.label}</span>
+							<span class="ml-2 text-xs text-muted">{r.desc}</span>
+						</span>
+					</label>
+				{/each}
+			</div>
 		</div>
 
 		{#if data.unlinkedProfiles.length > 0}

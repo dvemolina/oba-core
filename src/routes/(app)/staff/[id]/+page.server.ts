@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
-import { requireRole } from '$lib/server/permissions';
+import { requireRole, primaryRole } from '$lib/server/permissions';
+import type { Role } from '$lib/server/permissions';
 import { db } from '$lib/server/db';
 import { instructors } from '$lib/server/db/schema';
 import { user as userTable } from '$lib/server/db/auth.schema';
@@ -30,10 +31,16 @@ export const actions: Actions = {
 	updateRole: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
-		const role = form.get('role')?.toString() ?? '';
-		if (!['admin', 'owner', 'manager', 'instructor'].includes(role))
-			return fail(400, { error: 'Invalid role' });
-		await db.update(userTable).set({ role }).where(eq(userTable.id, params.id));
+		const selectedRoles = form.getAll('roles')
+			.map(r => r.toString())
+			.filter(r => ['admin', 'owner', 'manager', 'instructor'].includes(r)) as Role[];
+
+		if (selectedRoles.length === 0) return fail(400, { error: 'At least one role is required' });
+
+		const primary = primaryRole(selectedRoles);
+		await db.update(userTable)
+			.set({ roles: selectedRoles, role: primary })
+			.where(eq(userTable.id, params.id));
 		return { success: true };
 	},
 

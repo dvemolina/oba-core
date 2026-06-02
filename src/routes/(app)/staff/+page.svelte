@@ -30,13 +30,13 @@
 					{member.name[0].toUpperCase()}
 				</div>
 				<div class="min-w-0 flex-1">
-					<div class="flex items-center gap-2">
+					<div class="flex flex-wrap items-center gap-1.5">
 						<p class="font-medium text-gray-800">{member.name}</p>
-						{#if member.role}
-							<span class="rounded-full px-2 py-0.5 text-xs font-medium {ROLE_COLORS[member.role] ?? 'bg-gray-100 text-gray-600'}">
-								{ROLE_LABELS[member.role] ?? member.role}
+						{#each (member.roles?.length ? member.roles : member.role ? [member.role] : []) as r}
+							<span class="rounded-full px-2 py-0.5 text-xs font-medium {ROLE_COLORS[r] ?? 'bg-gray-100 text-gray-600'}">
+								{ROLE_LABELS[r] ?? r}
 							</span>
-						{/if}
+						{/each}
 						{#if member.banned}
 							<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">banned</span>
 						{/if}
