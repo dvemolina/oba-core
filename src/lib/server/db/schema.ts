@@ -10,6 +10,7 @@ import {
 	time,
 	jsonb
 } from 'drizzle-orm/pg-core';
+import { user } from './auth.schema';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -20,20 +21,6 @@ export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'partial', 'paid']);
 
 // ── Tables ────────────────────────────────────────────────────────────────────
-
-export const instructors = pgTable('instructors', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	name: text('name').notNull(),
-	phone: text('phone'),
-	email: text('email'),
-	bio: text('bio'),
-	active: boolean('active').notNull().default(true),
-	userId: text('user_id'), // nullable FK → auth users table (future instructor login)
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
 
 export const clients = pgTable('clients', {
 	id: text('id')
@@ -215,9 +202,9 @@ export const sessionInstructors = pgTable('session_instructors', {
 	sessionId: text('session_id')
 		.notNull()
 		.references(() => sessions.id, { onDelete: 'cascade' }),
-	instructorId: text('instructor_id')
+	instructorId: text('user_id')
 		.notNull()
-		.references(() => instructors.id, { onDelete: 'cascade' })
+		.references(() => user.id, { onDelete: 'cascade' })
 });
 
 export const sessionParticipants = pgTable('session_participants', {
@@ -241,9 +228,9 @@ export const bookingInstructors = pgTable('booking_instructors', {
 	bookingId: text('booking_id')
 		.notNull()
 		.references(() => bookings.id, { onDelete: 'cascade' }),
-	instructorId: text('instructor_id')
+	instructorId: text('user_id')
 		.notNull()
-		.references(() => instructors.id, { onDelete: 'cascade' })
+		.references(() => user.id, { onDelete: 'cascade' })
 });
 
 // Re-export Better Auth schema so db/index.ts imports everything from one place
