@@ -17,6 +17,11 @@
 	const currentRoles = $derived(
 		(data.member.roles?.length ? data.member.roles : data.member.role ? [data.member.role] : []) as string[]
 	);
+	const visibleRoles = $derived(
+		data.isAdmin
+			? ALL_ROLES
+			: ALL_ROLES.filter(r => r !== 'admin')
+	);
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
@@ -41,7 +46,7 @@
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Roles</h2>
 		<p class="mb-3 text-xs text-muted">Multiple roles allowed. Permissions = union of all assigned roles.</p>
 		<form method="POST" action="?/updateRole" use:enhance class="space-y-2">
-			{#each ALL_ROLES as r}
+			{#each visibleRoles as r}
 				<label class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ring-border hover:bg-sand">
 					<input
 						type="checkbox"

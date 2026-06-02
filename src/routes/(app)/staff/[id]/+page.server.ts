@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { requireRole, primaryRole } from '$lib/server/permissions';
+import { requireRole, hasRole, primaryRole } from '$lib/server/permissions';
 import type { Role } from '$lib/server/permissions';
 import { db } from '$lib/server/db';
 import { instructors } from '$lib/server/db/schema';
@@ -24,16 +24,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(isNull(instructors.userId))
 		.orderBy(instructors.name);
 
-	return { member, linkedProfile: linkedProfile ?? null, unlinkedProfiles };
+	return { member, linkedProfile: linkedProfile ?? null, unlinkedProfiles, isAdmin: hasRole(locals, 'admin') };
 };
 
 export const actions: Actions = {
 	updateRole: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');
+		const isAdmin = hasRole(locals, 'admin');
 		const form = await request.formData();
+		// Owners cannot assign or remove the admin role
+		const allowedRoles = isAdmin
+			? ['admin', 'owner', 'manager', 'instructor']
+			: ['owner', 'manager', 'instructor'];
 		const selectedRoles = form.getAll('roles')
 			.map(r => r.toString())
-			.filter(r => ['admin', 'owner', 'manager', 'instructor'].includes(r)) as Role[];
+			.filter(r => allowedRoles.includes(r)) as Role[];
 
 		if (selectedRoles.length === 0) return fail(400, { error: 'At least one role is required' });
 
