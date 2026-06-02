@@ -14,6 +14,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// ── RBAC ─────────────────────────────────────────────────────────────────
+	const canSeeFinancials = $derived(data.canSeeFinancials);
+
 	// ── Flags (convenience aliases) ───────────────────────────────────────────
 	const hasSessions  = $derived(data.booking.serviceHasSessions);
 	const hasRoster    = $derived(data.booking.serviceHasRoster);
@@ -437,7 +440,9 @@
 							{#if bc.clientPhone}<p class="mt-0.5 text-xs text-muted">{bc.clientPhone}</p>{/if}
 							{#if bc.clientEmail}<p class="text-xs text-muted">{bc.clientEmail}</p>{/if}
 						</div>
+					{#if canSeeFinancials}
 						<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {paymentColors[bc.paymentStatus]}">{bc.paymentStatus}</span>
+					{/if}
 					</div>
 					<div class="mb-3 space-y-2">
 						<ContactButtons phone={bc.clientPhone} email={bc.clientEmail} whatsappMessage={waMessage(bc, 'confirmation')} />
@@ -446,6 +451,7 @@
 								class="btn-secondary btn-sm btn-block gap-1.5"><Bell size={13} /> Send reminder</a>
 						{/if}
 					</div>
+					{#if canSeeFinancials}
 					<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-end gap-2">
 						<input type="hidden" name="bookingClientId" value={bc.id} />
 						<input type="hidden" name="amountDue" value={bc.amountDue} />
@@ -456,6 +462,7 @@
 						</div>
 						<button type="submit" class="btn-secondary btn-sm">Save</button>
 					</form>
+					{/if}
 					{#if bc.status === 'enrolled' && data.booking.status !== 'cancelled'}
 						<form method="post" action="?/cancelClient" use:enhance={withToast()} class="mt-2">
 							<input type="hidden" name="bookingClientId" value={bc.id} />

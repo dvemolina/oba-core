@@ -8,6 +8,10 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// ── RBAC ─────────────────────────────────────────────────────────────────
+	const canEditServices = $derived(data.canEditServices);
+
 	let editing = $state(false);
 	let loading = $state(false);
 
@@ -75,10 +79,17 @@
 	<!-- ── VIEW MODE ─────────────────────────────────────────────── -->
 
 		<div class="mb-4 space-y-3 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+			{#if canEditServices}
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-muted">Price</span>
 				<span class="text-sm font-semibold text-gray-800">€{data.service.basePrice}</span>
 			</div>
+			{:else}
+			<div class="flex items-center justify-between">
+				<span class="text-xs font-semibold uppercase tracking-wider text-muted">Price</span>
+				<span class="text-sm text-muted">Pricing managed by owners</span>
+			</div>
+			{/if}
 			{#if data.service.durationMinutes}
 				<div class="flex items-center justify-between">
 					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Duration</span>
@@ -130,13 +141,15 @@
 			<div class="mb-4">
 				<div class="mb-2 flex items-center justify-between">
 					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Unit Types & Inventory</h2>
+					{#if canEditServices}
 					<button type="button" onclick={() => (showAddUnitType = !showAddUnitType)}
 						class="text-xs font-medium text-ocean hover:underline">
 						{showAddUnitType ? 'Cancel' : '+ Add type'}
 					</button>
+					{/if}
 				</div>
 
-				{#if showAddUnitType}
+				{#if canEditServices && showAddUnitType}
 					<form method="post" action="?/addUnitType" use:enhance={serviceEnhance()} class="mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
 						<p class="text-xs font-semibold text-ocean">New unit type</p>
 						<input name="utName" required placeholder="e.g. Dorm Bed, Double Room"
@@ -168,14 +181,17 @@
 								<div>
 									<p class="text-sm font-semibold text-gray-800">{ut.name}</p>
 									<p class="text-xs text-muted">
-										{OCCUPANCY_LABELS[ut.occupancyType] ?? ut.occupancyType} · max {ut.maxOccupancy} guests · €{ut.pricePerNight}/night
+										{OCCUPANCY_LABELS[ut.occupancyType] ?? ut.occupancyType} · max {ut.maxOccupancy} guests
+										{#if canEditServices} · €{ut.pricePerNight}/night{/if}
 									</p>
 								</div>
+								{#if canEditServices}
 								<form method="post" action="?/deleteUnitType" use:enhance={serviceEnhance()}
 									onsubmit={(e) => { if (!confirm(`Delete "${ut.name}" and all its units?`)) e.preventDefault(); }}>
 									<input type="hidden" name="unitTypeId" value={ut.id} />
 									<button type="submit" class="text-xs text-flexible hover:underline">Delete</button>
 								</form>
+								{/if}
 							</div>
 
 							<!-- Physical units list -->
@@ -187,27 +203,31 @@
 									{#each ut.units as unit}
 										<div class="flex items-center gap-1 rounded-full bg-sand px-2.5 py-0.5 ring-1 ring-border">
 											<span class="text-xs text-gray-700">{unit.name}</span>
+											{#if canEditServices}
 											<form method="post" action="?/deleteUnit" use:enhance={serviceEnhance()}>
 												<input type="hidden" name="unitId" value={unit.id} />
 												<button type="submit" class="ml-0.5 text-[10px] text-muted hover:text-flexible">✕</button>
 											</form>
+											{/if}
 										</div>
 									{/each}
-									{#if addingUnitToTypeId === ut.id}
-										<form method="post" action="?/addUnit" use:enhance={serviceEnhance()}
-											onsubmit={() => (addingUnitToTypeId = null)}
-											class="flex items-center gap-1">
-											<input type="hidden" name="unitTypeId" value={ut.id} />
-											<input name="unitName" required autofocus placeholder="Unit name"
-												class="w-28 rounded-full border border-ocean px-2.5 py-0.5 text-xs focus:outline-none" />
-											<button type="submit" class="text-xs font-medium text-ocean">Add</button>
-											<button type="button" onclick={() => (addingUnitToTypeId = null)} class="text-xs text-muted">✕</button>
-										</form>
-									{:else}
-										<button type="button" onclick={() => (addingUnitToTypeId = ut.id)}
-											class="rounded-full border border-dashed border-ocean/40 px-2.5 py-0.5 text-xs text-ocean hover:border-ocean">
-											+ Add unit
-										</button>
+									{#if canEditServices}
+										{#if addingUnitToTypeId === ut.id}
+											<form method="post" action="?/addUnit" use:enhance={serviceEnhance()}
+												onsubmit={() => (addingUnitToTypeId = null)}
+												class="flex items-center gap-1">
+												<input type="hidden" name="unitTypeId" value={ut.id} />
+												<input name="unitName" required autofocus placeholder="Unit name"
+													class="w-28 rounded-full border border-ocean px-2.5 py-0.5 text-xs focus:outline-none" />
+												<button type="submit" class="text-xs font-medium text-ocean">Add</button>
+												<button type="button" onclick={() => (addingUnitToTypeId = null)} class="text-xs text-muted">✕</button>
+											</form>
+										{:else}
+											<button type="button" onclick={() => (addingUnitToTypeId = ut.id)}
+												class="rounded-full border border-dashed border-ocean/40 px-2.5 py-0.5 text-xs text-ocean hover:border-ocean">
+												+ Add unit
+											</button>
+										{/if}
 									{/if}
 								</div>
 							</div>
@@ -229,6 +249,7 @@
 					Open Camp Roster
 				</a>
 			{/if}
+			{#if canEditServices}
 			<div class="flex gap-2">
 				<button
 					type="button"
@@ -252,6 +273,7 @@
 					<button type="submit" class="btn-destructive">Delete</button>
 				</form>
 			</div>
+			{/if}
 		</div>
 
 	{:else}
@@ -388,11 +410,19 @@
 				</div>
 			{/if}
 
+			{#if canEditServices}
 			<div>
 				<label class="label">Base price (€) *</label>
 				<input name="basePrice" type="number" step="0.01" min="0" required value={data.service.basePrice}
 					class="input" />
 			</div>
+			{:else}
+			<div>
+				<label class="label">Base price (€)</label>
+				<p class="text-sm text-muted">Pricing managed by owners</p>
+				<input type="hidden" name="basePrice" value={data.service.basePrice} />
+			</div>
+			{/if}
 
 			<div>
 				<label class="label">Description</label>
@@ -405,6 +435,7 @@
 				<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
 			{/if}
 
+			{#if canEditServices}
 			<div class="flex gap-2">
 				<button type="submit" disabled={loading} class="btn-primary flex-1">
 					{loading ? 'Saving…' : 'Save Changes'}
@@ -413,6 +444,13 @@
 					Cancel
 				</button>
 			</div>
+			{:else}
+			<div class="flex gap-2">
+				<button type="button" onclick={() => editing = false} class="btn-secondary flex-1">
+					Cancel
+				</button>
+			</div>
+			{/if}
 		</form>
 	{/if}
 </div>
