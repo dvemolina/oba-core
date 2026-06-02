@@ -26,8 +26,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# oba-core uses $env/dynamic/private — no build-time env vars needed
+# Dummy env vars satisfy SvelteKit post-build analysis — not used at runtime
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV DATABASE_URL="postgresql://build:build@localhost/build"
+ENV BETTER_AUTH_SECRET="build-time-placeholder-32-chars-xx"
+ENV ORIGIN="http://localhost:3000"
 RUN pnpm build
 
 # -----------------------------------------------------------------------------
