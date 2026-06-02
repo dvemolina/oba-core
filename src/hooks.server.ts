@@ -23,7 +23,14 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 
 	if (session) {
 		event.locals.session = session.session;
-		event.locals.user = session.user;
+		event.locals.user = {
+			...session.user,
+			image: session.user.image ?? null,
+			role: session.user.role ?? null,
+			banned: session.user.banned ?? null,
+			banReason: session.user.banReason ?? null,
+			banExpires: session.user.banExpires ?? null
+		};
 	}
 
 	return svelteKitHandler({ event, resolve, auth, building });

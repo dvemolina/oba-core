@@ -26,6 +26,7 @@ export interface Booking {
 	serviceColor: string | null;
 	serviceHasSessions: boolean;
 	serviceHasRoster: boolean;
+	serviceHasDateRange: boolean;
 	serviceMaxCapacity: number | null;
 	// Instructor for non-session services (rentals, products, accommodation) only
 	instructorId: string | null;

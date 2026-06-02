@@ -38,7 +38,7 @@ export const seedAuthUsers = [
 );
 
 export function createSeedAuthContext() {
-	const client = postgres(DATABASE_URL);
+	const client = postgres(DATABASE_URL as string);
 	const db = drizzle(client, { schema });
 	const auth = betterAuth({
 		baseURL: ORIGIN,
