@@ -1,4 +1,8 @@
 import { fail } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { db } from '$lib/server/db';
+import { instructors } from '$lib/server/db/schema';
+import { isInstructorRole } from '$lib/server/permissions';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
 import { listSessionsForDate, listSessionsForDateRange, updateSession } from '$lib/features/sessions/queries';
@@ -6,7 +10,7 @@ import { listInstructors } from '$lib/features/instructors/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
 	const today = new Date();
 	const todayStr = getTodayString();
 	const view = (url.searchParams.get('view') ?? 'month') as 'month' | 'week' | 'day';
@@ -23,11 +27,20 @@ export const load: PageServerLoad = async ({ url }) => {
 		({ from, to } = getDateRange(view, year, month, weekStart));
 	}
 
-	const [bookings, events, daySessions, rangedSessions, instructors] = await Promise.all([
+	let instructorId: string | undefined;
+	if (isInstructorRole(locals)) {
+		const [profile] = await db
+			.select({ id: instructors.id })
+			.from(instructors)
+			.where(eq(instructors.userId, locals.user!.id));
+		instructorId = profile?.id;
+	}
+
+	const [bookings, events, daySessions, rangedSessions, instructorList] = await Promise.all([
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(from, to),
-		view === 'day' ? listSessionsForDate(dayDate) : Promise.resolve([]),
-		view !== 'day' ? listSessionsForDateRange(from, to) : Promise.resolve([]),
+		view === 'day' ? listSessionsForDate(dayDate, instructorId) : Promise.resolve([]),
+		view !== 'day' ? listSessionsForDateRange(from, to, instructorId) : Promise.resolve([]),
 		view === 'day' ? listInstructors() : Promise.resolve([])
 	]);
 
@@ -47,7 +60,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		: '';
 
 	return {
-		bookings, events, daySessions, rangedSessions, instructors, view, year, month,
+		bookings, events, daySessions, rangedSessions, instructors: instructorList, view, year, month,
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
 		today: todayStr

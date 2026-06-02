@@ -1,6 +1,7 @@
 import { eq, ne, sum, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookingClients, bookings } from '$lib/server/db/schema';
+import { bookingClients, bookings, instructors } from '$lib/server/db/schema';
+import { isInstructorRole } from '$lib/server/permissions';
 import { listSessionsForDateRange } from '$lib/features/sessions/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
@@ -24,7 +25,7 @@ async function loadStats(today: string) {
 	return { pendingRevenue: parseFloat(revenueRow?.pendingRevenue ?? '0') || 0 };
 }
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
 	const today = getTodayString();
 
 	const past = new Date();
@@ -35,8 +36,17 @@ export const load: PageServerLoad = async () => {
 	const from = formatDate(past);
 	const to = formatDate(future);
 
+	let instructorId: string | undefined;
+	if (isInstructorRole(locals)) {
+		const [profile] = await db
+			.select({ id: instructors.id })
+			.from(instructors)
+			.where(eq(instructors.userId, locals.user!.id));
+		instructorId = profile?.id;
+	}
+
 	const [sessions, bookingsInRange, events, stats] = await Promise.all([
-		listSessionsForDateRange(from, to),
+		listSessionsForDateRange(from, to, instructorId),
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(today, to),
 		loadStats(today)

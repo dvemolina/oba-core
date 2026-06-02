@@ -108,7 +108,7 @@ export async function listSessionsForBooking(bookingId: string): Promise<Session
 }
 
 /** Sessions (with booking context) for a given date. Used by the calendar day view. */
-export async function listSessionsForDate(date: string): Promise<SessionForDay[]> {
+export async function listSessionsForDate(date: string, instructorId?: string): Promise<SessionForDay[]> {
 	// Step 1: sessions for this date (not cancelled)
 	const sessionRows = await db
 		.select({
@@ -123,7 +123,15 @@ export async function listSessionsForDate(date: string): Promise<SessionForDay[]
 			updatedAt: sessions.updatedAt
 		})
 		.from(sessions)
-		.where(and(eq(sessions.date, date), ne(sessions.status, 'cancelled')))
+		.where(
+			instructorId
+				? and(
+						eq(sessions.date, date),
+						ne(sessions.status, 'cancelled'),
+						sql`${sessions.id} IN (SELECT "sessionId" FROM "sessionInstructors" WHERE "instructorId" = ${instructorId})`
+					)
+				: and(eq(sessions.date, date), ne(sessions.status, 'cancelled'))
+		)
 		.orderBy(sessions.sortOrder, sessions.time);
 
 	if (sessionRows.length === 0) return [];
@@ -412,7 +420,7 @@ export async function removeParticipant(participantId: string): Promise<void> {
 // ── Agenda query ─────────────────────────────────────────────────────────────
 
 /** Sessions with full booking/client context for the Agenda view. */
-export async function listSessionsForDateRange(from: string, to: string): Promise<AgendaSession[]> {
+export async function listSessionsForDateRange(from: string, to: string, instructorId?: string): Promise<AgendaSession[]> {
 	const sessionRows = await db
 		.select({
 			id: sessions.id,
@@ -426,7 +434,16 @@ export async function listSessionsForDateRange(from: string, to: string): Promis
 			updatedAt: sessions.updatedAt
 		})
 		.from(sessions)
-		.where(and(gte(sessions.date, from), lte(sessions.date, to), ne(sessions.status, 'cancelled')))
+		.where(
+			instructorId
+				? and(
+						gte(sessions.date, from),
+						lte(sessions.date, to),
+						ne(sessions.status, 'cancelled'),
+						sql`${sessions.id} IN (SELECT "sessionId" FROM "sessionInstructors" WHERE "instructorId" = ${instructorId})`
+					)
+				: and(gte(sessions.date, from), lte(sessions.date, to), ne(sessions.status, 'cancelled'))
+		)
 		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
 
 	if (sessionRows.length === 0) return [];
