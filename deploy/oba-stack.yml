@@ -35,6 +35,8 @@ secrets:
     external: true
   oba_better_auth_secret:
     external: true
+  oba_internal_api_key:
+    external: true
 
 services:
   # ===========================================================================
@@ -88,6 +90,7 @@ services:
     secrets:
       - oba_database_url
       - oba_better_auth_secret
+      - oba_internal_api_key
     environment:
       NODE_ENV: production
       ORIGIN: https://oba.tipitisurf.com
@@ -96,6 +99,7 @@ services:
       BODY_SIZE_LIMIT: 5M
       DATABASE_URL_FILE: /run/secrets/oba_database_url
       BETTER_AUTH_SECRET_FILE: /run/secrets/oba_better_auth_secret
+      INTERNAL_API_KEY_FILE: /run/secrets/oba_internal_api_key
     deploy:
       replicas: 1
       update_config:
@@ -120,7 +124,7 @@ services:
           cpus: '0.25'
       labels:
         - "traefik.enable=true"
-        - "traefik.docker.network=proxy"
+        - "traefik.swarm.network=proxy"
         - "traefik.http.routers.oba.rule=Host(`oba.tipitisurf.com`)"
         - "traefik.http.routers.oba.entrypoints=websecure"
         - "traefik.http.routers.oba.tls=true"
