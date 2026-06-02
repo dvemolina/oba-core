@@ -60,5 +60,8 @@
 	},
 	"dependencies": {
 		"lucide-svelte": "0.475.0"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": ["@prisma/client", "better-sqlite3", "esbuild"]
 	}
 }
