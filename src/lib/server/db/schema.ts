@@ -8,7 +8,8 @@ import {
 	integer,
 	date,
 	time,
-	jsonb
+	jsonb,
+	index
 } from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
 
@@ -46,24 +47,41 @@ export const services = pgTable('services', {
 	// `type` kept as a display template hint — business logic now driven by capability flags below
 	type: text('type').notNull().default('other'),
 	// ── Capability flags ──────────────────────────────────────────────────────
-	hasSessions: boolean('has_sessions').notNull().default(false),       // needs session scheduling (lessons, classes, tours)
-	hasRoster: boolean('has_roster').notNull().default(false),           // multi-client enrollment (camps, group classes)
-	hasDateRange: boolean('has_date_range').notNull().default(false),    // spans multiple days (camps, stays, expeditions)
-	hasInventoryUnits: boolean('has_inventory_units').notNull().default(false), // limited physical units (rooms, gear, boards)
-	requiresInstructor: boolean('requires_instructor').notNull().default(true), // needs guide/instructor assigned
-	// ── Type-specific config (kept for backward compat, reused across templates) ──
-	durationMinutes: integer('duration_minutes'),        // default session duration in minutes
-	defaultSessionsIncluded: integer('default_sessions_included'), // default sessions per booking (e.g. 1, 5, 10)
+	hasSessions: boolean('has_sessions').notNull().default(false),
+	hasRoster: boolean('has_roster').notNull().default(false),
+	hasDateRange: boolean('has_date_range').notNull().default(false),
+	hasInventoryUnits: boolean('has_inventory_units').notNull().default(false),
+	requiresInstructor: boolean('requires_instructor').notNull().default(true),
+	// ── Type-specific config ──────────────────────────────────────────────────
+	durationMinutes: integer('duration_minutes'),
+	defaultSessionsIncluded: integer('default_sessions_included'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
-	startDate: date('start_date'),             // was campStartDate
-	endDate: date('end_date'),                 // was campEndDate
-	maxCapacity: integer('max_capacity'),      // was maxStudents — max clients per booking/roster
-	defaultInstructorIds: jsonb('default_instructor_ids'), // was campInstructorIds — suggested instructors
+	startDate: date('start_date'),
+	endDate: date('end_date'),
+	maxCapacity: integer('max_capacity'),
 	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
+
+// Default instructors for a service — proper junction table replacing the old JSONB column.
+// Cascade deletes: removing a service or user cleans up automatically.
+export const serviceInstructors = pgTable('service_instructors', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	serviceId: text('service_id')
+		.notNull()
+		.references(() => services.id, { onDelete: 'cascade' }),
+	userId: text('user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_service_instructors_service').on(t.serviceId),
+	index('idx_service_instructors_user').on(t.userId)
+]);
 
 export const bookings = pgTable('bookings', {
 	id: text('id')
@@ -77,7 +95,7 @@ export const bookings = pgTable('bookings', {
 		.references(() => accommodationUnits.id, { onDelete: 'set null' }),
 	guestsCount: integer('guests_count'),
 	time: time('time'),
-	sessionsIncluded: integer('sessions_included'), // how many sessions were sold (null = not a sessions-based booking)
+	sessionsIncluded: integer('sessions_included'),
 	isFlexible: boolean('is_flexible').notNull().default(false),
 	status: bookingStatusEnum('status').notNull().default('pending'),
 	source: text('source').notNull().default('admin'),
@@ -85,7 +103,11 @@ export const bookings = pgTable('bookings', {
 	notes: text('notes'),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => [
+	index('idx_bookings_date').on(t.date),
+	index('idx_bookings_status').on(t.status),
+	index('idx_bookings_service').on(t.serviceId)
+]);
 
 export const bookingClients = pgTable('booking_clients', {
 	id: text('id')
@@ -97,12 +119,15 @@ export const bookingClients = pgTable('booking_clients', {
 	clientId: text('client_id')
 		.notNull()
 		.references(() => clients.id),
-	status: text('status').notNull().default('enrolled'), // 'enrolled' | 'cancelled'
+	status: text('status').notNull().default('enrolled'),
 	amountDue: numeric('amount_due', { precision: 10, scale: 2 }).notNull(),
 	amountPaid: numeric('amount_paid', { precision: 10, scale: 2 }).notNull().default('0'),
 	paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending'),
 	cancelledAt: timestamp('cancelled_at')
-});
+}, (t) => [
+	index('idx_booking_clients_booking').on(t.bookingId),
+	index('idx_booking_clients_client').on(t.clientId)
+]);
 
 export const accommodationUnitTypes = pgTable('accommodation_unit_types', {
 	id: text('id')
@@ -112,7 +137,6 @@ export const accommodationUnitTypes = pgTable('accommodation_unit_types', {
 		.notNull()
 		.references(() => services.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
-	// 'shared' = strangers co-book individual beds, 'private' = whole room per booking, 'entire' = full property
 	occupancyType: text('occupancy_type').notNull().default('private'),
 	maxOccupancy: integer('max_occupancy').notNull().default(1),
 	pricePerNight: numeric('price_per_night', { precision: 10, scale: 2 }).notNull(),
@@ -130,7 +154,7 @@ export const accommodationUnits = pgTable('accommodation_units', {
 		.notNull()
 		.references(() => accommodationUnitTypes.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
-	status: text('status').notNull().default('available'), // 'available' | 'maintenance'
+	status: text('status').notNull().default('available'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow()
 });
@@ -143,6 +167,7 @@ export const events = pgTable('events', {
 	description: text('description'),
 	startDate: date('start_date').notNull(),
 	endDate: date('end_date').notNull(),
+	// TODO: wire up as bookable entities — needs client enrollment, payments, email notifications
 	serviceId: text('service_id').references(() => services.id),
 	price: numeric('price', { precision: 10, scale: 2 }),
 	notes: text('notes'),
@@ -161,27 +186,24 @@ export const whatsappSessions = pgTable('whatsapp_sessions', {
 });
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
-// Physical occurrences of a service. Independent of any single booking —
-// multiple bookings can be linked to the same session via booking_sessions.
-// Applies to any service with has_sessions=true.
 
 export const sessions = pgTable('sessions', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
 	date: date('date').notNull(),
-	time: time('time'),                          // null = unscheduled
-	durationMinutes: integer('duration_minutes'), // null = use service default
-	notes: text('notes'),                        // spot info, group description, etc.
-	status: text('status').notNull().default('unscheduled'), // 'unscheduled' | 'scheduled' | 'completed' | 'cancelled'
-	sortOrder: integer('sort_order').notNull().default(0), // ordering within same day
+	time: time('time'),
+	durationMinutes: integer('duration_minutes'),
+	notes: text('notes'),
+	status: text('status').notNull().default('unscheduled'),
+	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => [
+	index('idx_sessions_date').on(t.date),
+	index('idx_sessions_status').on(t.status)
+]);
 
-// Junction: links sessions to bookings (many-to-many).
-// A session can serve clients from multiple bookings (group lessons, shared sessions).
-// A booking can have multiple sessions (lesson packages, multi-day camps).
 export const bookingSessions = pgTable('booking_sessions', {
 	id: text('id')
 		.primaryKey()
@@ -193,7 +215,10 @@ export const bookingSessions = pgTable('booking_sessions', {
 		.notNull()
 		.references(() => bookings.id, { onDelete: 'cascade' }),
 	createdAt: timestamp('created_at').notNull().defaultNow()
-});
+}, (t) => [
+	index('idx_booking_sessions_session').on(t.sessionId),
+	index('idx_booking_sessions_booking').on(t.bookingId)
+]);
 
 export const sessionInstructors = pgTable('session_instructors', {
 	id: text('id')
@@ -205,7 +230,10 @@ export const sessionInstructors = pgTable('session_instructors', {
 	instructorId: text('user_id')
 		.notNull()
 		.references(() => user.id, { onDelete: 'cascade' })
-});
+}, (t) => [
+	index('idx_session_instructors_session').on(t.sessionId),
+	index('idx_session_instructors_user').on(t.instructorId)
+]);
 
 export const sessionParticipants = pgTable('session_participants', {
 	id: text('id')
@@ -220,7 +248,6 @@ export const sessionParticipants = pgTable('session_participants', {
 	createdAt: timestamp('created_at').notNull().defaultNow()
 });
 
-// Multiple instructors on non-session bookings (rentals, products, accommodation)
 export const bookingInstructors = pgTable('booking_instructors', {
 	id: text('id')
 		.primaryKey()
@@ -231,7 +258,10 @@ export const bookingInstructors = pgTable('booking_instructors', {
 	instructorId: text('user_id')
 		.notNull()
 		.references(() => user.id, { onDelete: 'cascade' })
-});
+}, (t) => [
+	index('idx_booking_instructors_booking').on(t.bookingId),
+	index('idx_booking_instructors_user').on(t.instructorId)
+]);
 
 // Re-export Better Auth schema so db/index.ts imports everything from one place
 export * from './auth.schema';

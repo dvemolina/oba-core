@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { createService } from '$lib/features/services/queries';
+import { createService, setServiceInstructors } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
@@ -53,13 +53,14 @@ export const actions: Actions = {
 			return fail(400, { error: 'Specify max participants / available units', values });
 		}
 
-		await createService({
+		const newService = await createService({
 			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
-			startDate, endDate, maxCapacity,
-			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,
-			color
+			startDate, endDate, maxCapacity, color
 		});
+		if (defaultInstructorIds.length > 0) {
+			await setServiceInstructors(newService.id, defaultInstructorIds);
+		}
 		redirect(302, '/services');
 	}
 };

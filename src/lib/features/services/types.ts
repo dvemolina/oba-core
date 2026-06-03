@@ -22,8 +22,8 @@ export interface Service {
 	basePrice: string;
 	startDate: string | null;           // was campStartDate
 	endDate: string | null;             // was campEndDate
-	maxCapacity: number | null;         // was maxStudents
-	defaultInstructorIds: string[] | null; // was campInstructorIds
+	maxCapacity: number | null;
+	defaultInstructorIds: string[];     // fetched from service_instructors junction table
 	color: string;
 	active: boolean;
 	createdAt: Date;
@@ -45,7 +45,6 @@ export interface CreateServiceInput {
 	startDate?: string;
 	endDate?: string;
 	maxCapacity?: number;
-	defaultInstructorIds?: string[];
 	color?: string;
 }
 

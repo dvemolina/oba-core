@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { deleteService, getService, updateService } from '$lib/features/services/queries';
+import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import {
 	listUnitTypesByService,
@@ -66,10 +66,9 @@ export const actions: Actions = {
 		await updateService(params.id, {
 			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
-			startDate, endDate, maxCapacity,
-			defaultInstructorIds: defaultInstructorIds.length > 0 ? defaultInstructorIds : undefined,
-			color
+			startDate, endDate, maxCapacity, color
 		});
+		await setServiceInstructors(params.id, defaultInstructorIds);
 		return { message: 'Service updated' };
 	},
 
