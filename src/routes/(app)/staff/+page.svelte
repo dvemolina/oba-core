@@ -42,9 +42,6 @@
 						{/if}
 					</div>
 					<p class="text-xs text-muted">{member.email}</p>
-					{#if member.instructorProfile}
-						<p class="text-xs text-muted">↳ Instructor profile: {member.instructorProfile.name}</p>
-					{/if}
 				</div>
 			</a>
 		{/each}

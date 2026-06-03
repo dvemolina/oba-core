@@ -1,7 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { instructors } from '$lib/server/db/schema';
 import { isInstructorRole } from '$lib/server/permissions';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
@@ -29,11 +26,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	let instructorId: string | undefined;
 	if (isInstructorRole(locals)) {
-		const [profile] = await db
-			.select({ id: instructors.id })
-			.from(instructors)
-			.where(eq(instructors.userId, locals.user!.id));
-		instructorId = profile?.id;
+		instructorId = locals.user!.id;
 	}
 
 	const [bookings, events, daySessions, rangedSessions, instructorList] = await Promise.all([

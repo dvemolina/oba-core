@@ -13,7 +13,8 @@ import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { sessions, bookingSessions, bookings, bookingClients, clients, services } from '$lib/server/db/schema';
 import { apiError, apiResponse, requireAuth } from '$lib/server/api-helpers';
-import { sessionInstructors, instructors } from '$lib/server/db/schema';
+import { sessionInstructors } from '$lib/server/db/schema';
+import { user as userTable } from '$lib/server/db/auth.schema';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async (event) => {
@@ -92,10 +93,10 @@ export const GET: RequestHandler = async (event) => {
 	const instrRows = await db
 		.select({
 			sessionId: sessionInstructors.sessionId,
-			instructorName: instructors.name
+			instructorName: userTable.name
 		})
 		.from(sessionInstructors)
-		.leftJoin(instructors, eq(sessionInstructors.instructorId, instructors.id))
+		.leftJoin(userTable, eq(sessionInstructors.instructorId, userTable.id))
 		.where(sql`${sessionInstructors.sessionId} = ANY(ARRAY[${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)}]::text[])`);
 
 	// Assemble

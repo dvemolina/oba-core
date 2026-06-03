@@ -37,7 +37,10 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 			roles,
 			banned: session.user.banned ?? null,
 			banReason: session.user.banReason ?? null,
-			banExpires: session.user.banExpires ?? null
+			banExpires: session.user.banExpires ?? null,
+			phone: (session.user as Record<string, unknown>).phone as string | null ?? null,
+			bio: (session.user as Record<string, unknown>).bio as string | null ?? null,
+			active: (session.user as Record<string, unknown>).active as boolean ?? true
 		};
 	}
 

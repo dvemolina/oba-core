@@ -18,9 +18,7 @@
 		(data.member.roles?.length ? data.member.roles : data.member.role ? [data.member.role] : []) as string[]
 	);
 	const visibleRoles = $derived(
-		data.isAdmin
-			? ALL_ROLES
-			: ALL_ROLES.filter(r => r !== 'admin')
+		data.isAdmin ? ALL_ROLES : ALL_ROLES.filter(r => r !== 'admin')
 	);
 </script>
 
@@ -34,6 +32,7 @@
 		<p class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{form.error}</p>
 	{/if}
 
+	<!-- Account info -->
 	<section class="mb-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-border">
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Account</h2>
 		<p class="text-sm text-gray-700">{data.member.email}</p>
@@ -42,6 +41,7 @@
 		{/if}
 	</section>
 
+	<!-- Roles -->
 	<section class="mb-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-border">
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Roles</h2>
 		<p class="mb-3 text-xs text-muted">Multiple roles allowed. Permissions = union of all assigned roles.</p>
@@ -67,25 +67,36 @@
 		</form>
 	</section>
 
+	<!-- Profile (phone/bio/active) -->
 	<section class="mb-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-border">
-		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Instructor profile</h2>
-		{#if data.linkedProfile}
-			<p class="mb-3 text-sm text-gray-700">Linked: <strong>{data.linkedProfile.name}</strong></p>
-		{/if}
-		<form method="POST" action="?/linkProfile" use:enhance class="flex items-center gap-3">
-			<select name="instructorProfileId" class="input flex-1">
-				<option value="">— unlink —</option>
-				{#if data.linkedProfile}
-					<option value={data.linkedProfile.id} selected>{data.linkedProfile.name} (current)</option>
-				{/if}
-				{#each data.unlinkedProfiles as p}
-					<option value={p.id}>{p.name}</option>
-				{/each}
-			</select>
-			<button type="submit" class="btn-primary btn-sm">Save</button>
+		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Profile</h2>
+		<form method="POST" action="?/updateProfile" use:enhance class="space-y-4">
+			<div>
+				<label for="phone" class="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+				<input id="phone" name="phone" type="tel" value={data.member.phone ?? ''} class="input w-full" placeholder="+34 600 000 000" />
+			</div>
+			<div>
+				<label for="bio" class="mb-1 block text-sm font-medium text-gray-700">Bio</label>
+				<textarea id="bio" name="bio" rows="3" class="input w-full resize-none">{data.member.bio ?? ''}</textarea>
+			</div>
+			<div class="flex items-center gap-3">
+				<label class="flex cursor-pointer items-center gap-2">
+					<input type="hidden" name="active" value="false" />
+					<input
+						type="checkbox"
+						name="active"
+						value="true"
+						checked={data.member.active ?? true}
+						class="h-4 w-4 rounded border-gray-300 text-ocean"
+					/>
+					<span class="text-sm font-medium text-gray-700">Active (appears in session assignment)</span>
+				</label>
+			</div>
+			<button type="submit" class="btn-primary btn-sm">Save profile</button>
 		</form>
 	</section>
 
+	<!-- Access -->
 	<section class="rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-border">
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Access</h2>
 		<form method="POST" action="?/toggleBan" use:enhance>

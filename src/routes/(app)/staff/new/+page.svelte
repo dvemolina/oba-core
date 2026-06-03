@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { PageData, ActionData } from './$types';
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	import type { ActionData } from './$types';
+	let { form }: { form: ActionData } = $props();
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
@@ -25,6 +25,11 @@
 		</div>
 
 		<div>
+			<label for="phone" class="mb-1 block text-sm font-medium text-gray-700">Phone <span class="text-muted">(optional)</span></label>
+			<input id="phone" name="phone" type="tel" class="input w-full" placeholder="+34 600 000 000" />
+		</div>
+
+		<div>
 			<p class="mb-2 block text-sm font-medium text-gray-700">Roles <span class="text-muted">(select all that apply)</span></p>
 			<div class="space-y-2">
 				{#each [
@@ -43,21 +48,6 @@
 				{/each}
 			</div>
 		</div>
-
-		{#if data.unlinkedProfiles.length > 0}
-			<div>
-				<label for="instructorProfileId" class="mb-1 block text-sm font-medium text-gray-700">
-					Link to instructor profile <span class="text-muted">(optional)</span>
-				</label>
-				<select id="instructorProfileId" name="instructorProfileId" class="input w-full">
-					<option value="">— none —</option>
-					{#each data.unlinkedProfiles as profile}
-						<option value={profile.id}>{profile.name}</option>
-					{/each}
-				</select>
-				<p class="mt-1 text-xs text-muted">Only unlinked instructor profiles are shown</p>
-			</div>
-		{/if}
 
 		<div class="rounded-lg bg-sand p-3 text-sm text-muted">
 			A temporary password will be generated and emailed to the staff member.

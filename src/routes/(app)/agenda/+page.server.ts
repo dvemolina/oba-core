@@ -1,6 +1,6 @@
 import { eq, ne, sum, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { bookingClients, bookings, instructors } from '$lib/server/db/schema';
+import { bookingClients, bookings } from '$lib/server/db/schema';
 import { isInstructorRole } from '$lib/server/permissions';
 import { listSessionsForDateRange } from '$lib/features/sessions/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
@@ -38,11 +38,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	let instructorId: string | undefined;
 	if (isInstructorRole(locals)) {
-		const [profile] = await db
-			.select({ id: instructors.id })
-			.from(instructors)
-			.where(eq(instructors.userId, locals.user!.id));
-		instructorId = profile?.id;
+		instructorId = locals.user!.id;
 	}
 
 	const [sessions, bookingsInRange, events, stats] = await Promise.all([

@@ -14,6 +14,9 @@ declare global {
 				banned: boolean | null;
 				banReason: string | null;
 				banExpires: Date | null;
+				phone: string | null;
+				bio: string | null;
+				active: boolean;
 			};
 			session?: {
 				id: string;

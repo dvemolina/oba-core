@@ -3,20 +3,14 @@ import { requireRole, primaryRole } from '$lib/server/permissions';
 import type { Role } from '$lib/server/permissions';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { instructors } from '$lib/server/db/schema';
 import { user as userTable } from '$lib/server/db/auth.schema';
-import { eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { sendStaffInvite, generateTempPassword } from '$lib/server/email/sender';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireRole(locals, 'admin', 'owner');
-	const unlinkedProfiles = await db
-		.select()
-		.from(instructors)
-		.where(isNull(instructors.userId))
-		.orderBy(instructors.name);
-	return { unlinkedProfiles };
+	return {};
 };
 
 export const actions: Actions = {
@@ -26,10 +20,10 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const email = form.get('email')?.toString().trim() ?? '';
+		const phone = form.get('phone')?.toString().trim() || null;
 		const selectedRoles = form.getAll('roles')
 			.map(r => r.toString())
 			.filter(r => ['admin', 'owner', 'manager', 'instructor'].includes(r)) as Role[];
-		const instructorProfileId = form.get('instructorProfileId')?.toString() || null;
 
 		if (!name) return fail(400, { error: 'Name is required' });
 		if (!email) return fail(400, { error: 'Email is required' });
@@ -50,15 +44,8 @@ export const actions: Actions = {
 
 		const primary = primaryRole(selectedRoles);
 		await db.update(userTable)
-			.set({ roles: selectedRoles, role: primary })
+			.set({ roles: selectedRoles, role: primary, phone })
 			.where(eq(userTable.id, newUserId));
-
-		if (instructorProfileId) {
-			await db
-				.update(instructors)
-				.set({ userId: newUserId })
-				.where(eq(instructors.id, instructorProfileId));
-		}
 
 		await sendStaffInvite({ to: email, name, role: primary ?? selectedRoles[0], tempPassword });
 
