@@ -120,6 +120,62 @@ export async function listBookingsForDateRange(
 	})) as BookingSummary[];
 }
 
+export async function listBookingsForRun(runId: string): Promise<BookingSummary[]> {
+	const rows = await db
+		.select({
+			id: bookings.id,
+			serviceName: services.name,
+			serviceType: services.type,
+			serviceColor: services.color,
+			serviceHasSessions: services.hasSessions,
+			serviceHasRoster: services.hasRoster,
+			serviceHasDateRange: services.hasDateRange,
+			serviceHasInventoryUnits: services.hasInventoryUnits,
+			serviceRequiresInstructor: services.requiresInstructor,
+			serviceMaxCapacity: services.maxCapacity,
+			accommodationUnitName: accommodationUnits.name,
+			accommodationUnitTypeName: accommodationUnitTypes.name,
+			guestsCount: bookings.guestsCount,
+			date: bookings.date,
+			dateEnd: bookings.dateEnd,
+			serviceRunId: bookings.serviceRunId,
+			serviceRunStartDate: serviceRuns.startDate,
+			serviceRunEndDate: serviceRuns.endDate,
+			time: bookings.time,
+			sessionsIncluded: bookings.sessionsIncluded,
+			isFlexible: bookings.isFlexible,
+			status: bookings.status
+		})
+		.from(bookings)
+		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
+		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
+		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
+		.where(eq(bookings.serviceRunId, runId))
+		.orderBy(bookings.date, bookings.createdAt);
+
+	const withInstructors = await attachInstructorsToBookings(rows);
+	const ids = withInstructors.map(r => r.id);
+	const counts: Record<string, number> = {};
+	const firstClientNames: Record<string, string> = {};
+	if (ids.length > 0) {
+		const clientRows = await db
+			.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName })
+			.from(bookingClients)
+			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
+			.where(inArray(bookingClients.bookingId, ids));
+		for (const row of clientRows) {
+			counts[row.bookingId] = (counts[row.bookingId] ?? 0) + 1;
+			if (!firstClientNames[row.bookingId] && row.firstName) firstClientNames[row.bookingId] = row.firstName;
+		}
+	}
+	return withInstructors.map(r => ({
+		...r,
+		clientCount: counts[r.id] ?? 0,
+		firstClientName: firstClientNames[r.id] ?? null
+	})) as BookingSummary[];
+}
+
 export async function listAllBookings(): Promise<BookingListItem[]> {
 	const rows = await db
 		.select({
@@ -201,6 +257,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceColor: services.color,
 			serviceHasSessions: services.hasSessions,
 			serviceHasRoster: services.hasRoster,
+			serviceHasDateRange: services.hasDateRange,
 			serviceMaxCapacity: services.maxCapacity,
 			accommodationUnitId: bookings.accommodationUnitId,
 			accommodationUnitName: accommodationUnits.name,

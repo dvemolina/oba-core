@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getService } from '$lib/features/services/queries';
 import { listRunsForService } from '$lib/features/services/runs.queries';
-import { listBookingsForDateRange } from '$lib/features/bookings/queries';
+import { listBookingsForRun } from '$lib/features/bookings/queries';
 import { requireRole } from '$lib/server/permissions';
 import type { PageServerLoad } from './$types';
 
@@ -13,12 +13,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const runs = await listRunsForService(params.id);
 	const focusRunId = url.searchParams.get('run') ?? runs[0]?.id ?? null;
 
-	// Load bookings for each run — filter to only those belonging to this run
-	const bookingsByRun: Record<string, Awaited<ReturnType<typeof listBookingsForDateRange>>> = {};
+	const bookingsByRun: Record<string, Awaited<ReturnType<typeof listBookingsForRun>>> = {};
 	await Promise.all(
 		runs.map(async run => {
-			const allBookings = await listBookingsForDateRange(run.startDate, run.endDate);
-			bookingsByRun[run.id] = allBookings.filter(b => b.serviceRunId === run.id);
+			bookingsByRun[run.id] = await listBookingsForRun(run.id);
 		})
 	);
 

@@ -177,7 +177,7 @@ export const actions: Actions = {
 		} else {
 			await Promise.all(
 				allDays.map(({ date: d, time: t }) =>
-					createBooking({ serviceId, instructorId, date: d, time: t || undefined, isFlexible, status, spotNotes, notes, clients: bookingClients })
+					createBooking({ serviceId, instructorId, serviceRunId, date: d, time: t || undefined, isFlexible, status, spotNotes, notes, clients: bookingClients })
 				)
 			);
 			return { multiDay: true, date, message: `${allDays.length} bookings created` };
