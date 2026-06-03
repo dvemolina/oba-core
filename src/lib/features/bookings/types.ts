@@ -16,6 +16,15 @@ export interface BookingClient {
 	cancelledAt: Date | null;
 }
 
+export interface BookingParticipant {
+	id: string;
+	bookingId: string;
+	name: string;
+	notes: string | null;
+	sortOrder: number;
+	createdAt: Date;
+}
+
 export type BookingSource = 'admin' | 'whatsapp_bot';
 
 export interface Booking {
@@ -48,6 +57,7 @@ export interface Booking {
 	spotNotes: string | null;
 	notes: string | null;
 	clients: BookingClient[];
+	participants: BookingParticipant[];
 	createdAt: Date;
 	updatedAt: Date;
 }
