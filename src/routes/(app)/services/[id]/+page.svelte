@@ -231,6 +231,75 @@
 			</div>
 		{/if}
 
+		<!-- Runs (for date-range services) -->
+		{#if data.service.hasDateRange && canEditServices}
+			<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+				<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Runs</h2>
+				<p class="mb-3 text-xs text-muted">Each run is a specific dated occurrence of this service.</p>
+
+				{#if form?.runError}
+					<p class="mb-3 text-sm text-red-600">{form.runError}</p>
+				{/if}
+
+				{#if data.runs.length > 0}
+					<div class="mb-4 space-y-2">
+						{#each data.runs as run}
+							<div class="flex items-center justify-between rounded-lg px-3 py-2 ring-1 ring-border">
+								<div>
+									<p class="text-sm font-medium text-gray-800">{run.startDate} → {run.endDate}</p>
+									{#if run.maxCapacity}
+										<p class="text-xs text-muted">{run.enrolledCount} / {run.maxCapacity} enrolled</p>
+									{/if}
+									{#if run.notes}
+										<p class="text-xs text-muted">{run.notes}</p>
+									{/if}
+								</div>
+								<div class="flex items-center gap-3">
+									<a href="/bookings/camp/{data.service.id}?run={run.id}" class="text-xs text-ocean hover:underline">Roster</a>
+									{#if run.enrolledCount === 0}
+										<form method="POST" action="?/deleteRun" use:enhance>
+											<input type="hidden" name="runId" value={run.id} />
+											<button
+												type="submit"
+												class="text-xs text-red-500 hover:underline"
+												onclick={(e) => { if (!confirm('Delete this run?')) e.preventDefault(); }}
+											>Delete</button>
+										</form>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="mb-3 text-xs text-muted">No runs yet.</p>
+				{/if}
+
+				<form method="POST" action="?/addRun" use:enhance class="space-y-3">
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-700">Start date</label>
+							<input type="date" name="startDate" required class="input w-full" />
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-700">End date</label>
+							<input type="date" name="endDate" required class="input w-full" />
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-700">Capacity <span class="text-muted">(optional)</span></label>
+							<input type="number" name="maxCapacity" min="1" class="input w-full" placeholder="10" />
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-700">Notes <span class="text-muted">(optional)</span></label>
+							<input type="text" name="notes" class="input w-full" placeholder="e.g. Beginner focus" />
+						</div>
+					</div>
+					<button type="submit" class="btn-primary btn-sm">Add run</button>
+				</form>
+			</section>
+		{/if}
+
 		<!-- Global error (e.g. delete blocked) -->
 		{#if form?.error && !editing}
 			<p class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
@@ -238,7 +307,7 @@
 
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
-			{#if data.service.hasRoster}
+			{#if data.service.hasRoster && data.runs?.length > 0}
 				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
 					Open Camp Roster
 				</a>

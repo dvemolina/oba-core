@@ -8,6 +8,7 @@ import {
 	createUnit,
 	deleteUnit
 } from '$lib/features/accommodation/queries';
+import { listRunsForService, createServiceRun, deleteServiceRun } from '$lib/features/services/runs.queries';
 import type { ServiceType } from '$lib/features/services/types';
 import type { OccupancyType } from '$lib/features/accommodation/types';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
@@ -22,11 +23,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 	if (!service) error(404, 'Service not found');
 
-	const unitTypes = service.hasInventoryUnits
-		? await listUnitTypesByService(params.id)
-		: [];
+	const [unitTypes, runs] = await Promise.all([
+		service.hasInventoryUnits ? listUnitTypesByService(params.id) : Promise.resolve([]),
+		listRunsForService(params.id)
+	]);
 
-	return { service, instructors, unitTypes, canEditServices: canEditServices(locals) };
+	return { service, instructors, unitTypes, runs, canEditServices: canEditServices(locals) };
 };
 
 export const actions: Actions = {
@@ -129,5 +131,29 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'Missing unit ID' });
 		await deleteUnit(id);
 		return { message: 'Unit deleted' };
-	}
+	},
+
+	addRun: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const startDate = form.get('startDate')?.toString() ?? '';
+		const endDate = form.get('endDate')?.toString() ?? '';
+		const maxCapacityRaw = form.get('maxCapacity')?.toString();
+		const maxCapacity = maxCapacityRaw ? parseInt(maxCapacityRaw) : null;
+		const notes = form.get('notes')?.toString().trim() || null;
+		if (!startDate || !endDate || startDate >= endDate) {
+			return fail(400, { runError: 'Valid start and end dates required (end must be after start)' });
+		}
+		await createServiceRun(params.id, { startDate, endDate, maxCapacity, notes });
+		return { message: 'Run added' };
+	},
+
+	deleteRun: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const runId = form.get('runId')?.toString() ?? '';
+		if (!runId) return fail(400, { error: 'Missing run ID' });
+		await deleteServiceRun(runId);
+		return { message: 'Run deleted' };
+	},
 };
