@@ -20,8 +20,6 @@ export interface Service {
 	durationMinutes: number | null;
 	defaultSessionsIncluded: number | null; // default sessions per booking (1, 5, 10, etc.)
 	basePrice: string;
-	startDate: string | null;           // was campStartDate
-	endDate: string | null;             // was campEndDate
 	maxCapacity: number | null;
 	defaultInstructorIds: string[];     // fetched from service_instructors junction table
 	color: string;
@@ -42,8 +40,6 @@ export interface CreateServiceInput {
 	durationMinutes?: number;
 	defaultSessionsIncluded?: number;
 	basePrice: string;
-	startDate?: string;
-	endDate?: string;
 	maxCapacity?: number;
 	color?: string;
 }

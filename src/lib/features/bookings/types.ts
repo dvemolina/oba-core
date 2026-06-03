@@ -37,6 +37,9 @@ export interface Booking {
 	guestsCount: number | null;
 	date: string;
 	dateEnd: string | null;
+	serviceRunId: string | null;
+	serviceRunStartDate: string | null;
+	serviceRunEndDate: string | null;
 	time: string | null;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
@@ -68,6 +71,9 @@ export interface BookingSummary {
 	guestsCount: number | null;
 	date: string;
 	dateEnd: string | null;
+	serviceRunId: string | null;
+	serviceRunStartDate: string | null;
+	serviceRunEndDate: string | null;
 	time: string | null;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
@@ -98,6 +104,7 @@ export interface CreateBookingInput {
 	guestsCount?: number;
 	date: string;
 	dateEnd?: string;
+	serviceRunId?: string;
 	/** For non-session services only */
 	time?: string;
 	sessionsIncluded?: number;

@@ -56,8 +56,6 @@ export const services = pgTable('services', {
 	durationMinutes: integer('duration_minutes'),
 	defaultSessionsIncluded: integer('default_sessions_included'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
-	startDate: date('start_date'),
-	endDate: date('end_date'),
 	maxCapacity: integer('max_capacity'),
 	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),
@@ -83,6 +81,25 @@ export const serviceInstructors = pgTable('service_instructors', {
 	index('idx_service_instructors_user').on(t.userId)
 ]);
 
+export const serviceRuns = pgTable('service_runs', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	serviceId: text('service_id')
+		.notNull()
+		.references(() => services.id, { onDelete: 'cascade' }),
+	startDate: date('start_date').notNull(),
+	endDate: date('end_date').notNull(),
+	maxCapacity: integer('max_capacity'),
+	notes: text('notes'),
+	active: boolean('active').notNull().default(true),
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	updatedAt: timestamp('updated_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_service_runs_service').on(t.serviceId),
+	index('idx_service_runs_dates').on(t.startDate, t.endDate)
+]);
+
 export const bookings = pgTable('bookings', {
 	id: text('id')
 		.primaryKey()
@@ -91,6 +108,8 @@ export const bookings = pgTable('bookings', {
 		.references(() => services.id),
 	date: date('date').notNull(),
 	dateEnd: date('date_end'),
+	serviceRunId: text('service_run_id')
+		.references(() => serviceRuns.id, { onDelete: 'set null' }),
 	accommodationUnitId: text('accommodation_unit_id')
 		.references(() => accommodationUnits.id, { onDelete: 'set null' }),
 	guestsCount: integer('guests_count'),
@@ -106,7 +125,8 @@ export const bookings = pgTable('bookings', {
 }, (t) => [
 	index('idx_bookings_date').on(t.date),
 	index('idx_bookings_status').on(t.status),
-	index('idx_bookings_service').on(t.serviceId)
+	index('idx_bookings_service').on(t.serviceId),
+	index('idx_bookings_service_run').on(t.serviceRunId)
 ]);
 
 export const bookingClients = pgTable('booking_clients', {
