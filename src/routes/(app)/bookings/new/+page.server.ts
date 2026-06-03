@@ -5,6 +5,8 @@ import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
 import { listUnitTypesByService, getAvailableUnits } from '$lib/features/accommodation/queries';
+import { listRunsForService, countEnrolledClientsForRun, getServiceRun } from '$lib/features/services/runs.queries';
+import type { ServiceRun } from '$lib/features/services/runs.types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole } from '$lib/server/permissions';
 
@@ -27,7 +29,14 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		})
 	);
 
-	return { services, instructors, clients, defaultDate, defaultTime, unitTypesByService };
+	const runsByService: Record<string, ServiceRun[]> = {};
+	await Promise.all(
+		services
+			.filter(s => s.hasDateRange)
+			.map(async s => { runsByService[s.id] = await listRunsForService(s.id); })
+	);
+
+	return { services, instructors, clients, defaultDate, defaultTime, unitTypesByService, runsByService };
 };
 
 export const actions: Actions = {
@@ -76,9 +85,17 @@ export const actions: Actions = {
 
 		// ── All non-accommodation services (lessons, camps, products, rentals) ──
 		const instructorId = form.get('instructorId')?.toString() || undefined;
-		// Dates come from the booking run; form inputs carry them as hidden fields
-		const date = form.get('date')?.toString() ?? '';
-		const dateEnd = form.get('dateEnd')?.toString() || undefined;
+		const serviceRunId = form.get('serviceRunId')?.toString() || undefined;
+		// For date-range services with a run: derive dates from the run
+		let date = form.get('date')?.toString() ?? '';
+		let dateEnd = form.get('dateEnd')?.toString() || undefined;
+		if (service.hasDateRange && serviceRunId) {
+			const run = await getServiceRun(serviceRunId);
+			if (run) {
+				date = run.startDate;
+				dateEnd = run.endDate;
+			}
+		}
 		const time = form.get('time')?.toString() || undefined;
 		const isFlexible = form.get('isFlexible') === 'on';
 		const spotNotes = form.get('spotNotes')?.toString().trim() || undefined;
@@ -90,8 +107,16 @@ export const actions: Actions = {
 		const amounts = form.getAll('amountDue').map(String);
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
-		// Capacity check for roster services (group lessons, camps)
-		if (service.hasRoster && service.maxCapacity) {
+		// Capacity check: per-run for date-range services, per-service otherwise
+		if (service.hasRoster && serviceRunId) {
+			const run = await getServiceRun(serviceRunId);
+			if (run?.maxCapacity) {
+				const enrolled = await countEnrolledClientsForRun(serviceRunId);
+				const available = run.maxCapacity - enrolled;
+				if (clientIds.length > available)
+					return fail(400, { error: `Only ${available} spot${available !== 1 ? 's' : ''} remaining in this run` });
+			}
+		} else if (service.hasRoster && service.maxCapacity) {
 			const enrolled = await countEnrolledClientsForService(serviceId);
 			const available = service.maxCapacity - enrolled;
 			if (clientIds.length > available)
@@ -107,7 +132,7 @@ export const actions: Actions = {
 			const sessionsIncluded = sessionsIncludedRaw ? Math.max(1, parseInt(sessionsIncludedRaw)) : 1;
 
 			const booking = await createBooking({
-				serviceId, date, isFlexible, status, spotNotes, notes,
+				serviceId, serviceRunId, date, isFlexible, status, spotNotes, notes,
 				sessionsIncluded,
 				clients: bookingClients
 				// NO instructorId for session-based services — instructor is set per-session
@@ -145,7 +170,7 @@ export const actions: Actions = {
 
 		if (allDays.length === 1) {
 			const booking = await createBooking({
-				serviceId, instructorId, date, dateEnd, time, isFlexible, status, spotNotes, notes,
+				serviceId, instructorId, serviceRunId, date, dateEnd, time, isFlexible, status, spotNotes, notes,
 				clients: bookingClients
 			});
 			return { bookingId: booking.id, message: 'Booking created' };

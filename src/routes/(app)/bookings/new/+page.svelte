@@ -18,6 +18,9 @@
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
 	// Camp = roster service with a fixed date range (surf camps, multi-day programs)
 	const isCamp = $derived(!!(selectedService?.hasRoster && selectedService?.hasDateRange));
+	const runs = $derived(selectedService ? (data.runsByService[selectedService.id] ?? []) : []);
+	let selectedRunId = $state('');
+	const selectedRun = $derived(runs.find(r => r.id === selectedRunId));
 	const isLesson = $derived(!!(selectedService?.hasSessions && !isCamp));
 	const isAccommodation = $derived(selectedService?.hasInventoryUnits);
 	const showInstructor = $derived(
@@ -291,6 +294,30 @@
 
 		{:else}
 			<!-- ── REGULAR BOOKING MODE ─────────────────────────────── -->
+
+			<!-- Run picker for date-range services -->
+			{#if isCamp}
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Run *</label>
+					{#if runs.length > 0}
+						<select name="serviceRunId" bind:value={selectedRunId} required class="input w-full">
+							<option value="">— select a run —</option>
+							{#each runs as run}
+								<option value={run.id} disabled={!run.active}>
+									{run.startDate} → {run.endDate}{run.maxCapacity ? ` (${run.enrolledCount}/${run.maxCapacity} enrolled)` : ''}{run.notes ? ` · ${run.notes}` : ''}
+								</option>
+							{/each}
+						</select>
+						{#if selectedRun}
+							<p class="mt-1 text-xs text-muted">📅 {selectedRun.startDate} → {selectedRun.endDate}</p>
+						{/if}
+					{:else}
+						<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+							No runs yet. <a href="/services/{selectedService?.id}" class="underline">Add a run</a> first.
+						</p>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Date inputs -->
 			<div class="grid grid-cols-2 gap-3">
