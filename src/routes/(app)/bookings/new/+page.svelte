@@ -292,30 +292,21 @@
 		{:else}
 			<!-- ── REGULAR BOOKING MODE ─────────────────────────────── -->
 
-			<!-- Camp: fixed date info + hidden inputs -->
-			{#if selectedService?.startDate}
-				<div class="rounded-lg bg-sand/60 px-4 py-3 text-sm text-gray-700">
-					<span class="flex items-center gap-1.5"><Tent size={14} /> Camp dates:</span> <strong>{selectedService.startDate}</strong> → <strong>{selectedService.endDate}</strong>
-					{#if selectedService.maxCapacity}· Max {selectedService.maxCapacity} students{/if}
+			<!-- Date inputs -->
+			<div class="grid grid-cols-2 gap-3">
+				<div>
+					<label class="mb-1 block text-sm font-medium text-gray-700">Date *</label>
+					<input name="date" type="date" required value={data.defaultDate}
+						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 				</div>
-				<input type="hidden" name="date" value={selectedService.startDate} />
-				<input type="hidden" name="dateEnd" value={selectedService.endDate ?? ''} />
-			{:else}
-				<div class="grid grid-cols-2 gap-3">
+				{#if showTimeAndFlexible}
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">Date *</label>
-						<input name="date" type="date" required value={data.defaultDate}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+						<label class="mb-1 block text-sm font-medium text-gray-700">Time</label>
+						<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
+							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
 					</div>
-					{#if showTimeAndFlexible}
-						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Time</label>
-							<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
-								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
-						</div>
-					{/if}
-				</div>
-			{/if}
+				{/if}
+			</div>
 
 			{#if showTimeAndFlexible}
 				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">

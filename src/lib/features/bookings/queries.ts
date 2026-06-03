@@ -337,16 +337,18 @@ export async function countEnrolledClientsForService(serviceId: string): Promise
 	return Number(row?.total ?? 0);
 }
 
-/** For camps: find the single booking for this service, or create it (empty, no clients yet). */
-export async function getOrCreateCampBooking(service: Service): Promise<Booking> {
-	if (!service.startDate) throw new Error('Service has no start date');
-
+/** For camps: find the single booking for this service+date, or create it (empty, no clients yet). */
+export async function getOrCreateCampBooking(
+	serviceId: string,
+	startDate: string,
+	endDate: string
+): Promise<Booking> {
 	const [existing] = await db
 		.select({ id: bookings.id })
 		.from(bookings)
 		.where(and(
-			eq(bookings.serviceId, service.id),
-			eq(bookings.date, service.startDate),
+			eq(bookings.serviceId, serviceId),
+			eq(bookings.date, startDate),
 			ne(bookings.status, 'cancelled')
 		))
 		.limit(1);
@@ -356,9 +358,9 @@ export async function getOrCreateCampBooking(service: Service): Promise<Booking>
 	const [created] = await db
 		.insert(bookings)
 		.values({
-			serviceId: service.id,
-			date: service.startDate,
-			dateEnd: service.endDate ?? service.startDate,
+			serviceId,
+			date: startDate,
+			dateEnd: endDate,
 			isFlexible: false,
 			status: 'confirmed'
 		})

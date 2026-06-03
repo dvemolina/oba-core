@@ -96,12 +96,6 @@
 					<span class="text-sm text-gray-800">{data.service.durationMinutes} min</span>
 				</div>
 			{/if}
-			{#if data.service.startDate}
-				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Dates</span>
-					<span class="text-sm text-gray-800">{data.service.startDate} → {data.service.endDate}</span>
-				</div>
-			{/if}
 			{#if data.service.maxCapacity}
 				<div class="flex items-center justify-between">
 					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Max capacity</span>
@@ -244,7 +238,7 @@
 
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
-			{#if data.service.hasRoster && data.service.startDate}
+			{#if data.service.hasRoster}
 				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
 					Open Camp Roster
 				</a>
@@ -367,18 +361,7 @@
 				</div>
 			{/if}
 
-			{#if editHasDateRange}
-				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="label">Start date {editHasRoster ? '*' : ''}</label>
-						<input name="startDate" type="date" required={editHasRoster} value={data.service.startDate ?? ''} class="input" />
-					</div>
-					<div>
-						<label class="label">End date {editHasRoster ? '*' : ''}</label>
-						<input name="endDate" type="date" required={editHasRoster} value={data.service.endDate ?? ''} class="input" />
-					</div>
-				</div>
-			{/if}
+			<!-- Date range editing is now handled via service runs, not service fields -->
 
 			{#if editHasRoster}
 				<div>

@@ -76,9 +76,9 @@ export const actions: Actions = {
 
 		// ── All non-accommodation services (lessons, camps, products, rentals) ──
 		const instructorId = form.get('instructorId')?.toString() || undefined;
-		// Camps pre-fill dates from the service; other services use form inputs
-		const date = form.get('date')?.toString() ?? service.startDate ?? '';
-		const dateEnd = form.get('dateEnd')?.toString() || service.endDate || undefined;
+		// Dates come from the booking run; form inputs carry them as hidden fields
+		const date = form.get('date')?.toString() ?? '';
+		const dateEnd = form.get('dateEnd')?.toString() || undefined;
 		const time = form.get('time')?.toString() || undefined;
 		const isFlexible = form.get('isFlexible') === 'on';
 		const spotNotes = form.get('spotNotes')?.toString().trim() || undefined;
