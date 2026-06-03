@@ -149,6 +149,21 @@ export const bookingClients = pgTable('booking_clients', {
 	index('idx_booking_clients_client').on(t.clientId)
 ]);
 
+export const bookingParticipants = pgTable('booking_participants', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	bookingId: text('booking_id')
+		.notNull()
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	notes: text('notes'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_booking_participants_booking').on(t.bookingId)
+]);
+
 export const accommodationUnitTypes = pgTable('accommodation_unit_types', {
 	id: text('id')
 		.primaryKey()
