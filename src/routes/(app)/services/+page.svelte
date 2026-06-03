@@ -46,6 +46,11 @@
 								{#if service.durationMinutes}
 									<p class="text-xs text-muted">{service.durationMinutes} min</p>
 								{/if}
+								{#if data.runsByService[service.id]?.length}
+									{#each data.runsByService[service.id] as run}
+										<p class="text-xs text-muted">{run.startDate} → {run.endDate}{run.maxCapacity ? ` · ${run.enrolledCount}/${run.maxCapacity}` : ''}</p>
+									{/each}
+								{/if}
 								{#if service.maxCapacity}
 									<p class="text-xs text-muted">Max {service.maxCapacity}</p>
 								{/if}
@@ -57,7 +62,7 @@
 								{/if}
 							</div>
 						</a>
-						{#if service.hasRoster}
+						{#if service.hasRoster && data.runsByService[service.id]?.length}
 							<div class="border-t border-border/50 px-4 py-2">
 								<a
 									href="/bookings/camp/{service.id}"
