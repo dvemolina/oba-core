@@ -498,6 +498,41 @@
 		{/if}
 	</div>
 
+	<!-- Participants (who's actually doing the activity) -->
+	{#if data.booking.serviceHasSessions || data.booking.serviceHasRoster}
+		<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Participants</h2>
+			<p class="mb-3 text-xs text-muted">People actually doing the activity. Use when the client is a parent or group organiser.</p>
+
+			{#if data.booking.participants.length > 0}
+				<ul class="mb-3 space-y-1.5">
+					{#each data.booking.participants as p}
+						<li class="flex items-center justify-between">
+							<span class="text-sm text-gray-800">{p.name}</span>
+							<form method="POST" action="?/removeBookingParticipant" use:enhance={withToast()}>
+								<input type="hidden" name="participantId" value={p.id} />
+								<button type="submit" class="text-xs text-muted hover:text-red-500">✕</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="mb-3 text-xs text-muted">No participants recorded.</p>
+			{/if}
+
+			<form method="POST" action="?/addBookingParticipant" use:enhance={withToast()} class="flex flex-col gap-2">
+				<div class="flex gap-2">
+					<input name="name" type="text" placeholder="Add participant name…" class="input input-sm flex-1" />
+					<button type="submit" class="btn-primary btn-sm">Add</button>
+				</div>
+				<label class="flex cursor-pointer items-center gap-2 text-xs text-muted">
+					<input type="checkbox" name="addToSessions" value="true" class="h-3.5 w-3.5" />
+					Also add to all sessions of this booking
+				</label>
+			</form>
+		</section>
+	{/if}
+
 	<!-- ── Sessions ─────────────────────────────────────────────────────────── -->
 	{#if hasSessions}
 		<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">

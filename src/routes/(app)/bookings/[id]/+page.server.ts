@@ -23,6 +23,7 @@ import {
 	addParticipant,
 	removeParticipant
 } from '$lib/features/sessions/queries';
+import { addBookingParticipant, removeBookingParticipant } from '$lib/features/bookings/participants.queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -268,5 +269,28 @@ export const actions: Actions = {
 
 		await Promise.all(toCreate.map(s => createSession(s)));
 		return { error: null, message: `${toCreate.length} sessions generated` };
+	},
+
+	addBookingParticipant: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const name = form.get('name')?.toString().trim() ?? '';
+		const addToSessions = form.get('addToSessions') === 'true';
+		if (!name) return fail(400, { error: 'Name is required' });
+		await addBookingParticipant(params.id, name);
+		if (addToSessions) {
+			const sessions = await listSessionsForBooking(params.id);
+			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name })));
+		}
+		return { error: null, message: 'Participant added' };
+	},
+
+	removeBookingParticipant: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const id = form.get('participantId')?.toString() ?? '';
+		if (!id) return fail(400, { error: 'Missing participant id' });
+		await removeBookingParticipant(id);
+		return { error: null, message: 'Participant removed' };
 	}
 };
