@@ -8,11 +8,11 @@ import {
 	bookingSessions,
 	clients,
 	services,
-	instructors,
 	sessions,
 	accommodationUnits,
 	accommodationUnitTypes
 } from '$lib/server/db/schema';
+import { user as userTable } from '$lib/server/db/auth.schema';
 import type { Service } from '$lib/features/services/types';
 import type {
 	Booking,
@@ -34,10 +34,10 @@ async function attachInstructorsToBookings<T extends { id: string }>(
 		.select({
 			bookingId: bookingInstructors.bookingId,
 			instructorId: bookingInstructors.instructorId,
-			instructorName: instructors.name
+			instructorName: userTable.name
 		})
 		.from(bookingInstructors)
-		.leftJoin(instructors, eq(bookingInstructors.instructorId, instructors.id))
+		.leftJoin(userTable, eq(bookingInstructors.instructorId, userTable.id))
 		.where(inArray(bookingInstructors.bookingId, ids));
 
 	const byBooking: Record<string, { instructorId: string; instructorName: string | null }> = {};
@@ -222,9 +222,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 	if (!booking) return undefined;
 
 	const [instrRow] = await db
-		.select({ instructorId: bookingInstructors.instructorId, instructorName: instructors.name })
+		.select({ instructorId: bookingInstructors.instructorId, instructorName: userTable.name })
 		.from(bookingInstructors)
-		.leftJoin(instructors, eq(bookingInstructors.instructorId, instructors.id))
+		.leftJoin(userTable, eq(bookingInstructors.instructorId, userTable.id))
 		.where(eq(bookingInstructors.bookingId, id))
 		.limit(1);
 
