@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { createBooking, countEnrolledClientsForService } from '$lib/features/bookings/queries';
-import { createSession } from '$lib/features/sessions/queries';
+import { createSession, addParticipant } from '$lib/features/sessions/queries';
+import { bulkAddBookingParticipants } from '$lib/features/bookings/participants.queries';
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -139,7 +140,7 @@ export const actions: Actions = {
 			});
 
 			// Create sessions: first session gets the entered time (if not flexible), rest are unscheduled
-			await Promise.all(
+			const createdSessions = await Promise.all(
 				Array.from({ length: sessionsIncluded }, (_, i) =>
 					createSession({
 						bookingId: booking.id,
@@ -149,6 +150,21 @@ export const actions: Actions = {
 					})
 				)
 			);
+			const createdSessionIds = createdSessions.map(s => s.id);
+
+			// Auto-copy booking participants to each session
+			const participantNames = form.getAll('participantName')
+				.map(n => n.toString().trim())
+				.filter(Boolean);
+
+			if (participantNames.length > 0) {
+				await bulkAddBookingParticipants(booking.id, participantNames);
+				await Promise.all(
+					createdSessionIds.flatMap(sessionId =>
+						participantNames.map(name => addParticipant({ sessionId, name }))
+					)
+				);
+			}
 
 			const scheduled = !isFlexible && time ? 1 : 0;
 			const remaining = sessionsIncluded - scheduled;
