@@ -24,6 +24,7 @@ import type {
 	CreateBookingInput,
 	UpdateBookingInput
 } from './types';
+import { listParticipantsForBooking } from './participants.queries';
 
 async function attachInstructorsToBookings<T extends { id: string }>(
 	rows: T[]
@@ -313,11 +314,13 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		.leftJoin(clients, eq(bookingClients.clientId, clients.id))
 		.where(eq(bookingClients.bookingId, id));
 
+	const participants = await listParticipantsForBooking(booking.id);
 	return {
 		...booking,
 		instructorId: instrRow?.instructorId ?? null,
 		instructorName: instrRow?.instructorName ?? null,
-		clients: bookingClientRows
+		clients: bookingClientRows,
+		participants
 	} as Booking;
 }
 
