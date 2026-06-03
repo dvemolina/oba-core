@@ -118,6 +118,10 @@
 	);
 
 	// Multi-day repeater (lessons only)
+	let participants = $state<string[]>([]);
+	function addParticipantField() { participants = [...participants, '']; }
+	function removeParticipantField(i: number) { participants = participants.filter((_, idx) => idx !== i); }
+
 	let multiDay = $state(false);
 	let extraDays = $state<Array<{ date: string; time: string }>>([]);
 
@@ -463,6 +467,32 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if selectedService?.hasSessions || selectedService?.hasRoster}
+				<div class="space-y-2">
+					<div class="flex items-center justify-between">
+						<p class="text-sm font-medium text-gray-700">
+							Participants <span class="text-muted">(optional)</span>
+						</p>
+						<button type="button" onclick={addParticipantField} class="text-xs text-ocean hover:underline">
+							+ Add participant
+						</button>
+					</div>
+					<p class="text-xs text-muted">Use when the client is a parent or group organiser booking on behalf of others.</p>
+					{#each participants as _, i}
+						<div class="flex gap-2">
+							<input
+								type="text"
+								name="participantName"
+								bind:value={participants[i]}
+								class="input flex-1"
+								placeholder="e.g. Sarah Smith (9 years old)"
+							/>
+							<button type="button" onclick={() => removeParticipantField(i)} class="text-muted hover:text-red-500 px-1">✕</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
 
 			{#if !isCamp}
 				<details class="group">
