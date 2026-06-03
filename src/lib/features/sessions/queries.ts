@@ -5,12 +5,12 @@ import {
 	bookingSessions,
 	sessionInstructors,
 	sessionParticipants,
-	instructors,
 	bookings,
 	bookingClients,
 	clients,
 	services
 } from '$lib/server/db/schema';
+import { user as userTable } from '$lib/server/db/auth.schema';
 import type {
 	AgendaSession,
 	CreateParticipantInput,
@@ -35,10 +35,10 @@ async function attachInstructors<T extends { id: string }>(
 			id: sessionInstructors.id,
 			sessionId: sessionInstructors.sessionId,
 			instructorId: sessionInstructors.instructorId,
-			instructorName: instructors.name
+			instructorName: userTable.name
 		})
 		.from(sessionInstructors)
-		.leftJoin(instructors, eq(sessionInstructors.instructorId, instructors.id))
+		.leftJoin(userTable, eq(sessionInstructors.instructorId, userTable.id))
 		.where(sql`${sessionInstructors.sessionId} = ANY(ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]::text[])`);
 
 	const bySession: Record<string, typeof rows> = {};
@@ -128,7 +128,7 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 				? and(
 						eq(sessions.date, date),
 						ne(sessions.status, 'cancelled'),
-						sql`${sessions.id} IN (SELECT "sessionId" FROM "sessionInstructors" WHERE "instructorId" = ${instructorId})`
+						sql`${sessions.id} IN (SELECT session_id FROM session_instructors WHERE user_id = ${instructorId})`
 					)
 				: and(eq(sessions.date, date), ne(sessions.status, 'cancelled'))
 		)
@@ -440,7 +440,7 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 						gte(sessions.date, from),
 						lte(sessions.date, to),
 						ne(sessions.status, 'cancelled'),
-						sql`${sessions.id} IN (SELECT "sessionId" FROM "sessionInstructors" WHERE "instructorId" = ${instructorId})`
+						sql`${sessions.id} IN (SELECT session_id FROM session_instructors WHERE user_id = ${instructorId})`
 					)
 				: and(gte(sessions.date, from), lte(sessions.date, to), ne(sessions.status, 'cancelled'))
 		)
