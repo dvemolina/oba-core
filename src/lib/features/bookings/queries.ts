@@ -8,6 +8,7 @@ import {
 	bookingSessions,
 	clients,
 	services,
+	serviceRuns,
 	sessions,
 	accommodationUnits,
 	accommodationUnitTypes
@@ -75,6 +76,9 @@ export async function listBookingsForDateRange(
 			guestsCount: bookings.guestsCount,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
+			serviceRunId: bookings.serviceRunId,
+			serviceRunStartDate: serviceRuns.startDate,
+			serviceRunEndDate: serviceRuns.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -84,6 +88,7 @@ export async function listBookingsForDateRange(
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
 		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
+		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
 		// Overlap: booking starts before range ends AND booking ends (or is same-day) after range starts
 		.where(and(
 			lte(bookings.date, to),
@@ -203,6 +208,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			guestsCount: bookings.guestsCount,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
+			serviceRunId: bookings.serviceRunId,
+			serviceRunStartDate: serviceRuns.startDate,
+			serviceRunEndDate: serviceRuns.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -217,6 +225,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
 		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
+		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
 		.where(eq(bookings.id, id));
 
 	if (!booking) return undefined;
@@ -277,6 +286,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.insert(bookings)
 		.values({
 			serviceId: input.serviceId,
+			serviceRunId: input.serviceRunId,
 			accommodationUnitId: input.accommodationUnitId,
 			guestsCount: input.guestsCount,
 			date: input.date,
