@@ -231,6 +231,9 @@
 					{#if data.booking.isFlexible}<Zap size={12} class="ml-1 inline text-flexible" />{/if}
 				{/if}
 			</p>
+			{#if data.booking.serviceRunId}
+				<p class="mt-0.5 text-xs text-muted">Run: {data.booking.serviceRunStartDate} → {data.booking.serviceRunEndDate}</p>
+			{/if}
 			{#if data.booking.source === 'whatsapp_bot'}
 				<span class="mt-1 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
 					via WhatsApp
