@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -144,7 +145,7 @@
 <div class="mx-auto max-w-lg p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/calendar" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
-		<h1 class="text-xl font-bold text-navy">New Booking</h1>
+		<h1 class="text-xl font-bold text-navy">{m.booking_new_title()}</h1>
 	</div>
 
 	<form
@@ -167,7 +168,7 @@
 	>
 		<!-- Service -->
 		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">Service *</label>
+			<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_service()}</label>
 			<select
 				name="serviceId"
 				bind:value={selectedServiceId}
@@ -190,7 +191,7 @@
 			{:else}
 				<!-- Unit type selector -->
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Unit type *</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_unit_type()}</label>
 					<div class="space-y-2">
 						{#each unitTypes as ut}
 							<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors
@@ -210,12 +211,12 @@
 				<!-- Check-in / check-out -->
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">Check-in *</label>
+						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_checkin()}</label>
 						<input name="date" type="date" required value={data.defaultDate}
 							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 					</div>
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">Check-out *</label>
+						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_checkout()}</label>
 						<input name="dateEnd" type="date" required
 							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 					</div>
@@ -223,7 +224,7 @@
 
 				<!-- Guests count -->
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Guests</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_guests()}</label>
 					<input name="guestsCount" type="number" min="1"
 						max={selectedUnitType?.maxOccupancy ?? 99}
 						value="1"
@@ -232,7 +233,7 @@
 
 				<!-- Clients (guest names linked to booking) -->
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Guests / clients *</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_guests_clients()}</label>
 
 					{#if selectedClients.length > 0}
 						<div class="mb-2 flex flex-wrap gap-2">
@@ -264,7 +265,7 @@
 									{#if showCreateNew}
 										<button type="button" onclick={openNewClientPanel}
 											class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
-											+ Create "<span class="font-medium">{clientSearch}</span>"
+											{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
 										</button>
 									{/if}
 								</div>
@@ -272,24 +273,24 @@
 						</div>
 					{:else}
 						<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-							<p class="text-xs font-semibold text-ocean">New client</p>
+							<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
 							<div class="grid grid-cols-2 gap-2">
-								<input bind:value={newFirstName} placeholder="First name *"
+								<input bind:value={newFirstName} placeholder={m.client_new_first_name()}
 									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-								<input bind:value={newLastName} placeholder="Last name"
+								<input bind:value={newLastName} placeholder={m.common_name()}
 									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 							</div>
-							<input bind:value={newPhone} type="tel" placeholder="Phone"
+							<input bind:value={newPhone} type="tel" placeholder={m.common_phone()}
 								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newEmail} type="email" placeholder="Email"
+							<input bind:value={newEmail} type="email" placeholder={m.common_email()}
 								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 							<div class="flex gap-2 pt-1">
 								<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
 									class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-									{creatingClient ? 'Saving…' : 'Add client'}
+									{creatingClient ? 'Saving…' : m.common_add()}
 								</button>
 								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-									class="btn-ghost btn-sm">Cancel</button>
+									class="btn-ghost btn-sm">{m.common_cancel()}</button>
 							</div>
 						</div>
 					{/if}
@@ -302,10 +303,10 @@
 			<!-- Run picker for date-range services -->
 			{#if isCamp}
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Run *</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_run()}</label>
 					{#if runs.length > 0}
 						<select name="serviceRunId" bind:value={selectedRunId} required class="input w-full">
-							<option value="">— select a run —</option>
+							<option value="">{m.booking_new_run_select()}</option>
 							{#each runs as run}
 								<option value={run.id} disabled={!run.active}>
 									{run.startDate} → {run.endDate}{run.maxCapacity ? ` (${run.enrolledCount}/${run.maxCapacity} enrolled)` : ''}{run.notes ? ` · ${run.notes}` : ''}
@@ -317,7 +318,7 @@
 						{/if}
 					{:else}
 						<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-							No runs yet. <a href="/services/{selectedService?.id}" class="underline">Add a run</a> first.
+							{m.booking_new_no_runs()} <a href="/services/{selectedService?.id}" class="underline">{m.booking_new_add_run()}</a>
 						</p>
 					{/if}
 				</div>
@@ -326,13 +327,13 @@
 			<!-- Date inputs -->
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Date *</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_date()}</label>
 					<input name="date" type="date" required value={data.defaultDate}
 						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 				</div>
 				{#if showTimeAndFlexible}
 					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">Time</label>
+						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_time()}</label>
 						<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
 							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
 					</div>
@@ -343,8 +344,8 @@
 				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">
 					<input type="checkbox" name="isFlexible" bind:checked={isFlexible} class="h-4 w-4 accent-ocean" />
 					<div>
-						<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> Flexible time</p>
-						<p class="text-xs text-muted">Confirm based on surf conditions</p>
+						<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> {m.booking_new_flexible()}</p>
+						<p class="text-xs text-muted">{m.booking_new_flexible_desc()}</p>
 					</div>
 				</label>
 			{/if}
@@ -352,11 +353,11 @@
 			{#if isLesson}
 				<!-- Sessions-based: how many sessions does this booking include (not for camps — sessions are ad-hoc) -->
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Sessions included *</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_sessions_included()}</label>
 					<input name="sessionsIncluded" type="number" min="1" step="1"
 						value={selectedService?.defaultSessionsIncluded ?? 1} required
 						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-					<p class="mt-1 text-xs text-muted">Sessions purchased. First one gets the time below if set.</p>
+					<p class="mt-1 text-xs text-muted">{m.booking_new_sessions_hint()}</p>
 				</div>
 			{:else if showTimeAndFlexible}
 				<!-- Non-sessions services: allow creating separate bookings on multiple days -->
@@ -364,8 +365,8 @@
 					<input type="checkbox" bind:checked={multiDay}
 						onchange={() => { if (!multiDay) extraDays = []; }} class="h-4 w-4 accent-ocean" />
 					<div>
-						<p class="text-sm font-medium text-gray-800">📅 Repeat on more days</p>
-						<p class="text-xs text-muted">Creates one separate booking per day</p>
+						<p class="text-sm font-medium text-gray-800">{m.booking_new_repeat()}</p>
+						<p class="text-xs text-muted">{m.booking_new_repeat_hint()}</p>
 					</div>
 				</label>
 
@@ -384,7 +385,7 @@
 						{/each}
 						<button type="button" onclick={addExtraDay}
 							class="w-full rounded-lg border border-dashed border-ocean/40 py-2 text-xs font-medium text-ocean hover:border-ocean hover:bg-ocean/5">
-							+ Add day
+							{m.booking_new_add_day()}
 						</button>
 					</div>
 				{/if}
@@ -392,10 +393,10 @@
 
 			{#if showInstructor}
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Instructor</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_instructor()}</label>
 					<select name="instructorId"
 						class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none">
-						<option value="">— unassigned —</option>
+						<option value="">{m.booking_new_unassigned()}</option>
 						{#each data.instructors as instructor}
 							<option value={instructor.id}>{instructor.name}</option>
 						{/each}
@@ -405,7 +406,7 @@
 
 			<!-- Clients -->
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Clients *</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_clients()}</label>
 
 				{#if selectedClients.length > 0}
 					<div class="mb-2 flex flex-wrap gap-2">
@@ -423,7 +424,7 @@
 
 				{#if !newClientPanel}
 					<div class="relative">
-						<input type="text" placeholder="Search or type name to add…" bind:value={clientSearch}
+						<input type="text" placeholder={m.booking_new_client_search()} bind:value={clientSearch}
 							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 						{#if filteredClients.length > 0 || showCreateNew}
 							<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
@@ -437,7 +438,7 @@
 								{#if showCreateNew}
 									<button type="button" onclick={openNewClientPanel}
 										class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
-										+ Create "<span class="font-medium">{clientSearch}</span>"
+										{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
 									</button>
 								{/if}
 							</div>
@@ -445,24 +446,24 @@
 					</div>
 				{:else}
 					<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-						<p class="text-xs font-semibold text-ocean">New client</p>
+						<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
 						<div class="grid grid-cols-2 gap-2">
-							<input bind:value={newFirstName} placeholder="First name *"
+							<input bind:value={newFirstName} placeholder={m.client_new_first_name()}
 								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newLastName} placeholder="Last name"
+							<input bind:value={newLastName} placeholder={m.common_name()}
 								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						</div>
-						<input bind:value={newPhone} type="tel" placeholder="Phone"
+						<input bind:value={newPhone} type="tel" placeholder={m.common_phone()}
 							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<input bind:value={newEmail} type="email" placeholder="Email"
+						<input bind:value={newEmail} type="email" placeholder={m.common_email()}
 							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						<div class="flex gap-2 pt-1">
 							<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
 								class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-								{creatingClient ? 'Saving…' : 'Add client'}
+								{creatingClient ? 'Saving…' : m.common_add()}
 							</button>
 							<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-								class="btn-ghost btn-sm">Cancel</button>
+								class="btn-ghost btn-sm">{m.common_cancel()}</button>
 						</div>
 					</div>
 				{/if}
@@ -472,13 +473,13 @@
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
 						<p class="text-sm font-medium text-gray-700">
-							Participants <span class="text-muted">(optional)</span>
+							{m.booking_new_participants()} <span class="text-muted">(optional)</span>
 						</p>
 						<button type="button" onclick={addParticipantField} class="text-xs text-ocean hover:underline">
-							+ Add participant
+							{m.booking_new_add_participant()}
 						</button>
 					</div>
-					<p class="text-xs text-muted">Use when the client is a parent or group organiser booking on behalf of others.</p>
+					<p class="text-xs text-muted">{m.booking_new_participants_hint()}</p>
 					{#each participants as _, i}
 						<div class="flex gap-2">
 							<input
@@ -486,7 +487,7 @@
 								name="participantName"
 								bind:value={participants[i]}
 								class="input flex-1"
-								placeholder="e.g. Sarah Smith (9 years old)"
+								placeholder={m.booking_new_participant_placeholder()}
 							/>
 							<button type="button" onclick={() => removeParticipantField(i)} class="text-muted hover:text-red-500 px-1">✕</button>
 						</div>
@@ -500,14 +501,14 @@
 					<div class="mt-3 space-y-3">
 						{#if isLesson}
 							<div>
-								<label class="mb-1 block text-sm font-medium text-gray-700">Spot / location notes</label>
+								<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_spot_notes()}</label>
 								<input name="spotNotes"
 									class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
-									placeholder="e.g. Playa Norte, left peak" />
+									placeholder={m.booking_new_spot_placeholder()} />
 							</div>
 						{/if}
 						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Internal notes</label>
+							<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_internal_notes()}</label>
 							<textarea name="notes" rows="2"
 								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"></textarea>
 						</div>
@@ -526,8 +527,8 @@
 			class="btn-primary btn-block"
 		>
 			{#if loading}Saving…
-			{:else if isAccommodation}Book Accommodation
-			{:else}Save Booking{/if}
+			{:else if isAccommodation}{m.booking_new_accommodation()}
+			{:else}{m.booking_new_submit()}{/if}
 		</button>
 	</form>
 </div>
