@@ -1,9 +1,12 @@
 ## In progress / next
-[] - Spanish as default language for UI, consider multilanguage support (Paraglide already wired, translations near-empty)
-[] - Settings page — nav link exists, no route yet (dead link)
 [] - Mobile calendar narrow-width: week strip + agenda on small screens (acknowledged as future feature)
-[] - Branding capabilities to make the software appear proprietary. Allow owners to set the logo and branding of the app (Login page logo and name of the company). Create a maintainable, reusable, clean, scalable and production ready branding system.
-[] - Add price to booking chips in day view. If it is pending to pay, show a warning and how much is pending of the total.
+[] - Branding — allow owners to set logo and company name (login page + app header). Maintainable branding system.
+[] - Service runs: startDate/endDate on services still exists as design concept — longer-term: reusable templates where one "Surf Camp" service has multiple dated runs (design session needed for booking flow + Stripe product mapping)
+[] - Events: wire up as bookable entities — client enrollment, payments, email notifications (currently calendar-only announcements)
+[] - amountDue locked to basePrice on booking create — no UI for per-client pricing overrides, discounts
+[] - Client portal (no client-facing booking flow yet)
+[] - WhatsApp/email reminders to clients (n8n integration partially wired)
+[] - Multi-tenancy: no tenant scoping yet — required before white-label SaaS
 
 ## Design
 [] - Full UI/UX redesign inspired by tipitisurf.com (deprioritised — current UI is functional and clean)
@@ -21,3 +24,14 @@
 [x] - Bookings list: dedicated /bookings route with status + needs-scheduling filter
 [x] - Nav: Bookings tab added, Agenda→Today, mobile More menu (Staff + Settings)
 [x] - Calendar month/week: session-count dots replace booking bars
+[x] - Multi-role users: roles[] array, primary role sync, RBAC route guards, role-filtered nav
+[x] - Staff module: invite, manage roles, phone/bio/active, ban/restore — replaces instructors list
+[x] - Instructors table removed: users with 'instructor' role are instructors, no separate table
+[x] - DB indexes: all FK columns and hot query columns indexed
+[x] - service_instructors junction table replaces JSONB default_instructor_ids
+[x] - Service runs: service_runs table, camp services now have reusable template + dated runs, camp roster page
+[x] - Booking participants: booking_participants table, add at create time, auto-copy to sessions
+[x] - i18n: Spanish (default) + English, Paraglide, 246 keys, language toggle in sidebar/settings, all UI translated
+[x] - Dashboard (Today view): session chips with payment status, day summary bar, active camps, upcoming events, unscheduled queue
+[x] - Day view session chips: payment status inline (✓ paid / ⚠ partial / ⚠ unpaid) + day revenue summary bar
+[x] - Settings page: account name/password, language picker (was dead link — now live)
