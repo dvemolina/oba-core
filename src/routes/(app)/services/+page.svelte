@@ -3,15 +3,18 @@
 	import type { Service } from '$lib/features/services/types';
 	import { DOT_COLORS } from '$lib/features/services/colors';
 	import type { ServiceColorKey } from '$lib/features/services/colors';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
-	const typeLabels: Record<string, string> = {
-		lesson: 'Lesson',
-		camp: 'Camp',
-		product: 'Product',
-		rental: 'Rental'
-	};
+	const typeLabels = $derived<Record<string, string>>({
+		lesson: m.service_list_type_lesson(),
+		camp: m.service_list_type_camp(),
+		product: m.service_list_type_product(),
+		rental: m.service_list_type_rental(),
+		accommodation: m.service_list_type_accommodation(),
+		other: m.service_list_type_other()
+	});
 
 	const grouped = $derived(
 		data.services.reduce<Record<string, Service[]>>((acc, s) => {
@@ -23,8 +26,8 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center justify-between">
-		<h1 class="text-xl font-semibold text-navy">Services</h1>
-		<a href="/services/new" class="btn-primary btn-sm">+ New</a>
+		<h1 class="text-xl font-semibold text-navy">{m.service_list_title()}</h1>
+		<a href="/services/new" class="btn-primary btn-sm">{m.common_new()}</a>
 	</div>
 
 	{#each Object.entries(grouped) as [type, items]}
@@ -52,13 +55,13 @@
 									{/each}
 								{/if}
 								{#if service.maxCapacity}
-									<p class="text-xs text-muted">Max {service.maxCapacity}</p>
+									<p class="text-xs text-muted">{m.common_max()} {service.maxCapacity}</p>
 								{/if}
 							</div>
 							<div class="text-right">
 								<p class="font-semibold text-gray-800">€{service.basePrice}</p>
 								{#if !service.active}
-									<span class="text-xs text-muted">inactive</span>
+									<span class="text-xs text-muted">{m.common_inactive()}</span>
 								{/if}
 							</div>
 						</a>
@@ -67,7 +70,7 @@
 								<a
 									href="/bookings/camp/{service.id}"
 									class="text-xs font-medium text-ocean hover:underline"
-								>🏕️ Open Roster →</a>
+								>{m.service_list_open_roster()}</a>
 							</div>
 						{/if}
 					</div>
@@ -77,6 +80,6 @@
 	{/each}
 
 	{#if data.services.length === 0}
-		<p class="py-12 text-center text-sm text-muted">No services yet. Add your first one.</p>
+		<p class="py-12 text-center text-sm text-muted">{m.service_list_empty()}</p>
 	{/if}
 </div>

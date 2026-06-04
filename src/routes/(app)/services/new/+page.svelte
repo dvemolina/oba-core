@@ -2,51 +2,52 @@
 	import { enhance } from '$app/forms';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
 
 	// ── Template definitions ──────────────────────────────────────────────────
-	const TEMPLATES = [
+	const TEMPLATES = $derived([
 		{
 			id: 'lesson',
-			label: 'Lesson',
-			description: 'Individual or group session with instructor (surf lesson, ski class, yoga, guided tour…)',
+			label: m.service_new_type_lesson(),
+			description: m.service_new_type_lesson_desc(),
 			flags: { hasSessions: true, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: true }
 		},
 		{
 			id: 'camp',
-			label: 'Camp / Course',
-			description: 'Multi-day programme with a roster of enrolled participants',
+			label: m.service_new_type_camp(),
+			description: m.service_new_type_camp_desc(),
 			flags: { hasSessions: true, hasRoster: true, hasDateRange: true, hasInventoryUnits: false, requiresInstructor: true }
 		},
 		{
 			id: 'rental',
-			label: 'Rental',
-			description: 'Physical equipment rented for a period (boards, skis, bikes, kayaks…)',
+			label: m.service_new_type_rental(),
+			description: m.service_new_type_rental_desc(),
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: true, hasInventoryUnits: true, requiresInstructor: false }
 		},
 		{
 			id: 'accommodation',
-			label: 'Accommodation',
-			description: 'Rooms, beds, or whole-property stays',
+			label: m.service_new_type_accommodation(),
+			description: m.service_new_type_accommodation_desc(),
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: true, hasInventoryUnits: true, requiresInstructor: false }
 		},
 		{
 			id: 'product',
-			label: 'Product / Service',
-			description: 'Simple purchase — gear, merchandise, one-off service fee',
+			label: m.service_new_type_product(),
+			description: m.service_new_type_product_desc(),
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: false }
 		},
 		{
 			id: 'other',
-			label: 'Other',
-			description: 'Configure capabilities manually for any service type',
+			label: m.service_new_type_other(),
+			description: m.service_new_type_other_desc(),
 			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: true }
 		},
-	] as const;
+	] as const);
 
-	type TemplateId = typeof TEMPLATES[number]['id'];
+	type TemplateId = 'lesson' | 'camp' | 'rental' | 'accommodation' | 'product' | 'other';
 
 	let selectedTemplateId = $state<TemplateId>('lesson');
 
@@ -75,7 +76,7 @@
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/services" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
-		<h1 class="text-xl font-semibold text-navy">New Service</h1>
+		<h1 class="text-xl font-semibold text-navy">{m.service_new_title()}</h1>
 	</div>
 
 	<form method="post" class="space-y-5"
@@ -114,13 +115,13 @@
 
 		<!-- Step 2: Core fields -->
 		<div>
-			<label class="label">Name *</label>
+			<label class="label">{m.service_new_name()}</label>
 			<input name="name" required value={form?.values?.name ?? ''}
-				class="input" placeholder="e.g. Beginner Surf Lesson" />
+				class="input" placeholder={m.service_new_name_placeholder()} />
 		</div>
 
 		<div>
-			<label class="label">Base price (€) *</label>
+			<label class="label">{m.service_new_base_price()}</label>
 			<input name="basePrice" type="number" step="0.01" min="0" required
 				value={form?.values?.basePrice ?? ''}
 				class="input" placeholder="40.00" />
@@ -129,15 +130,15 @@
 		{#if hasSessions && !hasRoster}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="label">Session duration (min)</label>
+					<label class="label">{m.service_new_duration()}</label>
 					<input name="durationMinutes" type="number" min="15" step="15"
 						class="input" placeholder="90" />
 				</div>
 				<div>
-					<label class="label">Sessions / booking</label>
+					<label class="label">{m.service_new_sessions_per_booking()}</label>
 					<input name="defaultSessionsIncluded" type="number" min="1" step="1"
 						class="input" placeholder="1" />
-					<p class="mt-1 text-xs text-muted">Default when creating a booking</p>
+					<p class="mt-1 text-xs text-muted">{m.service_new_sessions_default_hint()}</p>
 				</div>
 			</div>
 		{/if}
@@ -157,21 +158,21 @@
 
 		{#if hasRoster}
 			<div>
-				<label class="label">Max participants *</label>
+				<label class="label">{m.service_new_max_participants()}</label>
 				<input name="maxCapacity" type="number" min="1" step="1" required
 					class="input" placeholder="12" />
 			</div>
 		{:else if hasInventoryUnits}
 			<div>
-				<label class="label">Available units *</label>
+				<label class="label">{m.service_new_available_units()}</label>
 				<input name="maxCapacity" type="number" min="1" step="1" required
-					class="input" placeholder="e.g. 8 boards, 4 rooms" />
+					class="input" placeholder={m.service_new_available_units_placeholder()} />
 			</div>
 		{/if}
 
 		{#if requiresInstructor && data.instructors.length > 0}
 			<div>
-				<label class="label mb-2">Default instructor{hasRoster ? 's' : ''}</label>
+				<label class="label mb-2">{m.service_new_default_instructors()}</label>
 				<div class="space-y-2 rounded-lg border border-border p-3">
 					{#each data.instructors as instructor}
 						<label class="flex cursor-pointer items-center gap-3">
@@ -185,12 +186,12 @@
 		{/if}
 
 		<div>
-			<label class="label mb-2">Color</label>
+			<label class="label mb-2">{m.service_new_color()}</label>
 			<ColorPicker selected={form?.values?.color ?? 'ocean'} />
 		</div>
 
 		<div>
-			<label class="label">Description</label>
+			<label class="label">{m.common_description()}</label>
 			<textarea name="description" rows="2" class="input"
 				placeholder="Optional details…">{form?.values?.description ?? ''}</textarea>
 		</div>
@@ -198,15 +199,15 @@
 		<!-- Advanced: capability flags -->
 		<details bind:open={showAdvanced} class="rounded-lg border border-border">
 			<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-slate-700">
-				Advanced — capability flags
+				{m.service_new_advanced()}
 			</summary>
 			<div class="space-y-2 border-t border-border px-4 py-3">
 				{#each [
-					{ key: 'hasSessions',       label: 'Has sessions',         desc: 'Needs scheduled occurrences (lessons, classes, guided tours)', bind: hasSessions },
-					{ key: 'hasRoster',         label: 'Has roster',           desc: 'Multiple clients enrolled together', bind: hasRoster },
-					{ key: 'hasDateRange',      label: 'Has date range',       desc: 'Spans multiple days (camps, stays, multi-day packages)', bind: hasDateRange },
-					{ key: 'hasInventoryUnits', label: 'Has inventory units',  desc: 'Limited physical units to allocate (rooms, gear)', bind: hasInventoryUnits },
-					{ key: 'requiresInstructor', label: 'Requires instructor', desc: 'Needs a guide or instructor assigned', bind: requiresInstructor },
+					{ key: 'hasSessions',       label: m.service_new_flag_has_sessions(),         desc: m.service_new_flag_has_sessions_desc(),        bind: hasSessions },
+					{ key: 'hasRoster',         label: m.service_new_flag_has_roster(),            desc: m.service_new_flag_has_roster_desc(),          bind: hasRoster },
+					{ key: 'hasDateRange',      label: m.service_new_flag_has_date_range(),        desc: m.service_new_flag_has_date_range_desc(),      bind: hasDateRange },
+					{ key: 'hasInventoryUnits', label: m.service_new_flag_has_inventory(),         desc: m.service_new_flag_has_inventory_desc(),       bind: hasInventoryUnits },
+					{ key: 'requiresInstructor', label: m.service_new_flag_requires_instructor(),  desc: m.service_new_flag_requires_instructor_desc(), bind: requiresInstructor },
 				] as flag}
 					<label class="flex cursor-pointer items-start gap-3">
 						<input type="checkbox"
@@ -238,7 +239,7 @@
 		{/if}
 
 		<button type="submit" disabled={loading} class="btn-primary btn-block">
-			{loading ? 'Saving…' : 'Create Service'}
+			{loading ? m.common_saving() : m.service_new_submit()}
 		</button>
 	</form>
 </div>

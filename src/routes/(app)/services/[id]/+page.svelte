@@ -6,6 +6,7 @@
 	import { DOT_COLORS } from '$lib/features/services/colors';
 	import type { ServiceColorKey } from '$lib/features/services/colors';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -25,11 +26,11 @@
 	// Inventory unit management state
 	let showAddUnitType = $state(false);
 	let addingUnitToTypeId = $state<string | null>(null);
-	const OCCUPANCY_LABELS: Record<string, string> = {
-		shared: 'Shared (beds)',
-		private: 'Private room',
-		entire: 'Entire property'
-	};
+	const OCCUPANCY_LABELS = $derived<Record<string, string>>({
+		shared: m.service_detail_occupancy_shared(),
+		private: m.service_detail_occupancy_private(),
+		entire: m.service_detail_occupancy_entire()
+	});
 
 	const TEMPLATE_LABELS: Record<string, string> = {
 		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
@@ -71,7 +72,7 @@
 			</div>
 		</div>
 		{#if !data.service.active}
-			<span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-muted">inactive</span>
+			<span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-muted">{m.common_inactive()}</span>
 		{/if}
 	</div>
 
@@ -81,30 +82,30 @@
 		<div class="mb-4 space-y-3 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 			{#if canEditServices}
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-muted">Price</span>
+				<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_price()}</span>
 				<span class="text-sm font-semibold text-gray-800">€{data.service.basePrice}</span>
 			</div>
 			{:else}
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-semibold uppercase tracking-wider text-muted">Price</span>
-				<span class="text-sm text-muted">Pricing managed by owners</span>
+				<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_price()}</span>
+				<span class="text-sm text-muted">{m.service_detail_price_managed()}</span>
 			</div>
 			{/if}
 			{#if data.service.durationMinutes}
 				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Duration</span>
-					<span class="text-sm text-gray-800">{data.service.durationMinutes} min</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_duration()}</span>
+					<span class="text-sm text-gray-800">{data.service.durationMinutes} {m.service_detail_duration_min()}</span>
 				</div>
 			{/if}
 			{#if data.service.maxCapacity}
 				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Max capacity</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_max_capacity()}</span>
 					<span class="text-sm text-gray-800">{data.service.maxCapacity}</span>
 				</div>
 			{/if}
 			{#if capabilityBadges.length > 0}
 				<div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Capabilities</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_capabilities()}</span>
 					<div class="mt-1.5 flex flex-wrap gap-1">
 						{#each capabilityBadges as badge}
 							<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{badge}</span>
@@ -114,7 +115,7 @@
 			{/if}
 			{#if data.service.defaultInstructorIds?.length}
 				<div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Instructors</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_instructors()}</span>
 					<div class="mt-1.5 flex flex-wrap gap-1.5">
 						{#each data.instructors.filter(i => data.service.defaultInstructorIds?.includes(i.id)) as instructor}
 							<span class="rounded-full bg-ocean/10 px-2.5 py-0.5 text-xs font-medium text-ocean">{instructor.name}</span>
@@ -124,7 +125,7 @@
 			{/if}
 			{#if data.service.description}
 				<div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-muted">Description</span>
+					<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.common_description()}</span>
 					<p class="mt-1 text-sm text-gray-700">{data.service.description}</p>
 				</div>
 			{/if}
@@ -134,37 +135,37 @@
 		{#if data.service.hasInventoryUnits}
 			<div class="mb-4">
 				<div class="mb-2 flex items-center justify-between">
-					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Unit Types & Inventory</h2>
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_unit_types()}</h2>
 					{#if canEditServices}
 					<button type="button" onclick={() => (showAddUnitType = !showAddUnitType)}
 						class="text-xs font-medium text-ocean hover:underline">
-						{showAddUnitType ? 'Cancel' : '+ Add type'}
+						{showAddUnitType ? m.common_cancel() : m.service_detail_add_unit_type()}
 					</button>
 					{/if}
 				</div>
 
 				{#if canEditServices && showAddUnitType}
 					<form method="post" action="?/addUnitType" use:enhance={serviceEnhance()} class="mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
-						<p class="text-xs font-semibold text-ocean">New unit type</p>
-						<input name="utName" required placeholder="e.g. Dorm Bed, Double Room"
+						<p class="text-xs font-semibold text-ocean">{m.service_detail_new_unit_type()}</p>
+						<input name="utName" required placeholder={m.service_detail_unit_type_name_placeholder()}
 							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						<div class="grid grid-cols-2 gap-2">
 							<select name="occupancyType" class="rounded-md border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none">
-								<option value="shared">Shared (beds)</option>
-								<option value="private">Private room</option>
-								<option value="entire">Entire property</option>
+								<option value="shared">{m.service_detail_occupancy_shared()}</option>
+								<option value="private">{m.service_detail_occupancy_private()}</option>
+								<option value="entire">{m.service_detail_occupancy_entire()}</option>
 							</select>
-							<input name="maxOccupancy" type="number" min="1" required placeholder="Max guests"
+							<input name="maxOccupancy" type="number" min="1" required placeholder={m.service_detail_max_guests()}
 								class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						</div>
-						<input name="pricePerNight" type="number" step="0.01" min="0" required placeholder="Price / night (€)"
+						<input name="pricePerNight" type="number" step="0.01" min="0" required placeholder={m.service_detail_price_per_night()}
 							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<button type="submit" class="w-full rounded-md bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Add unit type</button>
+						<button type="submit" class="w-full rounded-md bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.service_detail_add_unit_type_btn()}</button>
 					</form>
 				{/if}
 
 				{#if data.unitTypes.length === 0 && !showAddUnitType}
-					<p class="py-4 text-center text-xs text-muted">No unit types yet. Add one above.</p>
+					<p class="py-4 text-center text-xs text-muted">{m.service_detail_no_unit_types()}</p>
 				{/if}
 
 				<div class="space-y-3">
@@ -183,7 +184,7 @@
 								<form method="post" action="?/deleteUnitType" use:enhance={serviceEnhance()}
 									onsubmit={(e) => { if (!confirm(`Delete "${ut.name}" and all its units?`)) e.preventDefault(); }}>
 									<input type="hidden" name="unitTypeId" value={ut.id} />
-									<button type="submit" class="text-xs text-flexible hover:underline">Delete</button>
+									<button type="submit" class="text-xs text-flexible hover:underline">{m.common_delete()}</button>
 								</form>
 								{/if}
 							</div>
@@ -191,7 +192,7 @@
 							<!-- Physical units list -->
 							<div class="border-t border-border/50 px-3 py-2">
 								{#if ut.units.length === 0}
-									<p class="text-xs text-muted italic">No physical units yet.</p>
+									<p class="text-xs text-muted italic">{m.service_detail_no_units()}</p>
 								{/if}
 								<div class="flex flex-wrap gap-1.5">
 									{#each ut.units as unit}
@@ -211,15 +212,15 @@
 												onsubmit={() => (addingUnitToTypeId = null)}
 												class="flex items-center gap-1">
 												<input type="hidden" name="unitTypeId" value={ut.id} />
-												<input name="unitName" required autofocus placeholder="Unit name"
+												<input name="unitName" required autofocus placeholder={m.service_detail_unit_name()}
 													class="w-28 rounded-full border border-ocean px-2.5 py-0.5 text-xs focus:outline-none" />
-												<button type="submit" class="text-xs font-medium text-ocean">Add</button>
+												<button type="submit" class="text-xs font-medium text-ocean">{m.service_detail_add_unit()}</button>
 												<button type="button" onclick={() => (addingUnitToTypeId = null)} class="text-xs text-muted">✕</button>
 											</form>
 										{:else}
 											<button type="button" onclick={() => (addingUnitToTypeId = ut.id)}
 												class="rounded-full border border-dashed border-ocean/40 px-2.5 py-0.5 text-xs text-ocean hover:border-ocean">
-												+ Add unit
+												+ {m.service_detail_add_unit()}
 											</button>
 										{/if}
 									{/if}
@@ -234,8 +235,8 @@
 		<!-- Runs (for date-range services) -->
 		{#if data.service.hasDateRange && canEditServices}
 			<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
-				<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Runs</h2>
-				<p class="mb-3 text-xs text-muted">Each run is a specific dated occurrence of this service.</p>
+				<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_runs()}</h2>
+				<p class="mb-3 text-xs text-muted">{m.service_detail_runs_desc()}</p>
 
 				{#if form?.runError}
 					<p class="mb-3 text-sm text-red-600">{form.runError}</p>
@@ -255,15 +256,15 @@
 									{/if}
 								</div>
 								<div class="flex items-center gap-3">
-									<a href="/bookings/camp/{data.service.id}?run={run.id}" class="text-xs text-ocean hover:underline">Roster</a>
+									<a href="/bookings/camp/{data.service.id}?run={run.id}" class="text-xs text-ocean hover:underline">{m.service_detail_run_roster()}</a>
 									{#if run.enrolledCount === 0}
 										<form method="POST" action="?/deleteRun" use:enhance>
 											<input type="hidden" name="runId" value={run.id} />
 											<button
 												type="submit"
 												class="text-xs text-red-500 hover:underline"
-												onclick={(e) => { if (!confirm('Delete this run?')) e.preventDefault(); }}
-											>Delete</button>
+												onclick={(e) => { if (!confirm(m.service_detail_run_delete_confirm())) e.preventDefault(); }}
+											>{m.common_delete()}</button>
 										</form>
 									{/if}
 								</div>
@@ -271,31 +272,31 @@
 						{/each}
 					</div>
 				{:else}
-					<p class="mb-3 text-xs text-muted">No runs yet.</p>
+					<p class="mb-3 text-xs text-muted">{m.service_detail_no_runs()}</p>
 				{/if}
 
 				<form method="POST" action="?/addRun" use:enhance class="space-y-3">
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-700">Start date</label>
+							<label class="mb-1 block text-xs font-medium text-gray-700">{m.service_detail_run_start()}</label>
 							<input type="date" name="startDate" required class="input w-full" />
 						</div>
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-700">End date</label>
+							<label class="mb-1 block text-xs font-medium text-gray-700">{m.service_detail_run_end()}</label>
 							<input type="date" name="endDate" required class="input w-full" />
 						</div>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-700">Capacity <span class="text-muted">(optional)</span></label>
+							<label class="mb-1 block text-xs font-medium text-gray-700">{m.service_detail_run_capacity()} <span class="text-muted">({m.common_optional()})</span></label>
 							<input type="number" name="maxCapacity" min="1" class="input w-full" placeholder="10" />
 						</div>
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-700">Notes <span class="text-muted">(optional)</span></label>
-							<input type="text" name="notes" class="input w-full" placeholder="e.g. Beginner focus" />
+							<label class="mb-1 block text-xs font-medium text-gray-700">{m.service_detail_run_notes()} <span class="text-muted">({m.common_optional()})</span></label>
+							<input type="text" name="notes" class="input w-full" placeholder={m.service_detail_run_notes_placeholder()} />
 						</div>
 					</div>
-					<button type="submit" class="btn-primary btn-sm">Add run</button>
+					<button type="submit" class="btn-primary btn-sm">{m.service_detail_run_add()}</button>
 				</form>
 			</section>
 		{/if}
@@ -309,7 +310,7 @@
 		<div class="flex flex-col gap-2">
 			{#if data.service.hasRoster && data.runs?.length > 0}
 				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
-					Open Camp Roster
+					{m.service_detail_open_roster()}
 				</a>
 			{/if}
 			{#if canEditServices}
@@ -325,15 +326,15 @@
 					editing = true;
 				}}
 					class="btn-secondary flex-1"
-				>Edit</button>
+				>{m.common_edit()}</button>
 				<form method="post" action="?/toggle" use:enhance={serviceEnhance()}>
 					<button type="submit" class="{data.service.active ? 'btn-ghost' : 'btn-ghost text-confirmed'}">
-						{data.service.active ? 'Deactivate' : 'Activate'}
+						{data.service.active ? m.service_detail_deactivate() : m.service_detail_activate()}
 					</button>
 				</form>
 				<form method="post" action="?/delete" use:enhance={serviceEnhance()}
-					onsubmit={(e) => { if (!confirm('Delete this service permanently?')) e.preventDefault(); }}>
-					<button type="submit" class="btn-destructive">Delete</button>
+					onsubmit={(e) => { if (!confirm(m.service_detail_delete_confirm())) e.preventDefault(); }}>
+					<button type="submit" class="btn-destructive">{m.common_delete()}</button>
 				</form>
 			</div>
 			{/if}
@@ -361,7 +362,7 @@
 			</div>
 
 			<div>
-				<label class="label">Label / category</label>
+				<label class="label">{m.service_detail_edit_label()}</label>
 				<select name="type" class="input">
 					{#each LABEL_OPTIONS as opt}
 						<option value={opt} selected={data.service.type === opt}>
@@ -372,26 +373,26 @@
 						<option value={data.service.type} selected>{data.service.type}</option>
 					{/if}
 				</select>
-				<p class="mt-1 text-xs text-muted">Display label only — doesn't affect behaviour</p>
+				<p class="mt-1 text-xs text-muted">{m.service_detail_edit_label_hint()}</p>
 			</div>
 
 			<div>
-				<label class="label">Color</label>
+				<label class="label">{m.service_detail_edit_color()}</label>
 				<ColorPicker selected={data.service.color} />
 			</div>
 
 			<!-- Capability flags (same as new-service Advanced section) -->
 			<details class="rounded-lg border border-border">
 				<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-slate-700">
-					Capability flags
+					{m.service_detail_edit_flags()}
 				</summary>
 				<div class="space-y-2 border-t border-border px-4 py-3">
 					{#each [
-						{ key: 'hasSessions',        label: 'Has sessions',        desc: 'Needs scheduled occurrences (lessons, classes, guided tours)', value: editHasSessions },
-						{ key: 'hasRoster',          label: 'Has roster',          desc: 'Multiple clients enrolled together', value: editHasRoster },
-						{ key: 'hasDateRange',       label: 'Has date range',      desc: 'Spans multiple days (camps, stays, multi-day packages)', value: editHasDateRange },
-						{ key: 'hasInventoryUnits',  label: 'Has inventory units', desc: 'Limited physical units to allocate (rooms, gear)', value: editHasInventoryUnits },
-						{ key: 'requiresInstructor', label: 'Requires instructor', desc: 'Needs a guide or instructor assigned', value: editRequiresInstructor },
+						{ key: 'hasSessions',        label: m.service_new_flag_has_sessions(),         desc: m.service_new_flag_has_sessions_desc(),        value: editHasSessions },
+						{ key: 'hasRoster',          label: m.service_new_flag_has_roster(),            desc: m.service_new_flag_has_roster_desc(),          value: editHasRoster },
+						{ key: 'hasDateRange',       label: m.service_new_flag_has_date_range(),        desc: m.service_new_flag_has_date_range_desc(),      value: editHasDateRange },
+						{ key: 'hasInventoryUnits',  label: m.service_new_flag_has_inventory(),         desc: m.service_new_flag_has_inventory_desc(),       value: editHasInventoryUnits },
+						{ key: 'requiresInstructor', label: m.service_new_flag_requires_instructor(),   desc: m.service_new_flag_requires_instructor_desc(), value: editRequiresInstructor },
 					] as flag}
 						<label class="flex cursor-pointer items-start gap-3">
 							<input type="checkbox"
@@ -417,15 +418,15 @@
 			{#if editHasSessions && !editHasRoster}
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="label">Session duration (min)</label>
+						<label class="label">{m.service_new_duration()}</label>
 						<input name="durationMinutes" type="number" min="15" step="15"
 							value={data.service.durationMinutes ?? ''} class="input" />
 					</div>
 					<div>
-						<label class="label">Sessions / booking</label>
+						<label class="label">{m.service_new_sessions_per_booking()}</label>
 						<input name="defaultSessionsIncluded" type="number" min="1" step="1"
 							value={data.service.defaultSessionsIncluded ?? ''} class="input" placeholder="1" />
-						<p class="mt-1 text-xs text-muted">Default when creating a booking</p>
+						<p class="mt-1 text-xs text-muted">{m.service_new_sessions_default_hint()}</p>
 					</div>
 				</div>
 			{/if}
@@ -434,13 +435,13 @@
 
 			{#if editHasRoster}
 				<div>
-					<label class="label">Max participants *</label>
+					<label class="label">{m.service_new_max_participants()}</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
 			{:else if editHasInventoryUnits}
 				<div>
-					<label class="label">Available units *</label>
+					<label class="label">{m.service_new_available_units()}</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
@@ -448,7 +449,7 @@
 
 			{#if editRequiresInstructor && data.instructors.length > 0}
 				<div>
-					<label class="label mb-2">Default instructor{editHasRoster ? 's' : ''}</label>
+					<label class="label mb-2">{m.service_new_default_instructors()}</label>
 					<div class="space-y-2 rounded-lg border border-border p-3">
 						{#each data.instructors as instructor}
 							<label class="flex cursor-pointer items-center gap-3">
@@ -464,20 +465,20 @@
 
 			{#if canEditServices}
 			<div>
-				<label class="label">Base price (€) *</label>
+				<label class="label">{m.service_new_base_price()}</label>
 				<input name="basePrice" type="number" step="0.01" min="0" required value={data.service.basePrice}
 					class="input" />
 			</div>
 			{:else}
 			<div>
-				<label class="label">Base price (€)</label>
-				<p class="text-sm text-muted">Pricing managed by owners</p>
+				<label class="label">{m.service_new_base_price()}</label>
+				<p class="text-sm text-muted">{m.service_detail_price_managed()}</p>
 				<input type="hidden" name="basePrice" value={data.service.basePrice} />
 			</div>
 			{/if}
 
 			<div>
-				<label class="label">Description</label>
+				<label class="label">{m.common_description()}</label>
 				<textarea name="description" rows="3"
 					class="input"
 				>{data.service.description ?? ''}</textarea>
@@ -490,16 +491,16 @@
 			{#if canEditServices}
 			<div class="flex gap-2">
 				<button type="submit" disabled={loading} class="btn-primary flex-1">
-					{loading ? 'Saving…' : 'Save Changes'}
+					{loading ? m.common_saving() : m.common_save_changes()}
 				</button>
 				<button type="button" onclick={() => editing = false} class="btn-secondary">
-					Cancel
+					{m.common_cancel()}
 				</button>
 			</div>
 			{:else}
 			<div class="flex gap-2">
 				<button type="button" onclick={() => editing = false} class="btn-secondary flex-1">
-					Cancel
+					{m.common_cancel()}
 				</button>
 			</div>
 			{/if}
