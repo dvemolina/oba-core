@@ -1,47 +1,89 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Zap, Tent } from 'lucide-svelte';
+	import { Zap } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import FormSection from '$lib/components/bookings/FormSection.svelte';
+	import SessionSection from '$lib/components/bookings/sections/SessionSection.svelte';
+	import NotesSection from '$lib/components/bookings/sections/NotesSection.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-
 	let loading = $state(false);
-	let isFlexible = $state(untrack(() => data.defaultTime === ''));
-	let selectedServiceId = $state(data.services[0]?.id ?? '');
-	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
-	let clientSearch = $state('');
-	let selectedUnitTypeId = $state('');
 
+	// ── Service selection ──────────────────────────────────────────────────────
+	let selectedServiceId = $state(data.services[0]?.id ?? '');
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
-	// Camp = roster service with a fixed date range (surf camps, multi-day programs)
 	const isCamp = $derived(!!(selectedService?.hasRoster && selectedService?.hasDateRange));
-	const runs = $derived(selectedService ? (data.runsByService[selectedService.id] ?? []) : []);
-	let selectedRunId = $state('');
-	const selectedRun = $derived(runs.find(r => r.id === selectedRunId));
 	const isLesson = $derived(!!(selectedService?.hasSessions && !isCamp));
-	const isAccommodation = $derived(selectedService?.hasInventoryUnits);
+	const isAccommodation = $derived(!!selectedService?.hasInventoryUnits);
+	const runs = $derived(selectedService ? (data.runsByService[selectedService.id] ?? []) : []);
 	const showInstructor = $derived(
 		!isLesson && !isCamp && !isAccommodation && (selectedService?.requiresInstructor ?? false)
 	);
-	const showTimeAndFlexible = $derived(!isLesson && !isCamp && !isAccommodation);
 
-	const unitTypes = $derived(
-		isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []
-	);
-	const selectedUnitType = $derived(unitTypes.find((ut) => ut.id === selectedUnitTypeId));
+	// ── Lesson: sessions + participants ────────────────────────────────────────
+	let sessionsIncluded = $state(untrack(() => selectedService?.defaultSessionsIncluded ?? 1));
+	let participantMode = $state<'count' | 'names'>('count');
+	let participantCount = $state(1);
+	let participantNames = $state<string[]>([]);
 
-	// Auto-select first unit type when accommodation service chosen
+	function addParticipantField() {
+		participantNames = [...participantNames, ''];
+	}
+	function removeParticipantField(i: number) {
+		participantNames = participantNames.filter((_, idx) => idx !== i);
+	}
+
+	// Sync sessionsIncluded with selected service default
 	$effect(() => {
-		if (isAccommodation && unitTypes.length > 0 && !selectedUnitTypeId) {
-			selectedUnitTypeId = unitTypes[0].id;
+		const svc = selectedService;
+		if (svc?.hasSessions && svc?.defaultSessionsIncluded) {
+			untrack(() => {
+				sessionsIncluded = svc.defaultSessionsIncluded ?? 1;
+			});
 		}
+	});
+
+	// ── Session states (one per session index) ────────────────────────────────
+	let sessionDates = $state<string[]>([data.defaultDate ?? '']);
+	let sessionTimes = $state<string[]>([data.defaultTime ?? '']);
+	let sessionFlexibles = $state<boolean[]>([untrack(() => (data.defaultTime ?? '') === '')]);
+	let sessionLevels = $state<Array<'beginner' | 'intermediate' | 'advanced' | ''>>(['']);
+	let sessionInstructorIds = $state<string[][]>([[]]);
+	let sessionOpen = $state<boolean[]>([true]);
+
+	// Keep session arrays in sync with sessionsIncluded
+	$effect(() => {
+		const n = Math.max(1, sessionsIncluded);
+		sessionDates = Array.from({ length: n }, (_, i) =>
+			sessionDates[i] ?? (i === 0 ? (data.defaultDate ?? '') : '')
+		);
+		sessionTimes = Array.from({ length: n }, (_, i) => sessionTimes[i] ?? '');
+		sessionFlexibles = Array.from({ length: n }, (_, i) => sessionFlexibles[i] ?? false);
+		sessionLevels = Array.from({ length: n }, (_, i) => sessionLevels[i] ?? sessionLevels[0] ?? '');
+		sessionInstructorIds = Array.from({ length: n }, (_, i) => sessionInstructorIds[i] ?? []);
+		sessionOpen = Array.from({ length: n }, (_, i) => (i === 0 ? true : (sessionOpen[i] ?? false)));
+	});
+
+	// ── Accordion open states ─────────────────────────────────────────────────
+	let notesOpen = $state(false);
+
+	// ── Accommodation state ────────────────────────────────────────────────────
+	let selectedUnitTypeId = $state('');
+	let guestsCount = $state(1);
+	const unitTypes = $derived(isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []);
+	const selectedUnitType = $derived(unitTypes.find((ut) => ut.id === selectedUnitTypeId));
+	$effect(() => {
+		if (isAccommodation && unitTypes.length > 0 && !selectedUnitTypeId) selectedUnitTypeId = unitTypes[0].id;
 		if (!isAccommodation) selectedUnitTypeId = '';
 	});
 
+	// ── Shared client state (accommodation, camp, regular) ─────────────────────
+	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
+	let clientSearch = $state('');
 	const filteredClients = $derived(
 		clientSearch.length > 1
 			? data.clients.filter(
@@ -62,18 +104,20 @@
 		];
 		clientSearch = '';
 	}
-
 	function removeClient(clientId: string) {
 		selectedClients = selectedClients.filter((c) => c.clientId !== clientId);
 	}
 
-	// Inline new-client mini-form
+	// ── Inline new-client mini-form ────────────────────────────────────────────
 	let newClientPanel = $state(false);
 	let newFirstName = $state('');
 	let newLastName = $state('');
 	let newPhone = $state('');
 	let newEmail = $state('');
 	let creatingClient = $state(false);
+	const showCreateNew = $derived(
+		clientSearch.length > 1 && filteredClients.length === 0 && !newClientPanel
+	);
 
 	function openNewClientPanel() {
 		const parts = clientSearch.trim().split(/\s+/);
@@ -104,7 +148,7 @@
 				...selectedClients,
 				{
 					clientId: client.id,
-					name: `${client.firstName} ${client.lastName !== '—' ? ' ' + client.lastName : ''}`.trim(),
+					name: `${client.firstName}${client.lastName !== '—' ? ' ' + client.lastName : ''}`.trim(),
 					amountDue: selectedService?.basePrice ?? '0'
 				}
 			];
@@ -114,16 +158,15 @@
 		}
 	}
 
-	const showCreateNew = $derived(
-		clientSearch.length > 1 && filteredClients.length === 0 && !newClientPanel
-	);
+	// ── Camp state ─────────────────────────────────────────────────────────────
+	let selectedRunId = $state('');
+	const selectedRun = $derived(runs.find((r) => r.id === selectedRunId));
 
-	// Multi-day repeater (lessons only)
-	let participants = $state<string[]>([]);
-	function addParticipantField() { participants = [...participants, '']; }
-	function removeParticipantField(i: number) { participants = participants.filter((_, idx) => idx !== i); }
-
-	let multiDay = $state(false);
+	// ── Regular service state ──────────────────────────────────────────────────
+	let regularDate = $state(data.defaultDate ?? '');
+	let regularTime = $state(data.defaultTime ?? '');
+	let isFlexibleRegular = $state(untrack(() => (data.defaultTime ?? '') === ''));
+	let instructorId = $state('');
 	let extraDays = $state<Array<{ date: string; time: string }>>([]);
 
 	function addExtraDay() {
@@ -137,8 +180,18 @@
 		extraDays = [...extraDays, { date: nextDate, time: last?.time ?? '' }];
 	}
 
-	function removeExtraDay(i: number) {
-		extraDays = extraDays.filter((_, idx) => idx !== i);
+	// ── Notes (lesson/regular) ─────────────────────────────────────────────────
+	let spotNotes = $state('');
+	let notes = $state('');
+
+	// ── Session badge helpers ──────────────────────────────────────────────────
+	function sessionBadge(i: number): string {
+		if (sessionFlexibles[i]) return '⚡';
+		if (sessionTimes[i]) return sessionTimes[i].slice(0, 5);
+		return m.booking_new_session_not_scheduled();
+	}
+	function sessionBadgeVariant(i: number): 'done' | 'progress' | 'neutral' {
+		return sessionTimes[i] && !sessionFlexibles[i] ? 'done' : 'neutral';
 	}
 </script>
 
@@ -148,93 +201,223 @@
 		<h1 class="text-xl font-bold text-navy">{m.booking_new_title()}</h1>
 	</div>
 
+	{#if form?.error}
+		<div class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</div>
+	{/if}
+
 	<form
 		method="post"
-		class="space-y-5"
+		class="space-y-3"
 		use:enhance={() => {
 			loading = true;
 			return async ({ result, update }) => {
 				loading = false;
 				if (result.type === 'success' && result.data) {
-					const data = result.data as { bookingId?: string; multiDay?: boolean; date?: string; message?: string };
-					toast(data.message ?? 'Done');
-					if (data.multiDay) await goto(`/calendar?date=${data.date}`);
-					else if (data.bookingId) await goto(`/bookings/${data.bookingId}?new=1`);
+					const d = result.data as {
+						bookingId?: string;
+						multiDay?: boolean;
+						date?: string;
+						message?: string;
+					};
+					toast(d.message ?? m.booking_new_title());
+					if (d.multiDay) await goto(`/calendar?date=${d.date}`);
+					else if (d.bookingId) await goto(`/bookings/${d.bookingId}?new=1`);
 				} else {
 					await update();
 				}
 			};
 		}}
 	>
-		<!-- Service -->
-		<div>
-			<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_service()}</label>
-			<select
-				name="serviceId"
-				bind:value={selectedServiceId}
-				required
-				class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
-			>
-				{#each data.services as service}
-					<option value={service.id}>{service.name} — €{service.basePrice}</option>
-				{/each}
-			</select>
-		</div>
+		<!-- ── Booking basics (all types) ──────────────────────────────────────── -->
+		<FormSection title={m.booking_new_title()} open={true}>
+			<!-- Service selector (always) -->
+			<div class="mb-4">
+				<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_service()}</label>
+				<select name="serviceId" bind:value={selectedServiceId} required class="input w-full">
+					{#each data.services as s}
+						<option value={s.id}>{s.name} — €{s.basePrice}</option>
+					{/each}
+				</select>
+			</div>
 
-		{#if isAccommodation}
-			<!-- ── ACCOMMODATION MODE ────────────────────────────────── -->
+			{#if isLesson}
+				<!-- Lesson: sessions count + participants (date/time live in session sections) -->
+				<div class="space-y-4">
+					<div>
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+							{m.booking_new_sessions_included()}
+						</label>
+						<input
+							type="number"
+							name="sessionsIncluded"
+							bind:value={sessionsIncluded}
+							min="1"
+							max="20"
+							required
+							class="input w-full"
+						/>
+						<p class="mt-1 text-xs text-muted">{m.booking_new_sessions_hint()}</p>
+					</div>
 
-			{#if unitTypes.length === 0}
-				<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
-					No unit types configured for this property. Add them in the service settings first.
+					<!-- Participants -->
+					<div>
+						<div class="mb-2 flex items-center justify-between">
+							<label class="text-xs font-semibold uppercase tracking-wide text-muted">
+								{m.booking_new_participants()} <span class="font-normal normal-case">(optional)</span>
+							</label>
+							<div class="flex gap-1">
+								<button
+									type="button"
+									onclick={() => (participantMode = 'count')}
+									class="rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors
+										{participantMode === 'count' ? 'bg-ocean/10 text-ocean' : 'bg-gray-100 text-muted'}"
+								>
+									{m.booking_new_participant_mode_count()}
+								</button>
+								<button
+									type="button"
+									onclick={() => (participantMode = 'names')}
+									class="rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors
+										{participantMode === 'names' ? 'bg-ocean/10 text-ocean' : 'bg-gray-100 text-muted'}"
+								>
+									{m.booking_new_participant_mode_names()}
+								</button>
+							</div>
+						</div>
+
+						{#if participantMode === 'count'}
+							<input
+								type="number"
+								name="participantCount"
+								bind:value={participantCount}
+								min="1"
+								class="input w-full"
+								placeholder={m.booking_new_participant_count()}
+							/>
+						{:else}
+							{#each participantNames as _, i}
+								<div class="mb-2 flex gap-2">
+									<input
+										type="text"
+										name="participantName"
+										bind:value={participantNames[i]}
+										placeholder={m.booking_new_participant_placeholder()}
+										class="input flex-1"
+									/>
+									<button type="button" onclick={() => removeParticipantField(i)} class="text-muted hover:text-red-500">✕</button>
+								</div>
+							{/each}
+							<button type="button" onclick={addParticipantField} class="text-sm text-ocean hover:underline">
+								{m.booking_new_add_participant()}
+							</button>
+						{/if}
+					</div>
+				</div>
+			{:else if isAccommodation}
+				<!-- Accommodation: unit type + dates + guests -->
+				{#if unitTypes.length === 0}
+					<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
+						{m.booking_new_no_unit_types()}
+					</div>
+				{:else}
+					<div class="space-y-3">
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_unit_type()}</label>
+							<div class="space-y-2">
+								{#each unitTypes as ut}
+									<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors {selectedUnitTypeId === ut.id ? 'border-ocean bg-ocean/5' : 'border-border bg-surface hover:bg-sand'}">
+										<input type="radio" name="accommodationUnitTypeId" value={ut.id} bind:group={selectedUnitTypeId} class="accent-ocean" />
+										<div class="flex-1">
+											<p class="text-sm font-medium text-gray-800">{ut.name}</p>
+											<p class="text-xs text-muted">max {ut.maxOccupancy} · €{ut.pricePerNight}/night</p>
+										</div>
+									</label>
+								{/each}
+							</div>
+						</div>
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_checkin()}</label>
+								<input type="date" name="date" required value={data.defaultDate} class="input w-full" />
+							</div>
+							<div>
+								<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_checkout()}</label>
+								<input type="date" name="dateEnd" required class="input w-full" />
+							</div>
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_guests()}</label>
+							<input type="number" name="guestsCount" bind:value={guestsCount} min="1" max={selectedUnitType?.maxOccupancy ?? 99} class="input w-full" />
+						</div>
+					</div>
+				{/if}
+			{:else if isCamp}
+				<!-- Camp: run picker + date display -->
+				<div class="space-y-3">
+					<div>
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_run()}</label>
+						{#if runs.length > 0}
+							<select name="serviceRunId" bind:value={selectedRunId} required class="input w-full">
+								<option value="">{m.booking_new_run_select()}</option>
+								{#each runs as run}
+									<option value={run.id} disabled={!run.active}>
+										{run.startDate} → {run.endDate}{run.maxCapacity ? ` (${run.enrolledCount}/${run.maxCapacity})` : ''}{run.notes ? ` · ${run.notes}` : ''}
+									</option>
+								{/each}
+							</select>
+							{#if selectedRun}
+								<p class="mt-1 text-xs text-muted">📅 {selectedRun.startDate} → {selectedRun.endDate}</p>
+								<input type="hidden" name="date" value={selectedRun.startDate} />
+								<input type="hidden" name="dateEnd" value={selectedRun.endDate} />
+							{:else}
+								<input type="date" name="date" required value={data.defaultDate} class="input w-full mt-2" />
+							{/if}
+						{:else}
+							<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+								{m.booking_new_no_runs()} <a href="/services/{selectedService?.id}" class="underline">{m.booking_new_add_run()}</a>
+							</p>
+						{/if}
+					</div>
 				</div>
 			{:else}
-				<!-- Unit type selector -->
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_unit_type()}</label>
-					<div class="space-y-2">
-						{#each unitTypes as ut}
-							<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors
-								{selectedUnitTypeId === ut.id ? 'border-ocean bg-ocean/5' : 'border-border bg-surface hover:bg-sand'}">
-								<input type="radio" name="accommodationUnitTypeId" value={ut.id}
-									bind:group={selectedUnitTypeId} class="accent-ocean" />
-								<div class="flex-1">
-									<p class="text-sm font-medium text-gray-800">{ut.name}</p>
-									<p class="text-xs text-muted">max {ut.maxOccupancy} guests · €{ut.pricePerNight}/night</p>
-								</div>
-								<span class="text-xs font-semibold text-ocean">€{ut.pricePerNight}</span>
-							</label>
-						{/each}
+				<!-- Regular service: date, time, flexible, instructor -->
+				<div class="space-y-3">
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_date()}</label>
+							<input type="date" name="date" bind:value={regularDate} required class="input w-full" />
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_time()}</label>
+							<input type="time" name="time" bind:value={regularTime} disabled={isFlexibleRegular} class="input w-full disabled:opacity-40" />
+						</div>
 					</div>
+					<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">
+						<input type="checkbox" name="isFlexible" bind:checked={isFlexibleRegular} class="h-4 w-4 accent-ocean" />
+						<div>
+							<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> {m.booking_new_flexible()}</p>
+							<p class="text-xs text-muted">{m.booking_new_flexible_desc()}</p>
+						</div>
+					</label>
+					{#if showInstructor}
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_instructor()}</label>
+							<select name="instructorId" bind:value={instructorId} class="input w-full">
+								<option value="">{m.booking_new_unassigned()}</option>
+								{#each data.instructors as inst}
+									<option value={inst.id}>{inst.name}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
 				</div>
+			{/if}
+		</FormSection>
 
-				<!-- Check-in / check-out -->
-				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_checkin()}</label>
-						<input name="date" type="date" required value={data.defaultDate}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-					</div>
-					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_checkout()}</label>
-						<input name="dateEnd" type="date" required
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-					</div>
-				</div>
-
-				<!-- Guests count -->
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_guests()}</label>
-					<input name="guestsCount" type="number" min="1"
-						max={selectedUnitType?.maxOccupancy ?? 99}
-						value="1"
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-				</div>
-
-				<!-- Clients (guest names linked to booking) -->
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_guests_clients()}</label>
-
+		<!-- ── Clients section (accommodation, camp, regular) ──────────────────── -->
+		{#if !isLesson && selectedService}
+			<FormSection title={m.booking_new_clients()} open={true}>
+				<div class="space-y-2">
 					{#if selectedClients.length > 0}
 						<div class="mb-2 flex flex-wrap gap-2">
 							{#each selectedClients as c}
@@ -251,20 +434,17 @@
 
 					{#if !newClientPanel}
 						<div class="relative">
-							<input type="text" placeholder={m.common_search_client()} bind:value={clientSearch}
-								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
+							<input type="text" placeholder={m.booking_new_client_search()} bind:value={clientSearch} autocomplete="off" class="input w-full" />
 							{#if filteredClients.length > 0 || showCreateNew}
 								<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
 									{#each filteredClients.slice(0, 6) as client}
-										<button type="button" onclick={() => addClient(client)}
-											class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
+										<button type="button" onclick={() => addClient(client)} class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
 											{client.firstName} {client.lastName}
 											{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
 										</button>
 									{/each}
 									{#if showCreateNew}
-										<button type="button" onclick={openNewClientPanel}
-											class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
+										<button type="button" onclick={openNewClientPanel} class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
 											{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
 										</button>
 									{/if}
@@ -275,260 +455,141 @@
 						<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
 							<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
 							<div class="grid grid-cols-2 gap-2">
-								<input bind:value={newFirstName} placeholder={m.client_new_first_name()}
-									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-								<input bind:value={newLastName} placeholder={m.common_name()}
-									class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+								<input bind:value={newFirstName} placeholder={m.client_new_first_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+								<input bind:value={newLastName} placeholder={m.common_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
 							</div>
-							<input bind:value={newPhone} type="tel" placeholder={m.common_phone()}
-								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newEmail} type="email" placeholder={m.common_email()}
-								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							<input bind:value={newPhone} type="tel" placeholder={m.common_phone()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+							<input bind:value={newEmail} type="email" placeholder={m.common_email()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
 							<div class="flex gap-2 pt-1">
 								<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
 									class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-									{creatingClient ? 'Saving…' : m.common_add()}
+									{creatingClient ? m.booking_new_saving() : m.common_add()}
 								</button>
-								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-									class="btn-ghost btn-sm">{m.common_cancel()}</button>
+								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }} class="btn-ghost btn-sm">{m.common_cancel()}</button>
 							</div>
 						</div>
 					{/if}
 				</div>
-			{/if}
+			</FormSection>
+		{/if}
 
-		{:else}
-			<!-- ── REGULAR BOOKING MODE ─────────────────────────────── -->
-
-			<!-- Run picker for date-range services -->
-			{#if isCamp}
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_run()}</label>
-					{#if runs.length > 0}
-						<select name="serviceRunId" bind:value={selectedRunId} required class="input w-full">
-							<option value="">{m.booking_new_run_select()}</option>
-							{#each runs as run}
-								<option value={run.id} disabled={!run.active}>
-									{run.startDate} → {run.endDate}{run.maxCapacity ? ` (${run.enrolledCount}/${run.maxCapacity} enrolled)` : ''}{run.notes ? ` · ${run.notes}` : ''}
-								</option>
-							{/each}
-						</select>
-						{#if selectedRun}
-							<p class="mt-1 text-xs text-muted">📅 {selectedRun.startDate} → {selectedRun.endDate}</p>
-						{/if}
-					{:else}
-						<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-							{m.booking_new_no_runs()} <a href="/services/{selectedService?.id}" class="underline">{m.booking_new_add_run()}</a>
-						</p>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- Date inputs -->
-			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_date()}</label>
-					<input name="date" type="date" required value={data.defaultDate}
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-				</div>
-				{#if showTimeAndFlexible}
-					<div>
-						<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_time()}</label>
-						<input name="time" type="time" value={data.defaultTime} disabled={isFlexible}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
-					</div>
-				{/if}
-			</div>
-
-			{#if showTimeAndFlexible}
-				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">
-					<input type="checkbox" name="isFlexible" bind:checked={isFlexible} class="h-4 w-4 accent-ocean" />
-					<div>
-						<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> {m.booking_new_flexible()}</p>
-						<p class="text-xs text-muted">{m.booking_new_flexible_desc()}</p>
-					</div>
-				</label>
-			{/if}
-
-			{#if isLesson}
-				<!-- Sessions-based: how many sessions does this booking include (not for camps — sessions are ad-hoc) -->
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_sessions_included()}</label>
-					<input name="sessionsIncluded" type="number" min="1" step="1"
-						value={selectedService?.defaultSessionsIncluded ?? 1} required
-						class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-					<p class="mt-1 text-xs text-muted">{m.booking_new_sessions_hint()}</p>
-				</div>
-			{:else if showTimeAndFlexible}
-				<!-- Non-sessions services: allow creating separate bookings on multiple days -->
-				<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-sand/60 p-3">
-					<input type="checkbox" bind:checked={multiDay}
-						onchange={() => { if (!multiDay) extraDays = []; }} class="h-4 w-4 accent-ocean" />
-					<div>
-						<p class="text-sm font-medium text-gray-800">{m.booking_new_repeat()}</p>
-						<p class="text-xs text-muted">{m.booking_new_repeat_hint()}</p>
-					</div>
-				</label>
-
-				{#if multiDay}
-					<div class="space-y-2 rounded-lg border border-border p-3">
-						<p class="text-xs font-semibold text-muted uppercase tracking-wide">Additional days</p>
-						{#each extraDays as day, i}
-							<div class="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-								<input type="date" name="extraDate" bind:value={day.date} required
-									class="rounded-lg border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-								<input type="time" name="extraTime" bind:value={day.time} disabled={isFlexible}
-									class="rounded-lg border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
-								<button type="button" onclick={() => removeExtraDay(i)}
-									class="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:text-red-500">✕</button>
-							</div>
-						{/each}
-						<button type="button" onclick={addExtraDay}
-							class="w-full rounded-lg border border-dashed border-ocean/40 py-2 text-xs font-medium text-ocean hover:border-ocean hover:bg-ocean/5">
-							{m.booking_new_add_day()}
-						</button>
-					</div>
-				{/if}
-			{/if}
-
-			{#if showInstructor}
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_instructor()}</label>
-					<select name="instructorId"
-						class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none">
-						<option value="">{m.booking_new_unassigned()}</option>
-						{#each data.instructors as instructor}
-							<option value={instructor.id}>{instructor.name}</option>
-						{/each}
-					</select>
-				</div>
-			{/if}
-
-			<!-- Clients -->
-			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_clients()}</label>
-
-				{#if selectedClients.length > 0}
-					<div class="mb-2 flex flex-wrap gap-2">
-						{#each selectedClients as c}
-							<div class="flex items-center gap-1 rounded-full bg-ocean/10 py-1 pl-3 pr-1">
-								<span class="text-xs font-medium text-ocean">{c.name}</span>
-								<input type="hidden" name="clientId" value={c.clientId} />
-								<input type="hidden" name="amountDue" value={c.amountDue} />
-								<button type="button" onclick={() => removeClient(c.clientId)}
-									class="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-ocean/60 hover:text-ocean">✕</button>
-							</div>
-						{/each}
-					</div>
-				{/if}
-
-				{#if !newClientPanel}
-					<div class="relative">
-						<input type="text" placeholder={m.booking_new_client_search()} bind:value={clientSearch}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-						{#if filteredClients.length > 0 || showCreateNew}
-							<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
-								{#each filteredClients.slice(0, 6) as client}
-									<button type="button" onclick={() => addClient(client)}
-										class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
-										{client.firstName} {client.lastName}
-										{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
-									</button>
-								{/each}
-								{#if showCreateNew}
-									<button type="button" onclick={openNewClientPanel}
-										class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
-										{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
-									</button>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				{:else}
-					<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-						<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
-						<div class="grid grid-cols-2 gap-2">
-							<input bind:value={newFirstName} placeholder={m.client_new_first_name()}
-								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newLastName} placeholder={m.common_name()}
-								class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						</div>
-						<input bind:value={newPhone} type="tel" placeholder={m.common_phone()}
-							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<input bind:value={newEmail} type="email" placeholder={m.common_email()}
-							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<div class="flex gap-2 pt-1">
-							<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
-								class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-								{creatingClient ? 'Saving…' : m.common_add()}
-							</button>
-							<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-								class="btn-ghost btn-sm">{m.common_cancel()}</button>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			{#if selectedService?.hasSessions || selectedService?.hasRoster}
+		<!-- ── Lesson client (payer) section ───────────────────────────────────── -->
+		{#if isLesson && selectedService}
+			<FormSection title={m.booking_new_clients()} open={true}>
 				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<p class="text-sm font-medium text-gray-700">
-							{m.booking_new_participants()} <span class="text-muted">(optional)</span>
-						</p>
-						<button type="button" onclick={addParticipantField} class="text-xs text-ocean hover:underline">
-							{m.booking_new_add_participant()}
-						</button>
-					</div>
-					<p class="text-xs text-muted">{m.booking_new_participants_hint()}</p>
-					{#each participants as _, i}
-						<div class="flex gap-2">
-							<input
-								type="text"
-								name="participantName"
-								bind:value={participants[i]}
-								class="input flex-1"
-								placeholder={m.booking_new_participant_placeholder()}
-							/>
-							<button type="button" onclick={() => removeParticipantField(i)} class="text-muted hover:text-red-500 px-1">✕</button>
+					{#if selectedClients.length > 0}
+						<div class="mb-2 flex flex-wrap gap-2">
+							{#each selectedClients as c}
+								<div class="flex items-center gap-1 rounded-full bg-ocean/10 py-1 pl-3 pr-1">
+									<span class="text-xs font-medium text-ocean">{c.name}</span>
+									<input type="hidden" name="clientId" value={c.clientId} />
+									<input type="hidden" name="amountDue" value={c.amountDue} />
+									<button type="button" onclick={() => removeClient(c.clientId)}
+										class="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-ocean/60 hover:text-ocean">✕</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					{#if !newClientPanel}
+						<div class="relative">
+							<input type="text" placeholder={m.booking_new_client_search()} bind:value={clientSearch} autocomplete="off" class="input w-full" />
+							{#if filteredClients.length > 0 || showCreateNew}
+								<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
+									{#each filteredClients.slice(0, 6) as client}
+										<button type="button" onclick={() => addClient(client)} class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
+											{client.firstName} {client.lastName}
+											{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
+										</button>
+									{/each}
+									{#if showCreateNew}
+										<button type="button" onclick={openNewClientPanel} class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
+											{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
+										</button>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{:else}
+						<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
+							<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
+							<div class="grid grid-cols-2 gap-2">
+								<input bind:value={newFirstName} placeholder={m.client_new_first_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+								<input bind:value={newLastName} placeholder={m.common_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+							</div>
+							<input bind:value={newPhone} type="tel" placeholder={m.common_phone()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+							<input bind:value={newEmail} type="email" placeholder={m.common_email()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
+							<div class="flex gap-2 pt-1">
+								<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
+									class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
+									{creatingClient ? m.booking_new_saving() : m.common_add()}
+								</button>
+								<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }} class="btn-ghost btn-sm">{m.common_cancel()}</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</FormSection>
+		{/if}
+
+		<!-- ── Session sections (lesson only, one per session) ─────────────────── -->
+		{#if isLesson}
+			<!-- Server reads top-level date/time/isFlexible for session 0 -->
+			<input type="hidden" name="date" value={sessionDates[0] ?? ''} />
+			<input type="hidden" name="time" value={sessionFlexibles[0] ? '' : (sessionTimes[0] ?? '')} />
+			<input type="hidden" name="isFlexible" value={sessionFlexibles[0] ? 'on' : ''} />
+
+			{#each Array.from({ length: sessionsIncluded }, (_, i) => i) as i (i)}
+				<FormSection
+					title="{m.booking_new_session_n({ n: i + 1 })} {m.booking_new_session_of({ total: sessionsIncluded })}"
+					badge={sessionBadge(i)}
+					badgeVariant={sessionBadgeVariant(i)}
+					bind:open={sessionOpen[i]}
+				>
+					<SessionSection
+						index={i}
+						total={sessionsIncluded}
+						instructors={data.instructors}
+						bind:date={sessionDates[i]}
+						bind:time={sessionTimes[i]}
+						bind:isFlexible={sessionFlexibles[i]}
+						bind:skillLevel={sessionLevels[i]}
+						bind:instructorIds={sessionInstructorIds[i]}
+					/>
+				</FormSection>
+			{/each}
+		{/if}
+
+		<!-- ── Additional days (regular services only, collapsed) ──────────────── -->
+		{#if !isLesson && !isAccommodation && !isCamp && selectedService}
+			<FormSection title={m.booking_new_additional_days()} open={false}>
+				<div class="space-y-2">
+					<p class="text-xs text-muted">{m.booking_new_repeat_hint()}</p>
+					{#each extraDays as day, i}
+						<div class="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+							<input type="date" name="extraDate" bind:value={day.date} required class="input" />
+							<input type="time" name="extraTime" bind:value={day.time} disabled={isFlexibleRegular} class="input disabled:opacity-40" />
+							<button type="button" onclick={() => { extraDays = extraDays.filter((_, idx) => idx !== i); }}
+								class="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:text-red-500">✕</button>
 						</div>
 					{/each}
+					<button type="button" onclick={addExtraDay}
+						class="w-full rounded-lg border border-dashed border-ocean/40 py-2 text-xs font-medium text-ocean hover:border-ocean hover:bg-ocean/5">
+						{m.booking_new_add_day()}
+					</button>
 				</div>
-			{/if}
-
-			{#if !isCamp}
-				<details class="group">
-					<summary class="cursor-pointer text-sm text-muted hover:text-gray-700">Notes & spot details ▸</summary>
-					<div class="mt-3 space-y-3">
-						{#if isLesson}
-							<div>
-								<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_spot_notes()}</label>
-								<input name="spotNotes"
-									class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
-									placeholder={m.booking_new_spot_placeholder()} />
-							</div>
-						{/if}
-						<div>
-							<label class="mb-1 block text-sm font-medium text-gray-700">{m.booking_new_internal_notes()}</label>
-							<textarea name="notes" rows="2"
-								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"></textarea>
-						</div>
-					</div>
-				</details>
-			{/if}
+			</FormSection>
 		{/if}
 
-		{#if form?.error}
-			<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
+		<!-- ── Notes (lesson + regular, collapsed) ─────────────────────────────── -->
+		{#if !isCamp && !isAccommodation}
+			<FormSection title={m.booking_new_notes_section()} bind:open={notesOpen}>
+				<NotesSection bind:spotNotes bind:notes />
+			</FormSection>
 		{/if}
 
-		<button
-			type="submit"
-			disabled={loading || selectedClients.length === 0}
-			class="btn-primary btn-block"
-		>
-			{#if loading}Saving…
-			{:else if isAccommodation}{m.booking_new_accommodation()}
-			{:else}{m.booking_new_submit()}{/if}
+		<button type="submit" disabled={loading || selectedClients.length === 0} class="btn-primary btn-block mt-2">
+			{loading ? m.booking_new_saving() : (isAccommodation ? m.booking_new_accommodation() : m.booking_new_submit())}
 		</button>
 	</form>
 </div>
