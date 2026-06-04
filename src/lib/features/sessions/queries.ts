@@ -120,6 +120,7 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 			status: sessions.status,
 			durationMinutes: sessions.durationMinutes,
 		sortOrder: sessions.sortOrder,
+			skillLevel: sessions.skillLevel,
 			createdAt: sessions.createdAt,
 			updatedAt: sessions.updatedAt
 		})
@@ -256,6 +257,7 @@ export async function listUnscheduledSessions(from: string, to: string): Promise
 			status: sessions.status,
 			durationMinutes: sessions.durationMinutes,
 		sortOrder: sessions.sortOrder,
+			skillLevel: sessions.skillLevel,
 			createdAt: sessions.createdAt,
 			updatedAt: sessions.updatedAt
 		})
@@ -460,6 +462,7 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 			status: sessions.status,
 			durationMinutes: sessions.durationMinutes,
 		sortOrder: sessions.sortOrder,
+			skillLevel: sessions.skillLevel,
 			createdAt: sessions.createdAt,
 			updatedAt: sessions.updatedAt
 		})
