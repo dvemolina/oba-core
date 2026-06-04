@@ -132,46 +132,56 @@ export const actions: Actions = {
 			const sessionsIncludedRaw = form.get('sessionsIncluded')?.toString();
 			const sessionsIncluded = sessionsIncludedRaw ? Math.max(1, parseInt(sessionsIncludedRaw)) : 1;
 
-			const booking = await createBooking({
-				serviceId, serviceRunId, date, isFlexible, status, spotNotes, notes,
-				sessionsIncluded,
-				clients: bookingClients
-				// NO instructorId for session-based services — instructor is set per-session
-			});
-
-			// Create sessions: first session gets the entered time (if not flexible), rest are unscheduled
-			const createdSessions = await Promise.all(
-				Array.from({ length: sessionsIncluded }, (_, i) =>
-					createSession({
-						bookingId: booking.id,
-						date,
-						time: i === 0 && !isFlexible ? time : undefined,
-						sortOrder: i
-					})
-				)
-			);
-			const createdSessionIds = createdSessions.map(s => s.id);
-
-			// Auto-copy booking participants to each session
+			// Participant count vs named participants
+			const participantCountRaw = form.get('participantCount')?.toString();
+			const participantCount = participantCountRaw ? parseInt(participantCountRaw) : undefined;
 			const participantNames = form.getAll('participantName')
 				.map(n => n.toString().trim())
 				.filter(Boolean);
 
+			const booking = await createBooking({
+				serviceId, serviceRunId, date, isFlexible, status, spotNotes, notes,
+				sessionsIncluded,
+				participantCount,
+				clients: bookingClients
+			});
+
+			// Per-session data from accordion form
+			const createdSessions = await Promise.all(
+				Array.from({ length: sessionsIncluded }, (_, i) => {
+					const sessionDate = form.get(`sessionDate[${i}]`)?.toString() || date;
+					const sessionTime = form.get(`sessionTime[${i}]`)?.toString() || undefined;
+					const sessionFlexible = form.get(`sessionFlexible[${i}]`)?.toString() === 'on';
+					const sessionLevel = (form.get(`sessionLevel[${i}]`)?.toString() || undefined) as
+						'beginner' | 'intermediate' | 'advanced' | undefined;
+					const sessionInstructorIds = form.getAll(`sessionInstructor[${i}][]`).map(String).filter(Boolean);
+					return createSession({
+						bookingId: booking.id,
+						date: sessionDate,
+						time: !sessionFlexible && sessionTime ? sessionTime : undefined,
+						skillLevel: sessionLevel,
+						instructorIds: sessionInstructorIds,
+						sortOrder: i
+					});
+				})
+			);
+
+			// Named participants: add to booking + all sessions
 			if (participantNames.length > 0) {
 				await bulkAddBookingParticipants(booking.id, participantNames);
 				await Promise.all(
-					createdSessionIds.flatMap(sessionId =>
-						participantNames.map(name => addParticipant({ sessionId, name }))
+					createdSessions.flatMap(s =>
+						participantNames.map(name => addParticipant({ sessionId: s.id, name }))
 					)
 				);
 			}
 
-			const scheduled = !isFlexible && time ? 1 : 0;
+			const scheduled = createdSessions.filter(s => s.time).length;
 			const remaining = sessionsIncluded - scheduled;
 			const msg = scheduled > 0
 				? remaining > 0
-					? `Booking created — 1 session at ${time!.slice(0,5)}, ${remaining} to schedule`
-					: `Booking created — session at ${time!.slice(0,5)}`
+					? `Booking created — ${scheduled} session${scheduled > 1 ? 's' : ''} scheduled, ${remaining} to schedule`
+					: `Booking created — ${scheduled} session${scheduled > 1 ? 's' : ''} scheduled`
 				: `Booking created — ${sessionsIncluded} session${sessionsIncluded > 1 ? 's' : ''} to schedule`;
 			return { bookingId: booking.id, message: msg };
 		}
