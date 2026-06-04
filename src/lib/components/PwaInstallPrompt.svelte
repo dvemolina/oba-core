@@ -5,6 +5,7 @@
 
 	let visible = $state(false);
 	let isIOS = $state(false);
+	let isMobile = $state(false);
 	let deferredPrompt = $state<any>(null);
 
 	onMount(() => {
@@ -17,19 +18,16 @@
 		// Already dismissed — never show again
 		if (localStorage.getItem(DISMISSED_KEY)) return;
 
-		// Only show on touch/mobile devices
-		const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-			(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent)); // iPad on desktop UA
-		if (!isMobile) return;
+		isMobile = navigator.maxTouchPoints > 0;
 
+		// iOS / iPadOS: no install event, show manual instructions
 		isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
 			(navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
 
 		if (isIOS) {
-			// iOS: no install event, just show instructions
 			visible = true;
 		} else {
-			// Android/Chrome: wait for install prompt
+			// Chrome / Edge (desktop + Android): intercept install prompt
 			window.addEventListener('beforeinstallprompt', (e: Event) => {
 				e.preventDefault();
 				deferredPrompt = e;
@@ -56,14 +54,16 @@
 
 {#if visible}
 	<!-- Backdrop -->
-	<div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-6"
+	<div class="fixed inset-0 z-50 flex bg-black/40 px-4 {isMobile ? 'items-end pb-6 justify-center' : 'items-center justify-center'}"
 		role="dialog" aria-modal="true" aria-label="Install app">
 
 		<div class="w-full max-w-sm rounded-2xl bg-surface shadow-2xl">
-			<!-- Handle bar -->
-			<div class="flex justify-center pt-3 pb-1">
-				<div class="h-1 w-10 rounded-full bg-border"></div>
-			</div>
+			<!-- Handle bar (mobile only) -->
+			{#if isMobile}
+				<div class="flex justify-center pt-3 pb-1">
+					<div class="h-1 w-10 rounded-full bg-border"></div>
+				</div>
+			{/if}
 
 			<div class="px-6 pb-6 pt-3">
 				<!-- Icon + title -->
@@ -71,7 +71,7 @@
 					<img src="/oba-favicon.png" alt="OBA" class="h-12 w-12 rounded-2xl shadow-sm" />
 					<div>
 						<p class="text-base font-bold text-navy">Install OBA</p>
-						<p class="text-xs text-muted">Add to your home screen</p>
+						<p class="text-xs text-muted">{isMobile ? 'Add to your home screen' : 'Install as a desktop app'}</p>
 					</div>
 				</div>
 
@@ -101,7 +101,7 @@
 					</button>
 				{:else}
 					<p class="mb-5 text-sm text-gray-700">
-						Install OBA for full-screen access — no browser bar, faster loading.
+						{isMobile ? 'Install OBA for full-screen access — no browser bar, faster loading.' : 'Install OBA as a desktop app — opens in its own window, no browser bar.'}
 					</p>
 					<button onclick={install}
 						class="mb-2 w-full rounded-xl bg-ocean py-3 text-sm font-semibold text-white transition-colors hover:bg-ocean/90 active:scale-95">

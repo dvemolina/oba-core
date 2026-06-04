@@ -93,6 +93,7 @@ services:
       - oba_internal_api_key
     environment:
       NODE_ENV: production
+      PUBLIC_BUSINESS_NAME: Tipiti Surf School
       ORIGIN: https://oba.tipitisurf.com
       PROTOCOL_HEADER: x-forwarded-proto
       HOST_HEADER: x-forwarded-host

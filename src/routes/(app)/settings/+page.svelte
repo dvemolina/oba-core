@@ -169,8 +169,19 @@
 	</section>
 
 	<!-- Placeholders for future sections -->
-	<section class="rounded-(--radius-card) bg-surface p-5 ring-1 ring-border opacity-50">
+	<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border opacity-50">
 		<h2 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_notifications()}</h2>
 		<p class="text-sm text-muted">{m.settings_notifications_coming_soon()}</p>
+	</section>
+
+	<!-- Sign out -->
+	<section class="rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Session</h2>
+		<form method="post" action="?/signOut" use:enhance>
+			<button type="submit"
+				class="w-full rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 active:scale-[0.99]">
+				Sign out
+			</button>
+		</form>
 	</section>
 </div>

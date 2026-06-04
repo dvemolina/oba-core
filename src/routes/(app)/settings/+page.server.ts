@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -48,5 +48,10 @@ export const actions: Actions = {
 		} catch {
 			return fail(400, { passwordError: 'Current password is incorrect' });
 		}
+	},
+
+	signOut: async ({ request }) => {
+		await auth.api.signOut({ headers: request.headers });
+		redirect(303, '/auth/login');
 	}
 };
