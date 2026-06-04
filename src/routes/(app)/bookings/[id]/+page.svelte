@@ -11,6 +11,7 @@
 	import ContactButtons from '$lib/components/ContactButtons.svelte';
 	import { Zap, Waves, Bell, Tent, Shuffle } from 'lucide-svelte';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -194,7 +195,7 @@
 		{#if withPhone.length > 0}
 			<div class="rounded-(--radius-card) border border-green-200 bg-green-50 p-4">
 				<div class="flex items-start justify-between gap-2">
-					<p class="text-sm font-semibold text-green-800">Booking created — send confirmation?</p>
+					<p class="text-sm font-semibold text-green-800">{m.booking_detail_confirm_prompt()}</p>
 					<button type="button" onclick={() => confirmationDismissed = true}
 						class="shrink-0 text-sm text-green-600 hover:text-green-800">✕</button>
 				</div>
@@ -204,7 +205,7 @@
 							<span class="text-sm font-medium text-gray-800">{bc.clientFirstName} {bc.clientLastName}</span>
 							<a href={waUrl(bc.clientPhone!, waMessage(bc, 'confirmation'))} target="_blank" rel="noopener noreferrer"
 								class="flex items-center gap-1.5 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-600">
-								WhatsApp ✓ Confirm
+								{m.booking_detail_whatsapp_confirm()}
 							</a>
 						</div>
 					{/each}
@@ -232,7 +233,7 @@
 				{/if}
 			</p>
 			{#if data.booking.serviceRunId}
-				<p class="mt-0.5 text-xs text-muted">Run: {data.booking.serviceRunStartDate} → {data.booking.serviceRunEndDate}</p>
+				<p class="mt-0.5 text-xs text-muted">{m.booking_detail_run()} {data.booking.serviceRunStartDate} → {data.booking.serviceRunEndDate}</p>
 			{/if}
 			{#if data.booking.source === 'whatsapp_bot'}
 				<span class="mt-1 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -249,13 +250,13 @@
 	{#if !editing}
 		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 			<div class="mb-3 flex items-center justify-between">
-				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Details</p>
-				<button type="button" onclick={openEdit} class="text-xs text-ocean hover:underline">Edit</button>
+				<p class="text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_details()}</p>
+				<button type="button" onclick={openEdit} class="text-xs text-ocean hover:underline">{m.common_edit()}</button>
 			</div>
 			<div class="space-y-2.5">
 				{#if data.booking.accommodationUnitName}
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">Unit</span>
+						<span class="text-xs text-muted">{m.booking_detail_unit()}</span>
 						<span class="text-sm text-gray-800">
 							{data.booking.accommodationUnitTypeName ? data.booking.accommodationUnitTypeName + ' · ' : ''}{data.booking.accommodationUnitName}
 						</span>
@@ -263,31 +264,31 @@
 				{/if}
 				{#if data.booking.guestsCount}
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">Guests</span>
+						<span class="text-xs text-muted">{m.booking_new_guests()}</span>
 						<span class="text-sm text-gray-800">{data.booking.guestsCount}</span>
 					</div>
 				{/if}
 				{#if !hasSessions && data.booking.instructorName}
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">Instructor</span>
+						<span class="text-xs text-muted">{m.booking_new_instructor()}</span>
 						<span class="flex items-center gap-1.5 text-sm text-gray-800"><Waves size={13} class="shrink-0 text-ocean/60" />{data.booking.instructorName}</span>
 					</div>
 				{/if}
 				{#if data.booking.sessionsIncluded != null}
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">Sessions purchased</span>
+						<span class="text-xs text-muted">{m.booking_detail_sessions_purchased()}</span>
 						<span class="text-sm text-gray-800">{data.booking.sessionsIncluded}</span>
 					</div>
 				{/if}
 				{#if data.booking.spotNotes}
 					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">Spot</span>
+						<span class="text-xs text-muted">{m.booking_detail_spot()}</span>
 						<span class="text-sm text-gray-800">{data.booking.spotNotes}</span>
 					</div>
 				{/if}
 				{#if data.booking.notes}
 					<div>
-						<p class="text-xs text-muted">Notes</p>
+						<p class="text-xs text-muted">{m.common_notes()}</p>
 						<p class="mt-0.5 text-sm text-gray-700">{data.booking.notes}</p>
 					</div>
 				{/if}
@@ -298,8 +299,8 @@
 		<!-- Edit form -->
 		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 			<div class="mb-3 flex items-center justify-between">
-				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Edit Details</p>
-				<button type="button" onclick={() => editing = false} class="text-xs text-muted hover:text-gray-700">✕ Cancel</button>
+				<p class="text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_edit_details()}</p>
+				<button type="button" onclick={() => editing = false} class="text-xs text-muted hover:text-gray-700">{m.booking_detail_cancel()}</button>
 			</div>
 			<form method="post" action="?/update" use:enhance={withToast(() => { editing = false; })} class="space-y-3">
 				<input type="hidden" name="status" value={data.booking.status} />
@@ -320,13 +321,13 @@
 				{#if !hasSessions}
 					<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
 						<input type="checkbox" name="isFlexible" bind:checked={editFlexible} class="h-4 w-4 accent-ocean" />
-						<Zap size={14} class="shrink-0" /> Flexible time
+						<Zap size={14} class="shrink-0" /> {m.booking_new_flexible()}
 					</label>
 					<div>
-						<label class="mb-1 block text-xs text-muted">Instructor</label>
+						<label class="mb-1 block text-xs text-muted">{m.booking_new_instructor()}</label>
 						<select name="instructorId" bind:value={editInstructorId}
 							class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none">
-							<option value="">— unassigned —</option>
+							<option value="">{m.booking_new_unassigned()}</option>
 							{#each data.instructors as instructor}
 								<option value={instructor.id}>{instructor.name}</option>
 							{/each}
@@ -334,17 +335,17 @@
 					</div>
 				{/if}
 				<div>
-					<label class="mb-1 block text-xs text-muted">Spot / location notes</label>
+					<label class="mb-1 block text-xs text-muted">{m.booking_new_spot_notes()}</label>
 					<input name="spotNotes" value={data.booking.spotNotes ?? ''}
 						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none"
-						placeholder="e.g. Playa Norte, left peak" />
+						placeholder={m.booking_new_spot_placeholder()} />
 				</div>
 				<div>
-					<label class="mb-1 block text-xs text-muted">Internal notes</label>
+					<label class="mb-1 block text-xs text-muted">{m.booking_new_internal_notes()}</label>
 					<textarea name="notes" rows="2"
 						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none">{data.booking.notes ?? ''}</textarea>
 				</div>
-				<button type="submit" class="btn-primary btn-block">Save</button>
+				<button type="submit" class="btn-primary btn-block">{m.common_save()}</button>
 			</form>
 		</div>
 	{/if}
@@ -354,7 +355,7 @@
 		<!-- Header row -->
 		<div class="flex items-center justify-between px-4 pt-4 pb-3">
 			<p class="text-xs font-semibold uppercase tracking-wider text-muted">
-				Clients & Payment
+				{m.booking_detail_clients_payment()}
 				{#if hasRoster && maxCapacity != null}
 					<span class="ml-1.5 font-normal normal-case tracking-normal text-slate-600">
 						{enrolled} / {maxCapacity}
@@ -363,7 +364,7 @@
 			</p>
 			{#if hasRoster && (slotsLeft == null || slotsLeft > 0) && data.booking.status !== 'cancelled'}
 				<button type="button" onclick={() => { selectedEnroll = null; enrollPanel = false; enrollSearch = ''; }}
-					class="text-xs font-medium text-ocean hover:underline">+ Enroll</button>
+					class="text-xs font-medium text-ocean hover:underline">{m.booking_detail_enroll()}</button>
 			{/if}
 		</div>
 
@@ -384,12 +385,12 @@
 						<span class="flex-1 text-sm text-gray-800">{selectedEnroll.name}</span>
 						<input type="hidden" name="clientId" value={selectedEnroll.clientId} />
 						<input type="hidden" name="amountDue" value={data.booking.serviceMaxCapacity ? '' : ''} />
-						<button type="submit" class="btn-primary btn-sm">Enroll</button>
+						<button type="submit" class="btn-primary btn-sm">{m.booking_detail_enroll()}</button>
 						<button type="button" onclick={() => selectedEnroll = null} class="text-xs text-muted hover:text-gray-700">✕</button>
 					</form>
 				{:else if !enrollPanel}
 					<div class="relative">
-						<input type="text" placeholder="Search student to enroll…" bind:value={enrollSearch}
+						<input type="text" placeholder={m.booking_detail_search_student()} bind:value={enrollSearch}
 							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 						{#if filteredClients.length > 0 || showCreateNew}
 							<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
@@ -403,7 +404,7 @@
 								{#if showCreateNew}
 									<button type="button" onclick={openNewClientPanel}
 										class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean hover:bg-sand">
-										+ Create "<span class="font-medium">{enrollSearch}</span>"
+										{m.booking_new_create_client()} "<span class="font-medium">{enrollSearch}</span>"
 									</button>
 								{/if}
 							</div>
@@ -411,20 +412,20 @@
 					</div>
 				{:else}
 					<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-						<p class="text-xs font-semibold text-ocean">New client</p>
+						<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
 						<div class="grid grid-cols-2 gap-2">
-							<input bind:value={newFirstName} placeholder="First name *" class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newLastName} placeholder="Last name" class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							<input bind:value={newFirstName} placeholder={m.client_new_first_name()} class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+							<input bind:value={newLastName} placeholder={m.common_name()} class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						</div>
-						<input bind:value={newPhone} type="tel" placeholder="Phone" class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<input bind:value={newEmail} type="email" placeholder="Email" class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+						<input bind:value={newPhone} type="tel" placeholder={m.common_phone()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
+						<input bind:value={newEmail} type="email" placeholder={m.common_email()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 						<div class="flex gap-2 pt-1">
 							<button type="button" onclick={saveNewEnrollClient} disabled={!newFirstName || creatingClient}
 								class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-								{creatingClient ? 'Saving…' : 'Add & select'}
+								{creatingClient ? 'Saving…' : m.booking_detail_add_select()}
 							</button>
 							<button type="button" onclick={() => { enrollPanel = false; enrollSearch = ''; }}
-								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border">Cancel</button>
+								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border">{m.common_cancel()}</button>
 						</div>
 					</div>
 				{/if}
@@ -451,7 +452,7 @@
 						<ContactButtons phone={bc.clientPhone} email={bc.clientEmail} whatsappMessage={waMessage(bc, 'confirmation')} />
 						{#if bc.clientPhone}
 							<a href={waUrl(bc.clientPhone, waMessage(bc, 'reminder'))} target="_blank" rel="noopener noreferrer"
-								class="btn-secondary btn-sm btn-block gap-1.5"><Bell size={13} /> Send reminder</a>
+								class="btn-secondary btn-sm btn-block gap-1.5"><Bell size={13} /> {m.booking_detail_send_reminder()}</a>
 						{/if}
 					</div>
 					{#if canSeeFinancials}
@@ -459,7 +460,7 @@
 						<input type="hidden" name="bookingClientId" value={bc.id} />
 						<input type="hidden" name="amountDue" value={bc.amountDue} />
 						<div class="flex-1">
-							<label class="text-xs text-muted">Paid of €{bc.amountDue}</label>
+							<label class="text-xs text-muted">{m.booking_detail_paid_of()} €{bc.amountDue}</label>
 							<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
 								class="mt-0.5 input" />
 						</div>
@@ -471,7 +472,7 @@
 							<input type="hidden" name="bookingClientId" value={bc.id} />
 							<button type="submit"
 								onclick={(e) => { if (!confirm('Remove this client?')) e.preventDefault(); }}
-								class="text-xs text-muted hover:text-red-500">Remove from booking</button>
+								class="text-xs text-muted hover:text-red-500">{m.booking_detail_remove()}</button>
 						</form>
 					{/if}
 				</div>
@@ -489,7 +490,7 @@
 							<span class="text-sm text-gray-500 line-through">{bc.clientFirstName} {bc.clientLastName}</span>
 							<form method="post" action="?/reenrollClient" use:enhance={withToast()}>
 								<input type="hidden" name="bookingClientId" value={bc.id} />
-								<button type="submit" class="text-xs text-ocean hover:underline">Re-enroll</button>
+								<button type="submit" class="text-xs text-ocean hover:underline">{m.booking_detail_reenroll()}</button>
 							</form>
 						</div>
 					{/each}
@@ -501,8 +502,8 @@
 	<!-- Participants (who's actually doing the activity) -->
 	{#if data.booking.serviceHasSessions || data.booking.serviceHasRoster}
 		<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
-			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Participants</h2>
-			<p class="mb-3 text-xs text-muted">People actually doing the activity. Use when the client is a parent or group organiser.</p>
+			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_participants()}</h2>
+			<p class="mb-3 text-xs text-muted">{m.booking_detail_participants_hint()}</p>
 
 			{#if data.booking.participants.length > 0}
 				<ul class="mb-3 space-y-1.5">
@@ -517,17 +518,17 @@
 					{/each}
 				</ul>
 			{:else}
-				<p class="mb-3 text-xs text-muted">No participants recorded.</p>
+				<p class="mb-3 text-xs text-muted">{m.booking_detail_no_participants()}</p>
 			{/if}
 
 			<form method="POST" action="?/addBookingParticipant" use:enhance={withToast()} class="flex flex-col gap-2">
 				<div class="flex gap-2">
-					<input name="name" type="text" placeholder="Add participant name…" class="input input-sm flex-1" />
-					<button type="submit" class="btn-primary btn-sm">Add</button>
+					<input name="name" type="text" placeholder={m.booking_detail_add_participant()} class="input input-sm flex-1" />
+					<button type="submit" class="btn-primary btn-sm">{m.common_add()}</button>
 				</div>
 				<label class="flex cursor-pointer items-center gap-2 text-xs text-muted">
 					<input type="checkbox" name="addToSessions" value="true" class="h-3.5 w-3.5" />
-					Also add to all sessions of this booking
+					{m.booking_detail_add_to_sessions()}
 				</label>
 			</form>
 		</section>
@@ -540,7 +541,7 @@
 			<div class="flex items-center justify-between px-4 pt-4 pb-3">
 				<div>
 					<p class="text-xs font-semibold uppercase tracking-wider text-muted">
-						Sessions
+						{m.booking_detail_sessions()}
 						{#if data.booking.sessionsIncluded != null}
 							<span class="ml-1.5 font-normal normal-case tracking-normal text-slate-600">
 								{scheduledSessions.length}/{data.booking.sessionsIncluded} scheduled

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 	let { data }: { data: PageData } = $props();
 
 	let activeRunId = $state(data.focusRunId ?? data.runs[0]?.id ?? '');
@@ -11,13 +12,13 @@
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/services/{data.service.id}" class="text-sm text-muted hover:text-navy">← {data.service.name}</a>
-		<h1 class="text-xl font-bold text-navy">Camp Roster</h1>
+		<h1 class="text-xl font-bold text-navy">{m.camp_roster_title()}</h1>
 	</div>
 
 	{#if data.runs.length === 0}
 		<div class="rounded-lg bg-sand p-6 text-center">
-			<p class="text-sm text-muted">No runs yet for this service.</p>
-			<a href="/services/{data.service.id}" class="mt-2 block text-sm text-ocean hover:underline">Add a run →</a>
+			<p class="text-sm text-muted">{m.camp_roster_no_runs()}</p>
+			<a href="/services/{data.service.id}" class="mt-2 block text-sm text-ocean hover:underline">{m.camp_roster_add_run()}</a>
 		</div>
 	{:else}
 		<!-- Run tabs -->
@@ -36,7 +37,7 @@
 				</button>
 			{/each}
 			<a href="/services/{data.service.id}" class="rounded-full px-3 py-1.5 text-sm text-muted ring-1 ring-border hover:ring-ocean/50">
-				+ Add run
+				{m.camp_roster_add_run_short()}
 			</a>
 		</div>
 
@@ -47,9 +48,9 @@
 					<div>
 						<p class="font-semibold text-gray-800">{activeRun.startDate} → {activeRun.endDate}</p>
 						{#if activeRun.maxCapacity}
-							<p class="text-xs text-muted">{totalEnrolled} / {activeRun.maxCapacity} spots filled</p>
+							<p class="text-xs text-muted">{totalEnrolled} / {activeRun.maxCapacity} {m.camp_roster_spots_filled()}</p>
 						{:else}
-							<p class="text-xs text-muted">{totalEnrolled} enrolled</p>
+							<p class="text-xs text-muted">{totalEnrolled} {m.camp_roster_enrolled()}</p>
 						{/if}
 						{#if activeRun.notes}
 							<p class="mt-0.5 text-xs text-muted">{activeRun.notes}</p>
@@ -59,14 +60,14 @@
 						href="/bookings/new?serviceId={data.service.id}"
 						class="btn-primary btn-sm"
 					>
-						+ Book client
+						{m.camp_roster_book_client()}
 					</a>
 				</div>
 			</div>
 
 			<!-- Roster -->
 			{#if activeBookings.length === 0}
-				<p class="py-8 text-center text-sm text-muted">No bookings for this run yet.</p>
+				<p class="py-8 text-center text-sm text-muted">{m.camp_roster_no_bookings()}</p>
 			{:else}
 				<div class="space-y-2">
 					{#each activeBookings as booking}
