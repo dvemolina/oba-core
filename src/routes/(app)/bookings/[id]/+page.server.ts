@@ -177,8 +177,10 @@ export const actions: Actions = {
 		const durationMinutes = durRaw ? parseInt(durRaw) : null;
 		const notes = form.get('sessionNotes')?.toString() || null;
 		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
+		const skillLevelRaw = form.get('sessionLevel')?.toString() || null;
+		const skillLevel = (skillLevelRaw as 'beginner' | 'intermediate' | 'advanced' | null) ?? null;
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
-		await updateSession(sessionId, { time, durationMinutes, notes, instructorIds });
+		await updateSession(sessionId, { time, durationMinutes, notes, instructorIds, skillLevel });
 		return { error: null, message: 'Session updated' };
 	},
 
