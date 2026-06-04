@@ -22,7 +22,7 @@
 		</div>
 
 		<!-- Card -->
-		<div class="rounded-[var(--radius-card)] bg-surface p-6 shadow-sm ring-1 ring-border">
+		<div class="rounded-(--radius-card)] bg-surface p-6 shadow-sm ring-1 ring-border">
 			<h2 class="mb-6 text-lg font-semibold text-gray-800">Sign in</h2>
 
 			<form
