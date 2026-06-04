@@ -3,17 +3,18 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { Calendar, BookOpen, Users, LayoutGrid, Sun, UserCheck, Settings, Grid2X2, X } from 'lucide-svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	let { role = 'instructor' }: { role: string } = $props();
 
 	const allItems = [
-		{ href: '/agenda',    label: 'Today',    icon: Sun,        roles: ['admin','owner','manager','instructor'] },
-		{ href: '/calendar',  label: 'Calendar', icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
-		{ href: '/bookings',  label: 'Bookings', icon: BookOpen,   roles: ['admin','owner','manager'] },
-		{ href: '/clients',   label: 'Clients',  icon: Users,      roles: ['admin','owner','manager'] },
-		{ href: '/services',  label: 'Services', icon: LayoutGrid, roles: ['admin','owner','manager'] },
-		{ href: '/staff',     label: 'Staff',    icon: UserCheck,  roles: ['admin','owner'] },
-		{ href: '/settings',  label: 'Settings', icon: Settings,   roles: ['admin','owner','manager','instructor'] },
+		{ href: '/agenda',    label: () => m.nav_today(),    icon: Sun,        roles: ['admin','owner','manager','instructor'] },
+		{ href: '/calendar',  label: () => m.nav_calendar(), icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
+		{ href: '/bookings',  label: () => m.nav_bookings(), icon: BookOpen,   roles: ['admin','owner','manager'] },
+		{ href: '/clients',   label: () => m.nav_clients(),  icon: Users,      roles: ['admin','owner','manager'] },
+		{ href: '/services',  label: () => m.nav_services(), icon: LayoutGrid, roles: ['admin','owner','manager'] },
+		{ href: '/staff',     label: () => m.nav_staff(),    icon: UserCheck,  roles: ['admin','owner'] },
+		{ href: '/settings',  label: () => m.nav_settings(), icon: Settings,   roles: ['admin','owner','manager','instructor'] },
 	];
 
 	const visibleItems = $derived(allItems.filter(i => i.roles.includes(role)));
@@ -46,7 +47,7 @@
 							{#if active}<span class="absolute inset-0 rounded-lg bg-ocean/12"></span>{/if}
 							<item.icon size={20} strokeWidth={active ? 2.5 : 1.75} />
 						</span>
-						<span class="text-[10px] font-medium">{item.label}</span>
+						<span class="text-[10px] font-medium">{item.label()}</span>
 					</a>
 				{/each}
 			</div>
@@ -63,7 +64,7 @@
 			<a
 				href={item.href}
 				aria-current={active ? 'page' : undefined}
-				aria-label={item.label}
+				aria-label={item.label()}
 				onclick={close}
 				class="flex min-w-0 flex-1 flex-col items-center gap-1 px-2 py-2.5 text-[10px] font-medium
 				       transition-colors duration-150
@@ -73,13 +74,13 @@
 					{#if active}<span class="absolute inset-x-0 -bottom-1 h-0.5 rounded-full bg-ocean"></span>{/if}
 					<item.icon size={20} strokeWidth={active ? 2.5 : 1.75} />
 				</span>
-				<span class="truncate">{item.label}</span>
+				<span class="truncate">{item.label()}</span>
 			</a>
 		{/each}
 
 		<button
 			onclick={() => moreOpen = !moreOpen}
-			aria-label={moreOpen ? 'Close menu' : 'More'}
+			aria-label={moreOpen ? m.nav_close() : m.nav_more()}
 			class="flex min-w-0 flex-1 flex-col items-center gap-1 px-2 py-2.5 text-[10px] font-medium
 			       transition-colors duration-150
 			       {moreOpen ? 'text-ocean' : 'text-muted hover:text-slate-700'}"
@@ -92,7 +93,7 @@
 					<Grid2X2 size={20} strokeWidth={1.75} />
 				{/if}
 			</span>
-			<span class="truncate">{moreOpen ? 'Close' : 'More'}</span>
+			<span class="truncate">{moreOpen ? m.nav_close() : m.nav_more()}</span>
 		</button>
 	</nav>
 </div>
