@@ -276,6 +276,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			source: bookings.source,
 			spotNotes: bookings.spotNotes,
 			notes: bookings.notes,
+			participantCount: bookings.participantCount,
 			createdAt: bookings.createdAt,
 			updatedAt: bookings.updatedAt
 		})
@@ -357,7 +358,8 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			status: input.status ?? (input.source === 'whatsapp_bot' ? 'pending' : 'confirmed'),
 			source: input.source ?? 'admin',
 			spotNotes: input.spotNotes,
-			notes: input.notes
+			notes: input.notes,
+			participantCount: input.participantCount ?? null
 		})
 		.returning();
 

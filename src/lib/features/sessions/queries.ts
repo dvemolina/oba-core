@@ -95,6 +95,7 @@ export async function listSessionsForBooking(bookingId: string): Promise<Session
 			status: sessions.status,
 			durationMinutes: sessions.durationMinutes,
 		sortOrder: sessions.sortOrder,
+			skillLevel: sessions.skillLevel,
 			createdAt: sessions.createdAt,
 			updatedAt: sessions.updatedAt
 		})
@@ -313,7 +314,8 @@ export async function createSession(input: CreateSessionInput): Promise<Session>
 		durationMinutes: input.durationMinutes,
 		notes: input.notes,
 		status: input.time ? 'scheduled' : 'unscheduled',
-		sortOrder: input.sortOrder ?? 0
+		sortOrder: input.sortOrder ?? 0,
+		skillLevel: input.skillLevel ?? null
 	}).returning();
 
 	// Link to booking via junction
@@ -340,6 +342,7 @@ export async function updateSession(id: string, input: UpdateSessionInput): Prom
 	if (input.notes !== undefined)     updates.notes = input.notes;
 	if (input.status !== undefined)    updates.status = input.status;
 	if (input.sortOrder !== undefined) updates.sortOrder = input.sortOrder;
+	if (input.skillLevel !== undefined) updates.skillLevel = input.skillLevel;
 
 	await db.update(sessions).set(updates).where(eq(sessions.id, id));
 
