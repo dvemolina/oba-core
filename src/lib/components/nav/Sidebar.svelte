@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun } from 'lucide-svelte';
 	import * as m from '$lib/paraglide/messages';
-	import { languageTag } from '$lib/paraglide/runtime';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { role = 'instructor' }: { role: string } = $props();
 
@@ -75,14 +75,14 @@
 		<div class="flex items-center gap-1">
 			<a
 				href="/api/set-locale?locale=es&from={page.url.pathname}"
-				class="rounded px-2 py-1 text-xs font-medium transition-colors {languageTag() === 'es' ? 'bg-ocean/10 text-ocean' : 'text-muted hover:text-gray-700'}"
+				class="rounded px-2 py-1 text-xs font-medium transition-colors {getLocale() === 'es' ? 'bg-ocean/10 text-ocean' : 'text-muted hover:text-gray-700'}"
 			>
 				ES
 			</a>
 			<span class="text-xs text-muted/50">·</span>
 			<a
 				href="/api/set-locale?locale=en&from={page.url.pathname}"
-				class="rounded px-2 py-1 text-xs font-medium transition-colors {languageTag() === 'en' ? 'bg-ocean/10 text-ocean' : 'text-muted hover:text-gray-700'}"
+				class="rounded px-2 py-1 text-xs font-medium transition-colors {getLocale() === 'en' ? 'bg-ocean/10 text-ocean' : 'text-muted hover:text-gray-700'}"
 			>
 				EN
 			</a>

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
-	import { languageTag } from '$lib/paraglide/runtime';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -158,11 +158,11 @@
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_language()}</h2>
 		<div class="flex gap-3">
 			<a href="/api/set-locale?locale=es&from=/settings"
-				class="btn-sm {languageTag() === 'es' ? 'btn-primary' : 'btn-secondary'}">
+				class="btn-sm {getLocale() === 'es' ? 'btn-primary' : 'btn-secondary'}">
 				{m.settings_language_es()}
 			</a>
 			<a href="/api/set-locale?locale=en&from=/settings"
-				class="btn-sm {languageTag() === 'en' ? 'btn-primary' : 'btn-secondary'}">
+				class="btn-sm {getLocale() === 'en' ? 'btn-primary' : 'btn-secondary'}">
 				{m.settings_language_en()}
 			</a>
 		</div>

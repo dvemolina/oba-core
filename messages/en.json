@@ -22,6 +22,10 @@
   "common_add": "Add",
   "common_remove": "Remove",
   "common_max": "Max",
+  "common_date": "Date",
+  "common_time": "Time",
+  "common_search": "Search",
+  "common_active": "Active",
 
   "nav_today": "Today",
   "nav_calendar": "Calendar",
