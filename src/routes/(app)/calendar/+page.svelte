@@ -6,6 +6,7 @@
 	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
@@ -355,19 +356,19 @@
 		<div class="ml-2 flex shrink-0 items-center gap-2">
 			{#if data.view !== 'day'}
 				<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
-					<span>● Confirmed</span>
-					<span>○ Pending</span>
+					<span>{m.calendar_confirmed()}</span>
+					<span>{m.calendar_pending()}</span>
 				</span>
 			{/if}
 			<div class="flex overflow-hidden rounded-lg bg-slate-100 p-0.5">
 				<button onclick={() => setView('month')} class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'month' ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
-					<span class="sm:hidden">M</span><span class="hidden sm:inline">Month</span>
+					<span class="sm:hidden">M</span><span class="hidden sm:inline">{m.calendar_month()}</span>
 				</button>
 				<button onclick={() => setView('week')}  class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'week'  ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
-					<span class="sm:hidden">W</span><span class="hidden sm:inline">Week</span>
+					<span class="sm:hidden">W</span><span class="hidden sm:inline">{m.calendar_week()}</span>
 				</button>
 				<button onclick={() => setView('day')}   class="rounded-md px-2 py-1 text-xs font-semibold transition-colors {data.view === 'day'   ? 'bg-white text-navy shadow-sm' : 'text-muted hover:text-slate-700'}">
-					<span class="sm:hidden">D</span><span class="hidden sm:inline">Day</span>
+					<span class="sm:hidden">D</span><span class="hidden sm:inline">{m.calendar_day()}</span>
 				</button>
 			</div>
 		</div>
@@ -521,7 +522,7 @@
 		<div class="flex flex-1 flex-col overflow-hidden">
 			<!-- Slot granularity control — lives in the grid, not the header -->
 			<div class="flex shrink-0 items-center justify-end gap-2 border-b border-border bg-surface/60 px-4 py-1.5">
-				<span class="text-[10px] text-muted">Slot size:</span>
+				<span class="text-[10px] text-muted">{m.calendar_slot_size()}</span>
 				<div class="flex overflow-hidden rounded-md bg-slate-100 p-0.5">
 					{#each SLOT_OPTIONS as opt}
 						<button type="button" onclick={() => slotMinutes = opt}
@@ -548,11 +549,11 @@
 					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 {c.bg}/20 border-l-4 {c.border}">
 						<div>
 							<p class="text-xs font-semibold text-gray-800"><Tent size={13} class="inline mr-0.5" />{camp.serviceName} — Day {campDayNumber(camp, data.dayDate)}</p>
-							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount} enrolled · no sessions today</p>
+							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount} enrolled · {m.calendar_no_sessions()}</p>
 						</div>
 						<a href="/bookings/{camp.id}"
 							class="rounded-full bg-ocean/15 px-2.5 py-1 text-[10px] font-semibold text-ocean hover:bg-ocean/25 transition-colors">
-							+ Add session
+							{m.calendar_add_session()}
 						</a>
 					</div>
 				{/each}
@@ -560,7 +561,7 @@
 				<!-- Unscheduled sessions + non-session flexible bookings -->
 				{#if dayUnscheduledSessions.length > 0 || dayNonSessionBookings.length > 0}
 					<div class="border-b border-border bg-pending/5 px-4 py-2">
-						<p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Needs scheduling</p>
+						<p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">{m.calendar_needs_scheduling()}</p>
 						<div class="space-y-1.5">
 							{#each dayUnscheduledSessions as session}
 								{@const isAssigning = assigningSessionId === session.id}
@@ -585,27 +586,27 @@
 											<input type="hidden" name="sessionId" value={session.id} />
 											<div class="grid grid-cols-2 gap-2">
 												<div>
-													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Time *</label>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">{m.calendar_time()}</label>
 													<input name="time" type="time" required autofocus
 														bind:value={editFormTime}
 														class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 												</div>
 												<div>
-													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Duration (min)</label>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide">{m.calendar_duration()}</label>
 													<input name="duration" type="number" min="15" step="15"
 														bind:value={editFormDuration}
 														class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 												</div>
 											</div>
 											<div>
-												<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Notes</label>
-												<input name="notes" placeholder="Spot, group…"
+												<label class="text-[10px] font-medium text-muted uppercase tracking-wide">{m.common_notes()}</label>
+												<input name="notes" placeholder={m.calendar_spot_group()}
 													value={session.notes ?? ''}
 													class="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 											</div>
 											{#if data.instructors.length > 0}
 												<div>
-													<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">Instructors</label>
+													<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">{m.calendar_instructors()}</label>
 													<div class="space-y-1.5">
 														{#each data.instructors as instructor}
 															{@const conflicts = editConflicts[instructor.id] ?? []}
@@ -628,8 +629,8 @@
 												</div>
 											{/if}
 											<div class="flex gap-2 pt-1">
-												<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Schedule</button>
-												<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">View booking</a>
+												<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.calendar_schedule()}</button>
+												<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_view_booking()}</a>
 											</div>
 										</form>
 									{/if}
@@ -718,21 +719,21 @@
 																	class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 															</div>
 															<div>
-																<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Duration (min)</label>
+																<label class="text-[10px] font-medium text-muted uppercase tracking-wide">{m.calendar_duration()}</label>
 																<input name="duration" type="number" min="15" step="15"
 																	bind:value={editFormDuration}
 																	class="mt-0.5 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 															</div>
 														</div>
 														<div>
-															<label class="text-[10px] font-medium text-muted uppercase tracking-wide">Notes</label>
+															<label class="text-[10px] font-medium text-muted uppercase tracking-wide">{m.common_notes()}</label>
 															<input name="notes"
 																value={session.notes ?? ''}
 																class="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
 														</div>
 														{#if data.instructors.length > 0}
 															<div>
-																<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">Instructors</label>
+																<label class="text-[10px] font-medium text-muted uppercase tracking-wide mb-1 block">{m.calendar_instructors()}</label>
 																<div class="space-y-1.5">
 																	{#each data.instructors as instructor}
 																		{@const conflicts = editConflicts[instructor.id] ?? []}
@@ -755,8 +756,8 @@
 															</div>
 														{/if}
 														<div class="flex gap-2 pt-1">
-															<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">Save</button>
-															<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">Detail</a>
+															<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.common_save()}</button>
+															<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_detail()}</a>
 														</div>
 													</form>
 												{/if}
