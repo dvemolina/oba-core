@@ -37,7 +37,7 @@
 	} = $props();
 
 	const selectedService = $derived(services.find((s) => s.id === selectedServiceId));
-	const isLesson = $derived(!!(selectedService?.hasSessions && !selectedService?.hasRoster));
+	const isLesson = $derived(!!(selectedService?.hasSessions && !(selectedService?.hasRoster && selectedService?.hasDateRange)));
 
 	const filteredClients = $derived(
 		clientSearch.length > 1

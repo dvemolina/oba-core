@@ -36,9 +36,6 @@
 </script>
 
 <div class="space-y-3">
-	<!-- Hidden fields for form submission -->
-	<input type="hidden" name="sessionIndex" value={index} />
-
 	<div class="grid grid-cols-2 gap-3">
 		<div>
 			<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">

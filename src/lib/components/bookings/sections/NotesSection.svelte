@@ -19,7 +19,7 @@
 			type="text"
 			name="spotNotes"
 			bind:value={spotNotes}
-			placeholder="e.g. Playa Norte, board locker #3"
+			placeholder={m.booking_new_spot_placeholder()}
 			class="input w-full"
 		/>
 	</div>
