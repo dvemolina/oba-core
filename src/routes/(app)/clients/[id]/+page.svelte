@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ContactButtons from '$lib/components/ContactButtons.svelte';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let editing = $state(false);
 	let loading = $state(false);
@@ -24,7 +25,7 @@
 				onclick={() => (editing = !editing)}
 				class="btn-ghost btn-sm"
 			>
-				{editing ? 'Cancel' : 'Edit'}
+				{editing ? m.common_cancel() : m.common_edit()}
 			</button>
 			<form
 				method="post"
@@ -36,7 +37,7 @@
 					type="submit"
 					class="btn-destructive btn-sm"
 				>
-					Delete
+					{m.common_delete()}
 				</button>
 			</form>
 		</div>
@@ -58,7 +59,7 @@
 		>
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">First name</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.client_new_first_name()}</label>
 					<input
 						name="firstName"
 						required
@@ -67,7 +68,7 @@
 					/>
 				</div>
 				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700">Last name</label>
+					<label class="mb-1 block text-sm font-medium text-gray-700">{m.client_new_last_name()}</label>
 					<input
 						name="lastName"
 						required
@@ -77,7 +78,7 @@
 				</div>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.common_phone()}</label>
 				<input
 					name="phone"
 					type="tel"
@@ -86,7 +87,7 @@
 				/>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Email</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.common_email()}</label>
 				<input
 					name="email"
 					type="email"
@@ -95,7 +96,7 @@
 				/>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Nationality</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.client_new_nationality()}</label>
 				<input
 					name="nationality"
 					value={data.client.nationality ?? ''}
@@ -103,19 +104,19 @@
 				/>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Skill level</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.client_new_skill_level()}</label>
 				<select
 					name="skillLevel"
 					class="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
 				>
-					<option value="">— not set —</option>
+					<option value="">{m.client_new_skill_not_set()}</option>
 					{#each ['beginner', 'intermediate', 'advanced'] as level}
 						<option value={level} selected={data.client.skillLevel === level}>{level}</option>
 					{/each}
 				</select>
 			</div>
 			<div>
-				<label class="mb-1 block text-sm font-medium text-gray-700">Notes</label>
+				<label class="mb-1 block text-sm font-medium text-gray-700">{m.common_notes()}</label>
 				<textarea
 					name="notes"
 					rows="2"
@@ -130,7 +131,7 @@
 				disabled={loading}
 				class="btn-primary btn-block"
 			>
-				{loading ? 'Saving…' : 'Save Changes'}
+				{loading ? m.common_saving() : m.common_save_changes()}
 			</button>
 		</form>
 	{:else}
@@ -158,9 +159,9 @@
 	{/if}
 
 	<!-- Booking history -->
-	<h2 class="mb-3 text-sm font-semibold text-gray-700">Bookings ({data.bookings.length})</h2>
+	<h2 class="mb-3 text-sm font-semibold text-gray-700">{m.client_detail_bookings()} ({data.bookings.length})</h2>
 	{#if data.bookings.length === 0}
-		<p class="text-sm text-muted">No bookings yet.</p>
+		<p class="text-sm text-muted">{m.client_detail_no_bookings()}</p>
 	{:else}
 		<div class="space-y-2">
 			{#each data.bookings as booking}

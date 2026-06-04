@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 	let search = $state(data.search ?? '');
@@ -19,18 +20,18 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-4 flex items-center justify-between">
-		<h1 class="text-xl font-bold text-navy">Clients</h1>
+		<h1 class="text-xl font-bold text-navy">{m.client_list_title()}</h1>
 		<a
 			href="/clients/new"
 			class="btn-primary btn-sm"
 		>
-			+ New
+			{m.common_new()}
 		</a>
 	</div>
 
 	<input
 		type="search"
-		placeholder="Search by name or phone…"
+		placeholder={m.client_list_search()}
 		bind:value={search}
 		oninput={handleSearch}
 		class="mb-4 w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none"
@@ -66,7 +67,7 @@
 
 	{#if data.clients.length === 0}
 		<p class="py-12 text-center text-sm text-muted">
-			{data.search ? `No clients matching "${data.search}"` : 'No clients yet.'}
+			{data.search ? m.client_list_empty_search() : m.client_list_empty()}
 		</p>
 	{/if}
 </div>
