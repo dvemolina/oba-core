@@ -34,7 +34,7 @@
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
 			class="border-t border-border bg-surface/98 backdrop-blur-md"
 		>
-			<div class="grid grid-cols-4 gap-0 px-2 pt-3 pb-1">
+			<div class="grid grid-cols-4 gap-0 px-2 pt-3" style="padding-bottom: env(safe-area-inset-bottom, 4px)">
 				{#each moreItems as item}
 					{@const active = isActive(item.href)}
 					<a

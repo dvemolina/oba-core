@@ -11,7 +11,7 @@
 
 <div class="flex h-screen overflow-hidden bg-sand">
 	<Sidebar {role} />
-	<main class="min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">
+	<main class="min-w-0 flex-1 overflow-y-auto pb-nav">
 		{@render children()}
 	</main>
 	<BottomNav {role} />

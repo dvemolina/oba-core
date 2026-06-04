@@ -310,5 +310,16 @@
   "booking_detail_session_notes_placeholder": "e.g. Playa Norte",
   "booking_detail_add_session_participant": "Add name…",
   "service_new_description_placeholder": "Optional details…",
-  "service_new_type_label": "Type"
+  "service_new_type_label": "Type",
+  "pwa_install_title": "Install OBA",
+  "pwa_install_subtitle_mobile": "Add to your home screen",
+  "pwa_install_subtitle_desktop": "Install as a desktop app",
+  "pwa_install_body_mobile": "Install OBA for full-screen access — no browser bar, faster loading.",
+  "pwa_install_body_desktop": "Install OBA as a desktop app — opens in its own window, no browser bar.",
+  "pwa_install_ios_step1": "Tap the share button {icon} in your browser toolbar",
+  "pwa_install_ios_step2": "Scroll down and tap \"Add to Home Screen\"",
+  "pwa_install_ios_step3": "Tap \"Add\" — done!",
+  "pwa_install_got_it": "Got it",
+  "pwa_install_button": "Install app",
+  "pwa_install_not_now": "Not now"
 }
