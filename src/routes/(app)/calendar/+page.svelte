@@ -267,6 +267,18 @@
 		return `min-height: ${slots * 3}rem`;
 	}
 
+	function fmtEur(n: number): string {
+		return Number.isInteger(n) ? `€${n}` : `€${n.toFixed(2)}`;
+	}
+
+	// Day summary totals (scheduled sessions only)
+	const daySummary = $derived(() => {
+		const scheduled = data.daySessions.filter(s => s.status === 'scheduled');
+		const totalDue = scheduled.reduce((acc, s) => acc + s.totalAmountDue, 0);
+		const totalPaid = scheduled.reduce((acc, s) => acc + s.totalAmountPaid, 0);
+		return { count: scheduled.length, totalDue, totalPaid, pending: totalDue - totalPaid };
+	});
+
 	// Unscheduled sessions (no time) + non-session bookings without time
 	const dayUnscheduledSessions = $derived(
 		data.daySessions.filter(s => s.status === 'unscheduled')
@@ -534,6 +546,26 @@
 				</div>
 			</div>
 			<div class="flex-1 overflow-y-auto">
+				<!-- Day summary bar -->
+				{#if daySummary().count > 0}
+					<div class="flex items-center gap-4 border-b border-border bg-sand/40 px-4 py-2">
+						<span class="text-xs font-semibold text-navy">{daySummary().count} sesiones</span>
+						<span class="text-xs text-muted">·</span>
+						<span class="text-xs text-gray-700">{fmtEur(daySummary().totalDue)} facturado</span>
+						{#if daySummary().totalPaid > 0}
+							<span class="text-xs text-muted">·</span>
+							<span class="text-xs font-medium text-green-700">{fmtEur(daySummary().totalPaid)} cobrado</span>
+						{/if}
+						{#if daySummary().pending > 0.01}
+							<span class="text-xs muted">·</span>
+							<span class="text-xs font-semibold text-amber-700">⚠ {fmtEur(daySummary().pending)} pendiente</span>
+						{:else if daySummary().totalDue > 0}
+							<span class="text-xs muted">·</span>
+							<span class="text-xs font-semibold text-green-700">✓ Todo cobrado</span>
+						{/if}
+					</div>
+				{/if}
+
 				<!-- Events covering this day -->
 				{#each data.events as event}
 					<a href="/events/{event.id}" class="flex items-center gap-2 border-b border-confirmed/20 bg-confirmed/10 px-4 py-2.5">
@@ -703,6 +735,16 @@
 														</p>
 														{#if session.participantNames.length > 0}
 															<p class="truncate text-[10px] text-muted">{session.participantNames[0]}{session.participantNames.length > 1 ? ` +${session.participantNames.length - 1}` : ''}</p>
+														{/if}
+														{#if session.totalAmountDue > 0}
+															{@const pending = session.totalAmountDue - session.totalAmountPaid}
+															{#if pending <= 0.01}
+																<p class="text-[10px] font-semibold text-green-700">✓ {fmtEur(session.totalAmountDue)}</p>
+															{:else if session.totalAmountPaid > 0.01}
+																<p class="text-[10px] font-semibold text-amber-700">⚠ {fmtEur(pending)} pend. / {fmtEur(session.totalAmountDue)}</p>
+															{:else}
+																<p class="text-[10px] font-medium text-red-600">⚠ {fmtEur(session.totalAmountDue)} sin cobrar</p>
+															{/if}
 														{/if}
 													</div>
 													<span class="ml-1 shrink-0 text-[9px] text-muted">{isEditing ? '▲' : '✎'}</span>

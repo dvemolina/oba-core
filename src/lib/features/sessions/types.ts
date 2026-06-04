@@ -43,6 +43,9 @@ export interface SessionForDay extends Session {
 	// Who attends: from session_participants if set, otherwise booking client names
 	participantNames: string[];
 	totalParticipants: number;
+	// Payment totals across all enrolled clients for this session's bookings
+	totalAmountDue: number;
+	totalAmountPaid: number;
 }
 
 // Session enriched for the Today/Agenda view.

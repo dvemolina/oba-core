@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, ne, sql, sum } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	sessions,
@@ -171,6 +171,27 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 			.where(and(inArray(bookingClients.bookingId, bookingIds), eq(bookingClients.status, 'enrolled')))
 		: [];
 
+	// Step 4: payment totals per booking
+	const paymentRows = bookingIds.length > 0
+		? await db
+			.select({
+				bookingId: bookingClients.bookingId,
+				totalDue: sum(bookingClients.amountDue),
+				totalPaid: sum(bookingClients.amountPaid)
+			})
+			.from(bookingClients)
+			.where(and(inArray(bookingClients.bookingId, bookingIds), eq(bookingClients.status, 'enrolled')))
+			.groupBy(bookingClients.bookingId)
+		: [];
+
+	const paymentByBooking: Record<string, { due: number; paid: number }> = {};
+	for (const r of paymentRows) {
+		paymentByBooking[r.bookingId] = {
+			due: parseFloat(r.totalDue ?? '0') || 0,
+			paid: parseFloat(r.totalPaid ?? '0') || 0
+		};
+	}
+
 	// Index by session
 	const linksBySession: Record<string, typeof links> = {};
 	for (const l of links) {
@@ -197,6 +218,10 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 				? s.participants.map(p => p.name)
 				: allClientNames;
 
+			// Aggregate payment totals across all bookings for this session
+			const totalAmountDue = sl.reduce((sum, l) => sum + (paymentByBooking[l.bookingId]?.due ?? 0), 0);
+			const totalAmountPaid = sl.reduce((sum, l) => sum + (paymentByBooking[l.bookingId]?.paid ?? 0), 0);
+
 			return {
 				...s,
 				bookingId: firstLink.bookingId ?? '',
@@ -208,7 +233,9 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 				serviceDurationMinutes: svcDuration,
 				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
 				participantNames,
-				totalParticipants: participantNames.length
+				totalParticipants: participantNames.length,
+				totalAmountDue,
+				totalAmountPaid
 			} satisfies SessionForDay;
 		});
 }

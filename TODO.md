@@ -3,6 +3,7 @@
 [] - Settings page — nav link exists, no route yet (dead link)
 [] - Mobile calendar narrow-width: week strip + agenda on small screens (acknowledged as future feature)
 [] - Branding capabilities to make the software appear proprietary. Allow owners to set the logo and branding of the app (Login page logo and name of the company). Create a maintainable, reusable, clean, scalable and production ready branding system.
+[] - Add price to booking chips in day view. If it is pending to pay, show a warning and how much is pending of the total.
 
 ## Design
 [] - Full UI/UX redesign inspired by tipitisurf.com (deprioritised — current UI is functional and clean)
