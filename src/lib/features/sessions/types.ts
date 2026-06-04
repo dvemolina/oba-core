@@ -22,6 +22,7 @@ export interface Session {
 	time: string | null;
 	durationMinutes: number | null;
 	notes: string | null;
+	skillLevel: 'beginner' | 'intermediate' | 'advanced' | null;
 	status: SessionStatus;
 	sortOrder: number;
 	instructors: SessionInstructor[];
@@ -75,6 +76,7 @@ export interface CreateSessionInput {
 	time?: string;
 	durationMinutes?: number;
 	notes?: string;
+	skillLevel?: 'beginner' | 'intermediate' | 'advanced';
 	instructorIds?: string[];
 	sortOrder?: number;
 }
@@ -84,6 +86,7 @@ export interface UpdateSessionInput {
 	time?: string | null;
 	durationMinutes?: number | null;
 	notes?: string | null;
+	skillLevel?: 'beginner' | 'intermediate' | 'advanced' | null;
 	status?: SessionStatus;
 	instructorIds?: string[];
 	sortOrder?: number;

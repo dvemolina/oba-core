@@ -44,6 +44,7 @@ export interface Booking {
 	accommodationUnitName: string | null;
 	accommodationUnitTypeName: string | null;
 	guestsCount: number | null;
+	participantCount: number | null;
 	date: string;
 	dateEnd: string | null;
 	serviceRunId: string | null;
@@ -112,6 +113,7 @@ export interface CreateBookingInput {
 	instructorId?: string;
 	accommodationUnitId?: string;
 	guestsCount?: number;
+	participantCount?: number;
 	date: string;
 	dateEnd?: string;
 	serviceRunId?: string;
