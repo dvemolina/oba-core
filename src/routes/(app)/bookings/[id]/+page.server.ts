@@ -1,6 +1,7 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import {
 	cancelBooking,
+	deleteBooking,
 	getBooking,
 	updateBooking,
 	updateBookingClientPayment,
@@ -51,7 +52,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
 	);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals) };
+	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '' };
 };
 
 export const actions: Actions = {
@@ -124,6 +125,19 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		await cancelBooking(params.id);
 		return { cancelled: true, message: 'Booking cancelled' };
+	},
+
+	delete: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Not found' });
+		if (booking.status !== 'cancelled')
+			return fail(400, { error: 'Only cancelled bookings can be deleted' });
+		const hasPaid = booking.clients.some(c => parseFloat(c.amountPaid) > 0);
+		if (hasPaid)
+			return fail(400, { error: 'Cannot delete a booking with recorded payments' });
+		await deleteBooking(params.id);
+		redirect(303, '/bookings');
 	},
 
 	updateAmountDue: async ({ request, locals }) => {

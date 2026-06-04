@@ -876,6 +876,19 @@
 		</div>
 	{/if}
 
+	{#if data.booking.status === 'cancelled' && (data.userRole === 'owner' || data.userRole === 'admin')}
+		{@const hasPaid = data.booking.clients.some(c => parseFloat(c.amountPaid) > 0)}
+		{#if !hasPaid}
+			<form method="post" action="?/delete" use:enhance={withToast()}>
+				<button type="submit"
+					onclick={(e) => { if (!confirm('Permanently delete this booking and all its sessions? This cannot be undone.')) e.preventDefault(); }}
+					class="btn-block w-full rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-600 hover:bg-red-100">
+					Delete booking permanently
+				</button>
+			</form>
+		{/if}
+	{/if}
+
 	{#if data.booking.serviceId}
 		<a href="/services/{data.booking.serviceId}" class="btn-secondary btn-block text-center text-sm">
 			→ Service settings
