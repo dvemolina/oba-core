@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun } from 'lucide-svelte';
+	import { PUBLIC_BUSINESS_NAME } from '$env/static/public';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
@@ -30,7 +31,7 @@
 			<Waves size={16} strokeWidth={2} />
 		</span>
 		<span class="overflow-hidden whitespace-nowrap text-sm font-bold text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-			OBA
+			{PUBLIC_BUSINESS_NAME}
 		</span>
 	</div>
 

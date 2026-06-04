@@ -2,6 +2,7 @@
 	import BottomNav from '$lib/components/nav/BottomNav.svelte';
 	import Sidebar from '$lib/components/nav/Sidebar.svelte';
 	import Toaster from '$lib/components/Toaster.svelte';
+	import PwaInstallPrompt from '$lib/components/PwaInstallPrompt.svelte';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: any; data: LayoutData } = $props();
@@ -17,3 +18,4 @@
 </div>
 
 <Toaster />
+<PwaInstallPrompt />

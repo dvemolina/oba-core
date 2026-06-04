@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { PUBLIC_BUSINESS_NAME } from '$env/static/public';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
@@ -7,16 +8,16 @@
 </script>
 
 <svelte:head>
-	<title>Login — OBA</title>
+	<title>Login — {PUBLIC_BUSINESS_NAME}</title>
 </svelte:head>
 
 <div class="flex min-h-screen items-center justify-center bg-sand px-4">
 	<div class="w-full max-w-sm">
 		<!-- Logo — BRANDING: replace /static/oba-favicon.png to update login logo -->
 		<div class="mb-8 text-center">
-			<img src="/oba-favicon.png" alt="OBA" class="mx-auto mb-3 h-16 w-16 object-contain" />
-			<h1 class="text-2xl font-bold text-navy">OBA</h1>
-			<p class="mt-1 text-sm text-muted">Surf School Manager</p>
+			<img src="/oba-favicon.png" alt={PUBLIC_BUSINESS_NAME} class="mx-auto mb-3 h-16 w-16 object-contain" />
+			<h1 class="text-2xl font-bold text-navy">{PUBLIC_BUSINESS_NAME}</h1>
+			<p class="mt-1 text-sm text-muted">Business Operations Management System</p>
 		</div>
 
 		<!-- Card -->

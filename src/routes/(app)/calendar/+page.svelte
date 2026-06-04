@@ -721,11 +721,8 @@
 											{@const endTime = session.time ? addMinutesToTime(session.time.slice(0,5), dur) : null}
 											<div class="min-w-0 flex-1 rounded-lg border-l-4 ring-1 ring-border overflow-hidden {sc.border} {sc.bg}"
 												style={sessionCardStyle(dur)}>
-												<div class="flex items-start justify-between px-2.5 py-2 cursor-pointer"
-													onclick={() => assigningSessionId = isEditing ? null : session.id}
-													role="button" tabindex="0"
-													onkeydown={(e) => e.key === 'Enter' && (assigningSessionId = isEditing ? null : session.id)}>
-													<div class="min-w-0">
+												<div class="flex items-start justify-between px-2.5 py-2">
+													<a href="/bookings/{session.bookingId}" class="min-w-0 flex-1 block">
 														<p class="text-xs font-bold text-gray-900 tabular-nums">
 															{session.time?.slice(0,5)} – {endTime}
 														</p>
@@ -746,8 +743,13 @@
 																<p class="text-[10px] font-medium text-red-600">⚠ {fmtEur(session.totalAmountDue)} sin cobrar</p>
 															{/if}
 														{/if}
-													</div>
-													<span class="ml-1 shrink-0 text-[9px] text-muted">{isEditing ? '▲' : '✎'}</span>
+													</a>
+													<button type="button"
+														onclick={() => assigningSessionId = isEditing ? null : session.id}
+														class="ml-1 shrink-0 rounded p-0.5 text-[11px] text-muted hover:bg-black/10 transition-colors"
+														aria-label="Edit session">
+														{isEditing ? '▲' : '✎'}
+													</button>
 												</div>
 												{#if isEditing}
 													<form method="post" action="?/assignSession"
@@ -800,7 +802,6 @@
 														{/if}
 														<div class="flex gap-2 pt-1">
 															<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.common_save()}</button>
-															<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_detail()}</a>
 														</div>
 													</form>
 												{/if}
