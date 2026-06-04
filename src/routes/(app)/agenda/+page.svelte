@@ -1,235 +1,225 @@
 <script lang="ts">
-	import { getServiceColor } from '$lib/features/services/colors';
-	import { Zap, Waves, Tent, ArrowRight } from 'lucide-svelte';
-	import { fmtTimeRange } from '$lib/features/calendar/utils';
 	import type { PageData } from './$types';
-	import type { AgendaSession } from '$lib/features/sessions/types';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
-	const today = $derived(data.today);
+	const today = new Date(data.today + 'T00:00:00');
+	const dayLabel = today.toLocaleDateString('default', {
+		weekday: 'long', day: 'numeric', month: 'long'
+	});
 
-	// ── Helpers ──────────────────────────────────────────────────────────────────
-
-	function fmtDate(d: string) {
-		const date = new Date(d + 'T00:00:00');
-		if (d === today) return m.agenda_title();
-		return date.toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' });
-	}
-
-	function fmtTime(t: string | null) {
+	function fmt(t: string | null) {
 		return t ? t.slice(0, 5) : null;
 	}
 
-	function sessionCardBorder(s: AgendaSession) {
-		if (s.status === 'unscheduled') return 'border-amber-300 bg-amber-50/40';
-		const c = getServiceColor(s.serviceColor ?? '');
-		return `${c.border} bg-surface`;
-	}
+	// Color map for session status
+	const statusColors: Record<string, string> = {
+		scheduled: 'bg-green-100 text-green-700',
+		completed: 'bg-gray-100 text-gray-600',
+		cancelled: 'bg-red-100 text-red-600',
+		unscheduled: 'bg-amber-100 text-amber-700'
+	};
 
-	// ── Date grouping ─────────────────────────────────────────────────────────────
-
-	// All unique dates that have sessions
-	const allDates = $derived((): string[] => {
-		const set = new Set<string>();
-		for (const s of data.sessions) set.add(s.date);
-		return [...set].sort();
-	});
-
-	function sessionsForDate(date: string): AgendaSession[] {
-		return data.sessions.filter(s => s.date === date);
-	}
-
-	const upcomingDates = $derived(allDates().filter(d => d >= today));
-	const pastDates = $derived(allDates().filter(d => d < today).reverse());
-
-	// Unscheduled sessions in the upcoming window
-	const unscheduled = $derived(
-		data.sessions.filter(s => s.status === 'unscheduled' && s.date >= today)
-	);
+	const statusLabels: Record<string, string> = {
+		scheduled: 'Programada',
+		completed: 'Completada',
+		cancelled: 'Cancelada',
+		unscheduled: 'Sin hora'
+	};
 </script>
 
-<div class="flex h-full flex-col overflow-hidden">
+<div class="p-4 md:p-6">
+
 	<!-- Header -->
-	<div class="page-header">
-		<h1 class="page-title">{m.agenda_title()}</h1>
+	<div class="mb-6 flex items-start justify-between gap-4">
+		<div>
+			<h1 class="text-xl font-bold capitalize text-navy">{dayLabel}</h1>
+			<p class="text-sm text-muted">{m.agenda_title()}</p>
+		</div>
+		<a href="/bookings/new" class="btn-primary btn-sm shrink-0">{m.agenda_new_booking()}</a>
 	</div>
 
-	<!-- Stats strip -->
-	<div class="grid grid-cols-3 divide-x divide-border border-b border-border bg-surface">
-		<div class="flex flex-col items-center py-3">
-			<span class="text-xl font-bold text-navy">{data.stats.scheduledToday}</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_title()}</span>
+	<!-- Stat cards -->
+	<div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+		<!-- Scheduled today -->
+		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+			<p class="text-2xl font-bold text-navy">{data.scheduledToday}</p>
+			<p class="mt-0.5 text-xs text-muted">Sesiones hoy</p>
 		</div>
-		<div class="flex flex-col items-center py-3">
-			<span class="text-xl font-bold {data.stats.unscheduledTotal > 0 ? 'text-amber-600' : 'text-navy'}">
-				{data.stats.unscheduledTotal}
-			</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_unscheduled()}</span>
-		</div>
-		<div class="flex flex-col items-center py-3">
-			<span class="text-xl font-bold {data.stats.pendingRevenue > 0 ? 'text-flexible' : 'text-navy'}">
-				€{data.stats.pendingRevenue.toFixed(0)}
-			</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_pending()}</span>
+
+		<!-- Unscheduled today -->
+		{#if data.unscheduledToday > 0}
+			<a href="/calendar?view=day&date={data.today}"
+				class="rounded-(--radius-card) bg-amber-50 p-4 ring-1 ring-amber-200 hover:ring-amber-400">
+				<p class="text-2xl font-bold text-amber-700">{data.unscheduledToday}</p>
+				<p class="mt-0.5 text-xs text-amber-600">Sin hora hoy</p>
+			</a>
+		{:else}
+			<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+				<p class="text-2xl font-bold text-navy">{data.unscheduledToday}</p>
+				<p class="mt-0.5 text-xs text-muted">Sin hora hoy</p>
+			</div>
+		{/if}
+
+		<!-- Upcoming unscheduled -->
+		{#if data.stats.unscheduledCount > 0}
+			<a href="/calendar"
+				class="rounded-(--radius-card) bg-amber-50 p-4 ring-1 ring-amber-200 hover:ring-amber-400">
+				<p class="text-2xl font-bold text-amber-700">{data.stats.unscheduledCount}</p>
+				<p class="mt-0.5 text-xs text-amber-600">Por programar</p>
+			</a>
+		{:else}
+			<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+				<p class="text-2xl font-bold text-green-600">✓</p>
+				<p class="mt-0.5 text-xs text-muted">Al día</p>
+			</div>
+		{/if}
+
+		<!-- Pending revenue -->
+		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+			<p class="text-2xl font-bold text-navy">€{data.stats.pendingRevenue.toFixed(0)}</p>
+			<p class="mt-0.5 text-xs text-muted">Pendiente cobro</p>
 		</div>
 	</div>
 
-	<div class="flex-1 overflow-y-auto">
-		<div class="space-y-6 px-4 py-4">
+	<!-- Today's sessions -->
+	<section class="mb-6">
+		<div class="mb-3 flex items-center justify-between">
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Sesiones de hoy</h2>
+			<a href="/calendar?view=day&date={data.today}" class="text-xs text-ocean hover:underline">
+				Ver calendario →
+			</a>
+		</div>
 
-			<!-- Active events (legacy event objects) -->
-			{#each data.events as event}
-				<a href="/events/{event.id}" class="block rounded-(--radius-card) border border-confirmed/30 bg-confirmed/10 p-3">
-					<p class="text-sm font-semibold text-gray-800">{event.title}</p>
-					<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
-				</a>
-			{/each}
-
-			<!-- Active camp banners -->
-			{#each data.activeCamps as camp}
-				{@const c = getServiceColor(camp.serviceColor ?? '')}
-				<a href="/bookings/{camp.id}"
-					class="block rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {c.border} bg-surface">
-					<div class="flex items-center justify-between">
-						<div>
-							<p class="text-xs font-semibold uppercase tracking-wider text-muted">Camp</p>
-							<p class="text-sm font-semibold text-gray-800">{camp.serviceName}</p>
-							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount}{camp.serviceMaxCapacity != null ? `/${camp.serviceMaxCapacity}` : ''} {m.agenda_enrolled()}</p>
-						</div>
-						<span class="rounded-full px-2 py-0.5 text-xs {camp.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">{camp.status}</span>
-					</div>
-				</a>
-			{/each}
-
-			<!-- Unscheduled sessions — link to calendar day view to schedule inline -->
-			{#if unscheduled.length > 0}
-				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50">
-					<div class="flex items-center justify-between px-3 pt-3 pb-2">
-						<p class="text-xs font-semibold text-amber-800">
-							<Zap size={13} class="inline mr-0.5" />{m.agenda_sessions_need_scheduling({ count: unscheduled.length })}
-						</p>
-						<a href="/bookings?statusFilter=unscheduled" class="text-[10px] text-amber-600 hover:underline">
-							{m.agenda_view_all()}
-						</a>
-					</div>
-					<div class="divide-y divide-amber-100">
-						{#each unscheduled as s}
-							<div class="flex items-center justify-between px-3 py-2">
-								<div class="min-w-0">
-									<p class="truncate text-xs font-medium text-amber-900">
-										{s.serviceName ?? 'Session'}
-										{#if s.participantNames.length > 0}
-											<span class="font-normal text-amber-700"> · {s.participantNames[0]}</span>
-										{/if}
-									</p>
-									<p class="text-[10px] text-amber-600">{fmtDate(s.date)}</p>
-								</div>
-								<a href="/calendar?view=day&date={s.date}"
-									class="ml-3 shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800 hover:bg-amber-200 transition-colors">
-									{m.agenda_schedule()}
-								</a>
+		{#if data.todaySessions.length === 0}
+			<p class="rounded-(--radius-card) bg-surface p-6 text-center text-sm text-muted ring-1 ring-border">
+				No hay sesiones programadas para hoy.
+			</p>
+		{:else}
+			<div class="space-y-2">
+				{#each data.todaySessions as session}
+					<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border {session.status === 'cancelled' ? 'opacity-50' : ''}">
+						<div class="flex items-start gap-3">
+							<!-- Time column -->
+							<div class="w-14 shrink-0 text-center">
+								{#if session.time}
+									<p class="text-sm font-bold text-navy">{fmt(session.time)}</p>
+								{:else}
+									<span class="inline-block rounded-full bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Sin hora</span>
+								{/if}
+								{#if session.durationMinutes || session.effectiveDuration}
+									<p class="text-xs text-muted">{session.durationMinutes ?? session.effectiveDuration}m</p>
+								{/if}
 							</div>
-						{/each}
-					</div>
-					<div class="px-3 pb-3 pt-1">
-						<p class="text-[10px] text-amber-600">{m.agenda_schedule_hint()}</p>
-					</div>
-				</div>
-			{/if}
 
-			{#if upcomingDates.length === 0 && data.events.length === 0 && data.activeCamps.length === 0}
-				<p class="py-16 text-center text-sm text-muted">{m.agenda_no_upcoming()}</p>
-			{/if}
+							<!-- Main content -->
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="font-medium text-gray-800">{session.serviceName ?? 'Sesión'}</p>
+									<span class="rounded-full px-2 py-0.5 text-xs font-medium {statusColors[session.status] ?? 'bg-gray-100 text-gray-600'}">
+										{statusLabels[session.status] ?? session.status}
+									</span>
+								</div>
 
-			<!-- Upcoming dates -->
-			{#each upcomingDates as date}
-				{@const daySessions = sessionsForDate(date)}
-				<div id={date}>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
-					<div class="space-y-2">
-
-						<!-- Sessions -->
-						{#each daySessions as s}
-							{@const c = getServiceColor(s.serviceColor ?? '')}
-							<a href="/bookings/{s.bookingId}"
-								class="flex items-start justify-between rounded-(--radius-card) border-l-4 p-3 ring-1 ring-border {sessionCardBorder(s)}">
-								<div class="min-w-0 flex-1">
-									<div class="flex items-center gap-2 flex-wrap">
-										{#if s.time}
-											<span class="text-sm font-semibold text-gray-900">{fmtTimeRange(s.time, s.effectiveDuration)}</span>
-										{:else}
-											<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Zap size={10} /> {m.agenda_unscheduled()}</span>
-										{/if}
-										<span class="inline-flex items-center gap-1 text-sm font-medium text-gray-800">
-											<span class="inline-block h-2 w-2 shrink-0 rounded-full {c.bg} ring-1 {c.border}"></span>
-											{s.serviceName ?? 'Session'}
-										</span>
-										{#if s.isFlexible}
-											<Zap size={11} class="text-flexible shrink-0" />
-										{/if}
-									</div>
+								{#if session.instructors?.length}
 									<p class="mt-0.5 text-xs text-muted">
-										{#if s.serviceHasRoster}
-											{s.enrolledCount}{s.maxCapacity != null ? `/${s.maxCapacity}` : ''} {m.agenda_enrolled()}
-										{:else if s.participantNames.length > 0}
-											{s.participantNames.join(' · ')}
-										{/if}
-										{#if s.instructors.length > 0}
-											<span class="inline-flex items-center gap-0.5"><Waves size={10} class="text-ocean/60 shrink-0" />{s.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}</span>
-										{/if}
-										{#if s.notes}· {s.notes}{/if}
+										🌊 {session.instructors.map(i => i.instructorName).filter(Boolean).join(', ')}
 									</p>
-								</div>
-								<span class="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] {s.bookingStatus === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">
-									{s.bookingStatus}
-								</span>
+								{/if}
+
+								{#if session.participantNames?.length}
+									<p class="mt-0.5 text-xs text-muted">
+										🏄 {session.participantNames.join(', ')}
+									</p>
+								{/if}
+
+								{#if session.notes}
+									<p class="mt-0.5 text-xs italic text-muted">{session.notes}</p>
+								{/if}
+							</div>
+
+							<!-- Link -->
+							<a href="/calendar?view=day&date={data.today}" class="shrink-0 text-xs text-ocean hover:underline">
+								→
 							</a>
-						{/each}
-
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			</div>
+		{/if}
+	</section>
 
-			<!-- Past -->
-			{#if pastDates.length > 0}
-				<details class="mt-6">
-					<summary class="cursor-pointer text-xs text-muted hover:text-gray-600">
-						Past ({pastDates.reduce((n, d) => n + sessionsForDate(d).length, 0)})
-					</summary>
-					<div class="mt-3 space-y-4">
-						{#each pastDates as date}
-							{@const daySessions = sessionsForDate(date)}
-							{#if daySessions.length > 0}
-								<div>
-									<p class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">{fmtDate(date)}</p>
-									<div class="space-y-1.5">
-										{#each daySessions as s}
-											{@const c = getServiceColor(s.serviceColor ?? '')}
-											<a href="/bookings/{s.bookingId}"
-												class="flex items-center justify-between rounded-(--radius-card) border-l-4 p-3 opacity-60 ring-1 ring-border {c.border} bg-surface">
-												<p class="text-sm text-gray-700">
-													{fmtTime(s.time) ?? '—'} · {s.serviceName ?? 'Session'}
-													{#if s.participantNames.length > 0} · {s.participantNames[0]}{/if}
-												</p>
-												<span class="text-xs text-muted">{s.bookingStatus}</span>
-											</a>
-										{/each}
-									</div>
-								</div>
+	<!-- Active camps -->
+	{#if data.activeCamps.length > 0}
+		<section class="mb-6">
+			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Camps activos</h2>
+			<div class="space-y-2">
+				{#each data.activeCamps as camp}
+					<a
+						href="/bookings/{camp.id}"
+						class="flex items-center justify-between rounded-(--radius-card) bg-surface p-4 ring-1 ring-border hover:ring-ocean/50"
+					>
+						<div class="min-w-0">
+							<p class="font-medium text-gray-800">{camp.serviceName ?? 'Camp'}</p>
+							{#if camp.serviceRunStartDate}
+								<p class="text-xs text-muted">{camp.serviceRunStartDate} → {camp.serviceRunEndDate}</p>
+							{:else}
+								<p class="text-xs text-muted">{camp.date}{camp.dateEnd ? ` → ${camp.dateEnd}` : ''}</p>
 							{/if}
-						{/each}
-					</div>
-				</details>
-			{/if}
+						</div>
+						<div class="shrink-0 text-right">
+							<p class="text-sm font-semibold text-navy">
+								{camp.clientCount}{camp.serviceMaxCapacity ? `/${camp.serviceMaxCapacity}` : ''}
+							</p>
+							<p class="text-xs text-muted">inscritos</p>
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
-		</div>
-	</div>
+	<!-- Upcoming events -->
+	{#if data.nextEvents.length > 0}
+		<section class="mb-6">
+			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Próximos eventos</h2>
+			<div class="space-y-2">
+				{#each data.nextEvents as event}
+					<a
+						href="/events/{event.id}"
+						class="flex items-center justify-between rounded-(--radius-card) bg-surface p-4 ring-1 ring-border hover:ring-ocean/50"
+					>
+						<div>
+							<p class="font-medium text-gray-800">{event.title}</p>
+							<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+	{/if}
+
+	<!-- Needs scheduling -->
+	{#if data.unscheduledUpcoming.length > 0}
+		<section>
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">Por programar</h2>
+				<a href="/calendar" class="text-xs text-ocean hover:underline">{m.agenda_view_all()}</a>
+			</div>
+			<a
+				href="/calendar"
+				class="flex items-center gap-4 rounded-(--radius-card) bg-amber-50 p-4 ring-1 ring-amber-200 hover:ring-amber-400"
+			>
+				<span class="text-2xl font-bold text-amber-700">{data.unscheduledUpcoming.length}</span>
+				<div>
+					<p class="text-sm font-medium text-amber-800">
+						{data.unscheduledUpcoming.length === 1 ? 'sesión pendiente de programar' : 'sesiones pendientes de programar'}
+					</p>
+					<p class="text-xs text-amber-600">Ir al calendario →</p>
+				</div>
+			</a>
+		</section>
+	{/if}
+
 </div>
-
-<a href="/bookings/new"
-	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 active:scale-95 md:bottom-6"
-	aria-label={m.agenda_new_booking()}>
-	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-</a>
