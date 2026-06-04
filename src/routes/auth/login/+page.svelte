@@ -12,9 +12,9 @@
 
 <div class="flex min-h-screen items-center justify-center bg-sand px-4">
 	<div class="w-full max-w-sm">
-		<!-- Logo -->
+		<!-- Logo — BRANDING: replace /static/oba-favicon.png to update login logo -->
 		<div class="mb-8 text-center">
-			<div class="mb-2 text-5xl">🏄</div>
+			<img src="/oba-favicon.png" alt="OBA" class="mx-auto mb-3 h-16 w-16 object-contain" />
 			<h1 class="text-2xl font-bold text-navy">OBA</h1>
 			<p class="mt-1 text-sm text-muted">Surf School Manager</p>
 		</div>

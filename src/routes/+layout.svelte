@@ -2,7 +2,8 @@
 	import { page } from '$app/state';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
+	// BRANDING: to update the browser tab favicon, replace /static/oba-favicon.png
+	const favicon = '/oba-favicon.png';
 
 	let { children } = $props();
 </script>
