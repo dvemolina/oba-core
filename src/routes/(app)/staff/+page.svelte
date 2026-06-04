@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 	let { data }: { data: PageData } = $props();
 
 	const ROLE_COLORS: Record<string, string> = {
@@ -16,15 +17,15 @@
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center justify-between">
-		<h1 class="text-xl font-bold text-navy">Staff</h1>
-		<a href="/staff/new" class="btn-primary btn-sm">+ Invite staff</a>
+		<h1 class="text-xl font-bold text-navy">{m.staff_list_title()}</h1>
+		<a href="/staff/new" class="btn-primary btn-sm">{m.staff_list_invite()}</a>
 	</div>
 
 	<div class="space-y-2">
 		{#each data.staff as member}
 			<a
 				href="/staff/{member.id}"
-				class="flex items-center gap-4 rounded-[var(--radius-card)] bg-surface p-4 ring-1 ring-border hover:ring-ocean/50"
+				class="flex items-center gap-4 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border hover:ring-ocean/50"
 			>
 				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ocean/10 text-lg font-bold text-ocean">
 					{member.name[0].toUpperCase()}
@@ -38,7 +39,7 @@
 							</span>
 						{/each}
 						{#if member.banned}
-							<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">banned</span>
+							<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">{m.common_banned()}</span>
 						{/if}
 					</div>
 					<p class="text-xs text-muted">{member.email}</p>
@@ -48,6 +49,6 @@
 	</div>
 
 	{#if data.staff.length === 0}
-		<p class="py-12 text-center text-sm text-muted">No staff yet.</p>
+		<p class="py-12 text-center text-sm text-muted">{m.staff_list_empty()}</p>
 	{/if}
 </div>

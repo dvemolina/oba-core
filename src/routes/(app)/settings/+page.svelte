@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
+	import { languageTag } from '$lib/paraglide/runtime';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -11,14 +13,14 @@
 </script>
 
 <div class="mx-auto max-w-lg p-4 md:p-6">
-	<h1 class="mb-6 text-xl font-bold text-navy">Settings</h1>
+	<h1 class="mb-6 text-xl font-bold text-navy">{m.settings_title()}</h1>
 
 	<!-- Account -->
 	<section class="mb-6 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
-		<h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">Account</h2>
+		<h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_account()}</h2>
 
 		<div class="mb-4">
-			<p class="text-xs text-muted">Email</p>
+			<p class="text-xs text-muted">{m.common_email()}</p>
 			<p class="mt-0.5 text-sm font-medium text-gray-800">{data.user.email}</p>
 		</div>
 
@@ -32,7 +34,7 @@
 			}}
 		>
 			<div>
-				<label for="name" class="mb-1 block text-sm font-medium text-gray-700">Display name</label>
+				<label for="name" class="mb-1 block text-sm font-medium text-gray-700">{m.settings_display_name()}</label>
 				<input
 					id="name"
 					name="name"
@@ -46,7 +48,7 @@
 				<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.nameError}</p>
 			{/if}
 			{#if form?.nameSuccess}
-				<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">Name updated.</p>
+				<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{m.settings_name_updated()}</p>
 			{/if}
 
 			<button
@@ -54,14 +56,14 @@
 				disabled={savingName}
 				class="rounded-lg bg-ocean px-4 py-2 text-sm font-semibold text-white hover:bg-ocean/90 disabled:opacity-60"
 			>
-				{savingName ? 'Saving…' : 'Save name'}
+				{savingName ? m.common_saving() : m.settings_save_name()}
 			</button>
 		</form>
 	</section>
 
 	<!-- Change password -->
 	<section class="mb-6 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
-		<h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">Change Password</h2>
+		<h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_change_password()}</h2>
 
 		<form
 			method="post"
@@ -74,7 +76,7 @@
 		>
 			<div>
 				<label for="currentPassword" class="mb-1 block text-sm font-medium text-gray-700">
-					Current password
+					{m.settings_current_password()}
 				</label>
 				<div class="relative">
 					<input
@@ -90,14 +92,14 @@
 						onclick={() => (showCurrentPassword = !showCurrentPassword)}
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-gray-700"
 					>
-						{showCurrentPassword ? 'Hide' : 'Show'}
+						{showCurrentPassword ? m.settings_hide() : m.settings_show()}
 					</button>
 				</div>
 			</div>
 
 			<div>
 				<label for="newPassword" class="mb-1 block text-sm font-medium text-gray-700">
-					New password
+					{m.settings_new_password()}
 				</label>
 				<div class="relative">
 					<input
@@ -114,15 +116,15 @@
 						onclick={() => (showNewPassword = !showNewPassword)}
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-gray-700"
 					>
-						{showNewPassword ? 'Hide' : 'Show'}
+						{showNewPassword ? m.settings_hide() : m.settings_show()}
 					</button>
 				</div>
-				<p class="mt-1 text-xs text-muted">Minimum 8 characters</p>
+				<p class="mt-1 text-xs text-muted">{m.settings_password_hint()}</p>
 			</div>
 
 			<div>
 				<label for="confirmPassword" class="mb-1 block text-sm font-medium text-gray-700">
-					Confirm new password
+					{m.settings_confirm_password()}
 				</label>
 				<input
 					id="confirmPassword"
@@ -138,7 +140,7 @@
 				<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.passwordError}</p>
 			{/if}
 			{#if form?.passwordSuccess}
-				<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">Password changed successfully.</p>
+				<p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{m.settings_password_changed()}</p>
 			{/if}
 
 			<button
@@ -146,14 +148,29 @@
 				disabled={savingPassword}
 				class="rounded-lg bg-ocean px-4 py-2 text-sm font-semibold text-white hover:bg-ocean/90 disabled:opacity-60"
 			>
-				{savingPassword ? 'Saving…' : 'Change password'}
+				{savingPassword ? m.common_saving() : m.settings_change_password()}
 			</button>
 		</form>
 	</section>
 
+	<!-- Language -->
+	<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_language()}</h2>
+		<div class="flex gap-3">
+			<a href="/api/set-locale?locale=es&from=/settings"
+				class="btn-sm {languageTag() === 'es' ? 'btn-primary' : 'btn-secondary'}">
+				{m.settings_language_es()}
+			</a>
+			<a href="/api/set-locale?locale=en&from=/settings"
+				class="btn-sm {languageTag() === 'en' ? 'btn-primary' : 'btn-secondary'}">
+				{m.settings_language_en()}
+			</a>
+		</div>
+	</section>
+
 	<!-- Placeholders for future sections -->
 	<section class="rounded-(--radius-card) bg-surface p-5 ring-1 ring-border opacity-50">
-		<h2 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Notifications & Templates</h2>
-		<p class="text-sm text-muted">Email and messaging templates — coming soon.</p>
+		<h2 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">{m.settings_notifications()}</h2>
+		<p class="text-sm text-muted">{m.settings_notifications_coming_soon()}</p>
 	</section>
 </div>

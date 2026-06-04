@@ -1,15 +1,16 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 	let { data }: { data: PageData } = $props();
 </script>
 
 <div class="p-4 md:p-6">
 	<div class="mb-6 flex items-center justify-between">
-		<h1 class="text-xl font-bold text-navy">Events</h1>
+		<h1 class="text-xl font-bold text-navy">{m.event_list_title()}</h1>
 		<a
 			href="/events/new"
 			class="rounded-lg bg-ocean px-4 py-2 text-sm font-semibold text-white hover:bg-ocean/90"
-			>+ New</a
+			>{m.common_new_f()}</a
 		>
 	</div>
 	<div class="space-y-2">
@@ -32,6 +33,6 @@
 		{/each}
 	</div>
 	{#if data.events.length === 0}
-		<p class="py-12 text-center text-sm text-muted">No events yet.</p>
+		<p class="py-12 text-center text-sm text-muted">{m.event_list_empty()}</p>
 	{/if}
 </div>
