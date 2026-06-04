@@ -113,6 +113,7 @@ export const bookings = pgTable('bookings', {
 	accommodationUnitId: text('accommodation_unit_id')
 		.references(() => accommodationUnits.id, { onDelete: 'set null' }),
 	guestsCount: integer('guests_count'),
+	participantCount: integer('participant_count'),
 	time: time('time'),
 	sessionsIncluded: integer('sessions_included'),
 	isFlexible: boolean('is_flexible').notNull().default(false),
@@ -230,6 +231,7 @@ export const sessions = pgTable('sessions', {
 	time: time('time'),
 	durationMinutes: integer('duration_minutes'),
 	notes: text('notes'),
+	skillLevel: skillLevelEnum('skill_level'),
 	status: text('status').notNull().default('unscheduled'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
