@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun } from 'lucide-svelte';
-	import { PUBLIC_BUSINESS_NAME } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
+	const PUBLIC_BUSINESS_NAME = env.PUBLIC_BUSINESS_NAME ?? 'OBA';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
