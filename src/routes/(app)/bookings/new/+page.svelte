@@ -55,17 +55,20 @@
 	let sessionInstructorIds = $state<string[][]>([[]]);
 	let sessionOpen = $state<boolean[]>([true]);
 
-	// Keep session arrays in sync with sessionsIncluded
+	// Keep session arrays in sync with sessionsIncluded.
+	// Reads of the arrays are wrapped in untrack to avoid retriggering this effect on every write.
 	$effect(() => {
 		const n = Math.max(1, sessionsIncluded);
-		sessionDates = Array.from({ length: n }, (_, i) =>
-			sessionDates[i] ?? (i === 0 ? (data.defaultDate ?? '') : '')
-		);
-		sessionTimes = Array.from({ length: n }, (_, i) => sessionTimes[i] ?? '');
-		sessionFlexibles = Array.from({ length: n }, (_, i) => sessionFlexibles[i] ?? false);
-		sessionLevels = Array.from({ length: n }, (_, i) => sessionLevels[i] ?? sessionLevels[0] ?? '');
-		sessionInstructorIds = Array.from({ length: n }, (_, i) => sessionInstructorIds[i] ?? []);
-		sessionOpen = Array.from({ length: n }, (_, i) => (i === 0 ? true : (sessionOpen[i] ?? false)));
+		untrack(() => {
+			sessionDates = Array.from({ length: n }, (_, i) =>
+				sessionDates[i] ?? (i === 0 ? (data.defaultDate ?? '') : '')
+			);
+			sessionTimes = Array.from({ length: n }, (_, i) => sessionTimes[i] ?? '');
+			sessionFlexibles = Array.from({ length: n }, (_, i) => sessionFlexibles[i] ?? false);
+			sessionLevels = Array.from({ length: n }, (_, i) => sessionLevels[i] ?? sessionLevels[0] ?? '');
+			sessionInstructorIds = Array.from({ length: n }, (_, i) => sessionInstructorIds[i] ?? []);
+			sessionOpen = Array.from({ length: n }, (_, i) => (i === 0 ? true : (sessionOpen[i] ?? false)));
+		});
 	});
 
 	// ── Accordion open states ─────────────────────────────────────────────────
