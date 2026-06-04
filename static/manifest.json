@@ -4,7 +4,7 @@
 	"description": "Surf school booking and schedule manager",
 	"start_url": "/calendar",
 	"display": "standalone",
-	"background_color": "#2563eb",
+	"background_color": "#2d6b5a",
 	"theme_color": "#1a1a2e",
 	"orientation": "portrait-primary",
 	"icons": [
