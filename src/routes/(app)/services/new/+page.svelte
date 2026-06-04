@@ -95,7 +95,7 @@
 
 		<!-- Step 1: Template selection -->
 		<div>
-			<label class="label mb-2">Type</label>
+			<label class="label mb-2">{m.service_new_type_label()}</label>
 			<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
 				{#each TEMPLATES as t}
 					<button
@@ -193,7 +193,7 @@
 		<div>
 			<label class="label">{m.common_description()}</label>
 			<textarea name="description" rows="2" class="input"
-				placeholder="Optional details…">{form?.values?.description ?? ''}</textarea>
+				placeholder={m.service_new_description_placeholder()}>{form?.values?.description ?? ''}</textarea>
 		</div>
 
 		<!-- Advanced: capability flags -->

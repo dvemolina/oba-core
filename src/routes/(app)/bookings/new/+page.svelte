@@ -251,7 +251,7 @@
 
 					{#if !newClientPanel}
 						<div class="relative">
-							<input type="text" placeholder="Search client…" bind:value={clientSearch}
+							<input type="text" placeholder={m.common_search_client()} bind:value={clientSearch}
 								class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
 							{#if filteredClients.length > 0 || showCreateNew}
 								<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">

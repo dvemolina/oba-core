@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-
   "common_save": "Guardar",
   "common_saving": "Guardando…",
   "common_cancel": "Cancelar",
@@ -26,7 +25,6 @@
   "common_time": "Hora",
   "common_search": "Buscar",
   "common_active": "Activo",
-
   "nav_today": "Hoy",
   "nav_calendar": "Calendario",
   "nav_bookings": "Reservas",
@@ -36,7 +34,6 @@
   "nav_settings": "Ajustes",
   "nav_more": "Más",
   "nav_close": "Cerrar",
-
   "agenda_title": "Hoy",
   "agenda_unscheduled": "Sin horario",
   "agenda_pending": "Pendiente",
@@ -47,7 +44,6 @@
   "agenda_schedule": "Programar →",
   "agenda_enrolled": "inscrito",
   "agenda_new_booking": "Nueva reserva",
-
   "booking_list_title": "Reservas",
   "booking_list_search": "Buscar cliente o servicio…",
   "booking_list_filter_all": "todas",
@@ -58,7 +54,6 @@
   "booking_list_empty": "No se encontraron reservas.",
   "booking_list_unknown_service": "Servicio desconocido",
   "booking_list_sessions": "sesiones",
-
   "booking_new_title": "Nueva reserva",
   "booking_new_service": "Servicio *",
   "booking_new_unit_type": "Tipo de unidad *",
@@ -94,7 +89,6 @@
   "booking_new_internal_notes": "Notas internas",
   "booking_new_accommodation": "Reservar alojamiento",
   "booking_new_submit": "Guardar reserva",
-
   "booking_detail_confirm_prompt": "Reserva creada — ¿enviar confirmación?",
   "booking_detail_whatsapp_confirm": "WhatsApp ✓ Confirmar",
   "booking_detail_details": "Detalles",
@@ -119,7 +113,6 @@
   "booking_detail_run": "Edición",
   "booking_detail_sessions": "Sesiones",
   "booking_detail_session_cancelled": "Cancelada",
-
   "camp_roster_title": "Roster del camp",
   "camp_roster_no_runs": "Este servicio no tiene ediciones.",
   "camp_roster_add_run": "Añadir edición →",
@@ -128,7 +121,6 @@
   "camp_roster_spots_filled": "plazas ocupadas",
   "camp_roster_enrolled": "inscritos",
   "camp_roster_no_bookings": "Sin reservas para esta edición.",
-
   "calendar_month": "Mes",
   "calendar_week": "Semana",
   "calendar_day": "Día",
@@ -148,12 +140,10 @@
   "calendar_no_sessions": "sin sesiones hoy",
   "calendar_add_session": "+ Añadir sesión",
   "calendar_open_roster": "Ver roster →",
-
   "client_list_title": "Clientes",
   "client_list_search": "Buscar por nombre o teléfono…",
   "client_list_empty": "No hay clientes.",
   "client_list_empty_search": "No se encontraron clientes.",
-
   "client_new_title": "Nuevo cliente",
   "client_new_first_name": "Nombre *",
   "client_new_last_name": "Apellidos *",
@@ -165,10 +155,8 @@
   "client_new_skill_intermediate": "Intermedio",
   "client_new_skill_advanced": "Avanzado",
   "client_new_submit": "Guardar cliente",
-
   "client_detail_bookings": "Reservas",
   "client_detail_no_bookings": "Sin reservas.",
-
   "service_list_title": "Servicios",
   "service_list_type_lesson": "Clases",
   "service_list_type_camp": "Camps",
@@ -178,7 +166,6 @@
   "service_list_type_other": "Otros",
   "service_list_empty": "Sin servicios. Añade el primero.",
   "service_list_open_roster": "🏕️ Ver roster →",
-
   "service_new_title": "Nuevo servicio",
   "service_new_type_lesson": "Clase",
   "service_new_type_lesson_desc": "Sesión individual o en grupo con monitor (clase de surf, ski, yoga, visita guiada…)",
@@ -215,7 +202,6 @@
   "service_new_flag_requires_instructor": "Requiere monitor",
   "service_new_flag_requires_instructor_desc": "Necesita un guía o monitor asignado",
   "service_new_submit": "Crear servicio",
-
   "service_detail_price": "Precio",
   "service_detail_price_managed": "Precio gestionado por propietarios",
   "service_detail_duration": "Duración",
@@ -258,11 +244,9 @@
   "service_detail_edit_flags": "Flags de capacidad",
   "service_detail_cancel_edit": "✕ Cancelar",
   "service_detail_edit_title": "Editar detalles",
-
   "staff_list_title": "Equipo",
   "staff_list_invite": "+ Invitar",
   "staff_list_empty": "Sin miembros de equipo aún.",
-
   "staff_new_title": "Invitar al equipo",
   "staff_new_full_name": "Nombre completo",
   "staff_new_email_placeholder": "juan@ejemplo.com",
@@ -279,7 +263,6 @@
   "staff_new_role_admin_desc": "Acceso total al sistema",
   "staff_new_temp_password_notice": "Se generará una contraseña temporal y se enviará por email al miembro del equipo.",
   "staff_new_submit": "Enviar invitación",
-
   "staff_detail_account": "Cuenta",
   "staff_detail_account_banned": "Cuenta bloqueada",
   "staff_detail_roles": "Roles",
@@ -294,10 +277,8 @@
   "staff_detail_ban": "Bloquear usuario",
   "staff_detail_confirm_ban": "¿Bloquear a este usuario?",
   "staff_detail_confirm_restore": "¿Restaurar acceso?",
-
   "event_list_title": "Eventos",
   "event_list_empty": "Sin eventos aún.",
-
   "event_new_title": "Nuevo evento",
   "event_new_title_label": "Título *",
   "event_new_title_placeholder": "Camp de Surf de Verano",
@@ -305,10 +286,8 @@
   "event_new_end_date": "Fecha fin *",
   "event_new_price": "Precio (€)",
   "event_new_submit": "Guardar evento",
-
   "event_detail_title": "Editar evento",
   "event_detail_delete_confirm": "¿Eliminar este evento?",
-
   "settings_title": "Ajustes",
   "settings_account": "Cuenta",
   "settings_display_name": "Nombre visible",
@@ -326,5 +305,10 @@
   "settings_notifications_coming_soon": "Plantillas de email y mensajería — próximamente.",
   "settings_language": "Idioma",
   "settings_language_es": "Español",
-  "settings_language_en": "English"
+  "settings_language_en": "English",
+  "common_search_client": "Buscar cliente…",
+  "booking_detail_session_notes_placeholder": "ej. Playa Norte",
+  "booking_detail_add_session_participant": "Añadir nombre…",
+  "service_new_description_placeholder": "Detalles opcionales…",
+  "service_new_type_label": "Tipo"
 }

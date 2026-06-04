@@ -7,6 +7,7 @@
 	import type { PageData } from './$types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
 	import * as m from '$lib/paraglide/messages';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data }: { data: PageData } = $props();
 
@@ -63,7 +64,7 @@
 	}
 
 	const monthName = $derived(
-		new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' })
+		new Date(data.year, data.month - 1).toLocaleString(getLocale(), { month: 'long' })
 	);
 
 	// ── Week view helpers ─────────────────────────────────────────────────────
@@ -82,7 +83,7 @@
 		const last  = new Date(data.weekDays[6] + 'T00:00:00');
 		const sameMonth = first.getMonth() === last.getMonth();
 		const fmt = (d: Date, short = false) =>
-			d.toLocaleDateString('default', short
+			d.toLocaleDateString(getLocale(), short
 				? { day: 'numeric' }
 				: { month: 'short', day: 'numeric' });
 		return sameMonth
@@ -345,7 +346,7 @@
 				<a href="/calendar?view=day&date={data.prevDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</a>
 				<h1 class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-navy">
 					<!-- Short on mobile, full on sm+ -->
-					<span class="sm:hidden">{new Date(data.dayDate + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+					<span class="sm:hidden">{new Date(data.dayDate + 'T00:00:00').toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' })}</span>
 					<span class="hidden sm:inline">{data.dayLabel}</span>
 				</h1>
 				<a href="/calendar?view=day&date={data.nextDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</a>
@@ -480,7 +481,7 @@
 					<a href="/calendar?view=day&date={dateStr}"
 						class="flex flex-col items-center py-2 text-center transition-colors hover:bg-ocean/5">
 						<span class="text-[10px] font-semibold uppercase tracking-wide text-muted">
-							{d.toLocaleDateString('default', { weekday: 'short' })}
+							{d.toLocaleDateString(getLocale(), { weekday: 'short' })}
 						</span>
 						<span class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
 							{isToday ? 'bg-ocean text-white' : 'text-navy'}">

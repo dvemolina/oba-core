@@ -9,7 +9,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		cookies.set('PARAGLIDE_LOCALE', locale, {
 			path: '/',
 			maxAge: 34560000,
-			sameSite: 'lax'
+			sameSite: 'lax',
+			httpOnly: false  // must be readable by Paraglide's client-side cookie strategy
 		});
 	}
 

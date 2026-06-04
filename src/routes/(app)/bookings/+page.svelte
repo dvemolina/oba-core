@@ -3,6 +3,7 @@
 	import { Zap } from 'lucide-svelte';
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data }: { data: PageData } = $props();
 
@@ -30,7 +31,7 @@
 	);
 
 	function fmtDate(d: string) {
-		return new Date(d + 'T00:00:00').toLocaleDateString('default', {
+		return new Date(d + 'T00:00:00').toLocaleDateString(getLocale(), {
 			day: 'numeric', month: 'short', year: 'numeric'
 		});
 	}

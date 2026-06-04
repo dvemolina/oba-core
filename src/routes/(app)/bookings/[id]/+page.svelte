@@ -12,6 +12,7 @@
 	import { Zap, Waves, Bell, Tent, Shuffle } from 'lucide-svelte';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -183,7 +184,7 @@
 	}
 
 	function fmtDate(d: string) {
-		return new Date(d + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' });
+		return new Date(d + 'T00:00:00').toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
 	}
 </script>
 
@@ -621,7 +622,7 @@
 					</div>
 					<div>
 						<label class="text-xs text-muted">Notes / spot</label>
-						<input name="sessionNotes" placeholder="e.g. Playa Norte" class="mt-0.5 input text-xs" />
+						<input name="sessionNotes" placeholder={m.booking_detail_session_notes_placeholder()} class="mt-0.5 input text-xs" />
 					</div>
 					{#if data.instructors.length > 0}
 						<div>
@@ -715,7 +716,7 @@
 											{/if}
 											<form method="post" action="?/addParticipant" use:enhance={withToast()} class="mt-1.5 flex gap-2">
 												<input type="hidden" name="sessionId" value={session.id} />
-												<input name="participantName" placeholder="Add name…" class="input input-sm flex-1 text-xs" />
+												<input name="participantName" placeholder={m.booking_detail_add_session_participant()} class="input input-sm flex-1 text-xs" />
 												<button type="submit" class="btn-ghost btn-sm text-xs">+ Add</button>
 											</form>
 										</div>

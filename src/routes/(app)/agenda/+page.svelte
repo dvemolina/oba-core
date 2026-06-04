@@ -1,13 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import { getLocale } from '$lib/paraglide/runtime';
 
 	let { data }: { data: PageData } = $props();
 
 	const today = new Date(data.today + 'T00:00:00');
-	const dayLabel = today.toLocaleDateString('default', {
+	const dayLabel = $derived(today.toLocaleDateString(getLocale(), {
 		weekday: 'long', day: 'numeric', month: 'long'
-	});
+	}));
 
 	function fmt(t: string | null) {
 		return t ? t.slice(0, 5) : null;
