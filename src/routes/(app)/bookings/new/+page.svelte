@@ -37,39 +37,36 @@
 		participantNames = participantNames.filter((_, idx) => idx !== i);
 	}
 
-	// Sync sessionsIncluded with selected service default
+	// Update sessionsIncluded when service changes (reads only selectedService, writes via untrack)
 	$effect(() => {
-		const svc = selectedService;
-		if (svc?.hasSessions && svc?.defaultSessionsIncluded) {
-			untrack(() => {
-				sessionsIncluded = svc.defaultSessionsIncluded ?? 1;
-			});
+		const def = selectedService?.defaultSessionsIncluded;
+		if (selectedService?.hasSessions && def) {
+			untrack(() => { sessionsIncluded = def; });
 		}
 	});
 
-	// ── Session states (one per session index) ────────────────────────────────
-	let sessionDates = $state<string[]>([data.defaultDate ?? '']);
-	let sessionTimes = $state<string[]>([data.defaultTime ?? '']);
-	let sessionFlexibles = $state<boolean[]>([untrack(() => (data.defaultTime ?? '') === '')]);
-	let sessionLevels = $state<Array<'beginner' | 'intermediate' | 'advanced' | ''>>(['']);
-	let sessionInstructorIds = $state<string[][]>([[]]);
-	let sessionOpen = $state<boolean[]>([true]);
-
-	// Keep session arrays in sync with sessionsIncluded.
-	// Reads of the arrays are wrapped in untrack to avoid retriggering this effect on every write.
-	$effect(() => {
-		const n = Math.max(1, sessionsIncluded);
-		untrack(() => {
-			sessionDates = Array.from({ length: n }, (_, i) =>
-				sessionDates[i] ?? (i === 0 ? (data.defaultDate ?? '') : '')
-			);
-			sessionTimes = Array.from({ length: n }, (_, i) => sessionTimes[i] ?? '');
-			sessionFlexibles = Array.from({ length: n }, (_, i) => sessionFlexibles[i] ?? false);
-			sessionLevels = Array.from({ length: n }, (_, i) => sessionLevels[i] ?? sessionLevels[0] ?? '');
-			sessionInstructorIds = Array.from({ length: n }, (_, i) => sessionInstructorIds[i] ?? []);
-			sessionOpen = Array.from({ length: n }, (_, i) => (i === 0 ? true : (sessionOpen[i] ?? false)));
-		});
-	});
+	// ── Session states — pre-allocated to max size to avoid any resize effect loop ──
+	const MAX_SESSIONS = 20;
+	const _initFlexible = (data.defaultTime ?? '') === '';
+	let sessionDates = $state<string[]>(
+		Array.from({ length: MAX_SESSIONS }, (_, i) => (i === 0 ? (data.defaultDate ?? '') : ''))
+	);
+	let sessionTimes = $state<string[]>(
+		Array.from({ length: MAX_SESSIONS }, (_, i) => (i === 0 ? (data.defaultTime ?? '') : ''))
+	);
+	let sessionFlexibles = $state<boolean[]>(
+		Array.from({ length: MAX_SESSIONS }, (_, i) => (i === 0 ? _initFlexible : false))
+	);
+	let sessionLevels = $state<Array<'beginner' | 'intermediate' | 'advanced' | ''>>(
+		Array.from({ length: MAX_SESSIONS }, () => '' as const)
+	);
+	let sessionInstructorIds = $state<string[][]>(
+		Array.from({ length: MAX_SESSIONS }, () => [])
+	);
+	// Session 0 starts open, rest closed
+	let sessionOpen = $state<boolean[]>(
+		Array.from({ length: MAX_SESSIONS }, (_, i) => i === 0)
+	);
 
 	// ── Accordion open states ─────────────────────────────────────────────────
 	let notesOpen = $state(false);
@@ -79,9 +76,14 @@
 	let guestsCount = $state(1);
 	const unitTypes = $derived(isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []);
 	const selectedUnitType = $derived(unitTypes.find((ut) => ut.id === selectedUnitTypeId));
+	// Read selectedUnitTypeId via untrack so it's not a dependency of this effect
 	$effect(() => {
-		if (isAccommodation && unitTypes.length > 0 && !selectedUnitTypeId) selectedUnitTypeId = unitTypes[0].id;
-		if (!isAccommodation) selectedUnitTypeId = '';
+		const accom = isAccommodation;
+		const types = unitTypes;
+		untrack(() => {
+			if (accom && types.length > 0 && !selectedUnitTypeId) selectedUnitTypeId = types[0].id;
+			if (!accom) selectedUnitTypeId = '';
+		});
 	});
 
 	// ── Shared client state (accommodation, camp, regular) ─────────────────────
