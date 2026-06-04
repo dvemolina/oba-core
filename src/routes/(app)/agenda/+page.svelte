@@ -4,6 +4,7 @@
 	import { fmtTimeRange } from '$lib/features/calendar/utils';
 	import type { PageData } from './$types';
 	import type { AgendaSession } from '$lib/features/sessions/types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
@@ -13,7 +14,7 @@
 
 	function fmtDate(d: string) {
 		const date = new Date(d + 'T00:00:00');
-		if (d === today) return 'Today';
+		if (d === today) return m.agenda_title();
 		return date.toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' });
 	}
 
@@ -52,26 +53,26 @@
 <div class="flex h-full flex-col overflow-hidden">
 	<!-- Header -->
 	<div class="page-header">
-		<h1 class="page-title">Today</h1>
+		<h1 class="page-title">{m.agenda_title()}</h1>
 	</div>
 
 	<!-- Stats strip -->
 	<div class="grid grid-cols-3 divide-x divide-border border-b border-border bg-surface">
 		<div class="flex flex-col items-center py-3">
 			<span class="text-xl font-bold text-navy">{data.stats.scheduledToday}</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Today</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_title()}</span>
 		</div>
 		<div class="flex flex-col items-center py-3">
 			<span class="text-xl font-bold {data.stats.unscheduledTotal > 0 ? 'text-amber-600' : 'text-navy'}">
 				{data.stats.unscheduledTotal}
 			</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Unscheduled</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_unscheduled()}</span>
 		</div>
 		<div class="flex flex-col items-center py-3">
 			<span class="text-xl font-bold {data.stats.pendingRevenue > 0 ? 'text-flexible' : 'text-navy'}">
 				€{data.stats.pendingRevenue.toFixed(0)}
 			</span>
-			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">Pending</span>
+			<span class="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted">{m.agenda_pending()}</span>
 		</div>
 	</div>
 
@@ -95,7 +96,7 @@
 						<div>
 							<p class="text-xs font-semibold uppercase tracking-wider text-muted">Camp</p>
 							<p class="text-sm font-semibold text-gray-800">{camp.serviceName}</p>
-							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount}{camp.serviceMaxCapacity != null ? `/${camp.serviceMaxCapacity}` : ''} enrolled</p>
+							<p class="text-xs text-muted">{camp.date} → {camp.dateEnd} · {camp.clientCount}{camp.serviceMaxCapacity != null ? `/${camp.serviceMaxCapacity}` : ''} {m.agenda_enrolled()}</p>
 						</div>
 						<span class="rounded-full px-2 py-0.5 text-xs {camp.status === 'confirmed' ? 'bg-confirmed/15 text-green-700' : 'bg-pending/30 text-amber-700'}">{camp.status}</span>
 					</div>
@@ -107,10 +108,10 @@
 				<div class="rounded-(--radius-card) border border-amber-200 bg-amber-50">
 					<div class="flex items-center justify-between px-3 pt-3 pb-2">
 						<p class="text-xs font-semibold text-amber-800">
-							<Zap size={13} class="inline mr-0.5" />{unscheduled.length} session{unscheduled.length > 1 ? 's' : ''} need scheduling
+							<Zap size={13} class="inline mr-0.5" />{m.agenda_sessions_need_scheduling({ count: unscheduled.length })}
 						</p>
 						<a href="/bookings?statusFilter=unscheduled" class="text-[10px] text-amber-600 hover:underline">
-							View all →
+							{m.agenda_view_all()}
 						</a>
 					</div>
 					<div class="divide-y divide-amber-100">
@@ -127,19 +128,19 @@
 								</div>
 								<a href="/calendar?view=day&date={s.date}"
 									class="ml-3 shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800 hover:bg-amber-200 transition-colors">
-									Schedule →
+									{m.agenda_schedule()}
 								</a>
 							</div>
 						{/each}
 					</div>
 					<div class="px-3 pb-3 pt-1">
-						<p class="text-[10px] text-amber-600">Tap Schedule → to assign time in the day view</p>
+						<p class="text-[10px] text-amber-600">{m.agenda_schedule_hint()}</p>
 					</div>
 				</div>
 			{/if}
 
 			{#if upcomingDates.length === 0 && data.events.length === 0 && data.activeCamps.length === 0}
-				<p class="py-16 text-center text-sm text-muted">No upcoming sessions.</p>
+				<p class="py-16 text-center text-sm text-muted">{m.agenda_no_upcoming()}</p>
 			{/if}
 
 			<!-- Upcoming dates -->
@@ -159,7 +160,7 @@
 										{#if s.time}
 											<span class="text-sm font-semibold text-gray-900">{fmtTimeRange(s.time, s.effectiveDuration)}</span>
 										{:else}
-											<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Zap size={10} /> Unscheduled</span>
+											<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><Zap size={10} /> {m.agenda_unscheduled()}</span>
 										{/if}
 										<span class="inline-flex items-center gap-1 text-sm font-medium text-gray-800">
 											<span class="inline-block h-2 w-2 shrink-0 rounded-full {c.bg} ring-1 {c.border}"></span>
@@ -171,7 +172,7 @@
 									</div>
 									<p class="mt-0.5 text-xs text-muted">
 										{#if s.serviceHasRoster}
-											{s.enrolledCount}{s.maxCapacity != null ? `/${s.maxCapacity}` : ''} enrolled
+											{s.enrolledCount}{s.maxCapacity != null ? `/${s.maxCapacity}` : ''} {m.agenda_enrolled()}
 										{:else if s.participantNames.length > 0}
 											{s.participantNames.join(' · ')}
 										{/if}
@@ -229,6 +230,6 @@
 
 <a href="/bookings/new"
 	class="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 active:scale-95 md:bottom-6"
-	aria-label="New booking">
+	aria-label={m.agenda_new_booking()}>
 	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 </a>

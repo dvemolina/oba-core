@@ -2,6 +2,7 @@
 	import { getServiceColor } from '$lib/features/services/colors';
 	import { Zap } from 'lucide-svelte';
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
@@ -43,15 +44,15 @@
 
 <div class="flex h-full flex-col overflow-hidden">
 	<div class="page-header">
-		<h1 class="page-title">Bookings</h1>
-		<a href="/bookings/new" class="btn btn-primary btn-sm">+ New</a>
+		<h1 class="page-title">{m.booking_list_title()}</h1>
+		<a href="/bookings/new" class="btn btn-primary btn-sm">{m.common_new()}</a>
 	</div>
 
 	<!-- Filters -->
 	<div class="border-b border-border px-4 py-2.5 space-y-2">
 		<input
 			bind:value={search}
-			placeholder="Search client or service…"
+			placeholder={m.booking_list_search()}
 			class="input input-sm w-full text-sm"
 		/>
 		<div class="flex gap-1 overflow-x-auto pb-0.5">
@@ -60,7 +61,7 @@
 					onclick={() => statusFilter = s}
 					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors
 					       {statusFilter === s ? 'bg-ocean text-white' : 'bg-surface text-muted ring-1 ring-border hover:text-gray-700'}"
-				>{s}</button>
+				>{s === 'all' ? m.booking_list_filter_all() : s === 'pending' ? m.booking_list_filter_pending() : s === 'confirmed' ? m.booking_list_filter_confirmed() : m.booking_list_filter_cancelled()}</button>
 			{/each}
 			{#if needsSchedulingCount > 0}
 				<button
@@ -68,7 +69,7 @@
 					class="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors
 					       {statusFilter === 'unscheduled' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100'}"
 				>
-					<Zap size={11} class="inline mr-0.5" />needs scheduling ({needsSchedulingCount})
+					<Zap size={11} class="inline mr-0.5" />{m.booking_list_filter_needs_scheduling()} ({needsSchedulingCount})
 				</button>
 			{/if}
 		</div>
@@ -77,7 +78,7 @@
 	<!-- List -->
 	<div class="flex-1 overflow-y-auto">
 		{#if filtered.length === 0}
-			<p class="py-16 text-center text-sm text-muted">No bookings found.</p>
+			<p class="py-16 text-center text-sm text-muted">{m.booking_list_empty()}</p>
 		{:else}
 			<div class="divide-y divide-border">
 				{#each filtered as b}
@@ -93,14 +94,14 @@
 								<p class="truncate text-sm font-semibold text-gray-900">
 									{b.firstClientName ?? '—'}
 								</p>
-								<p class="truncate text-xs text-muted">{b.serviceName ?? 'Unknown service'}</p>
+								<p class="truncate text-xs text-muted">{b.serviceName ?? m.booking_list_unknown_service()}</p>
 							</div>
 							<div class="mt-0.5 flex items-center gap-2 text-xs text-muted">
 								<span>{fmtDate(b.date)}</span>
 								{#if b.serviceHasSessions && b.sessionCount > 0}
 									<span>·</span>
 									<span class="{b.scheduledCount < b.sessionCount ? 'text-amber-600' : 'text-green-600'}">
-										{b.scheduledCount}/{b.sessionCount} sessions
+										{b.scheduledCount}/{b.sessionCount} {m.booking_list_sessions()}
 									</span>
 								{/if}
 							</div>
