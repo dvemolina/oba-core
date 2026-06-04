@@ -75,11 +75,13 @@
 	let editingSessionId = $state<string | null>(null);
 	let editFormTime     = $state('');
 	let editFormDuration = $state(serviceDuration);
+	let editSessionLevel = $state('');
 	$effect(() => {
 		if (editingSessionId) {
 			const s = data.sessions.find(s => s.id === editingSessionId);
 			editFormTime     = s?.time?.slice(0, 5) ?? '';
 			editFormDuration = sessionDur(s ?? { durationMinutes: null });
+			editSessionLevel = s?.skillLevel ?? '';
 		}
 	});
 	const editConflicts = $derived(
@@ -269,6 +271,12 @@
 						<span class="text-sm text-gray-800">{data.booking.guestsCount}</span>
 					</div>
 				{/if}
+				{#if data.booking.participantCount}
+					<div class="flex items-center justify-between">
+						<span class="text-xs text-muted">{m.booking_new_participants()}</span>
+						<span class="text-sm text-gray-800">{m.booking_detail_participant_count({ count: data.booking.participantCount })}</span>
+					</div>
+				{/if}
 				{#if !hasSessions && data.booking.instructorName}
 					<div class="flex items-center justify-between">
 						<span class="text-xs text-muted">{m.booking_new_instructor()}</span>
@@ -307,13 +315,13 @@
 				<input type="hidden" name="status" value={data.booking.status} />
 				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="mb-1 block text-xs text-muted">Date</label>
+						<label class="mb-1 block text-xs text-muted">{m.booking_new_date()}</label>
 						<input name="date" type="date" bind:value={editDate} required
 							class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
 					</div>
 					{#if !hasSessions}
 						<div>
-							<label class="mb-1 block text-xs text-muted">Time</label>
+							<label class="mb-1 block text-xs text-muted">{m.booking_new_time()}</label>
 							<input name="time" type="time" bind:value={editTime} disabled={editFlexible}
 								class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none disabled:opacity-40" />
 						</div>
@@ -423,7 +431,7 @@
 						<div class="flex gap-2 pt-1">
 							<button type="button" onclick={saveNewEnrollClient} disabled={!newFirstName || creatingClient}
 								class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-								{creatingClient ? 'Saving…' : m.booking_detail_add_select()}
+								{creatingClient ? m.booking_new_saving() : m.booking_detail_add_select()}
 							</button>
 							<button type="button" onclick={() => { enrollPanel = false; enrollSearch = ''; }}
 								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border">{m.common_cancel()}</button>
@@ -465,7 +473,7 @@
 							<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
 								class="mt-0.5 input" />
 						</div>
-						<button type="submit" class="btn-secondary btn-sm">Save</button>
+						<button type="submit" class="btn-secondary btn-sm">{m.booking_detail_save_payment()}</button>
 					</form>
 					{/if}
 					{#if bc.status === 'enrolled' && data.booking.status !== 'cancelled'}
@@ -483,7 +491,7 @@
 		{#if cancelledClients.length > 0}
 			<details class="border-t border-border/50">
 				<summary class="cursor-pointer px-4 py-2.5 text-xs text-muted hover:text-gray-600">
-					Cancelled ({cancelledClients.length})
+					{m.booking_detail_cancelled_label()} ({cancelledClients.length})
 				</summary>
 				<div class="divide-y divide-border/60 pb-2">
 					{#each cancelledClients as bc}
@@ -540,7 +548,7 @@
 		<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
 			<!-- Header -->
 			<div class="flex items-center justify-between px-4 pt-4 pb-3">
-				<div>
+				<div class="border-l-2 border-ocean pl-2">
 					<p class="text-xs font-semibold uppercase tracking-wider text-muted">
 						{m.booking_detail_sessions()}
 						{#if data.booking.sessionsIncluded != null}
@@ -554,19 +562,19 @@
 						{/if}
 					</p>
 					{#if unscheduledSessions.length > 0}
-						<p class="mt-0.5 text-[11px] text-amber-600">{unscheduledSessions.length} need a time assigned</p>
+						<p class="mt-0.5 text-[11px] text-amber-600">{unscheduledSessions.length} {m.booking_detail_needs_time()}</p>
 					{/if}
 				</div>
 				<div class="flex items-center gap-3">
 					{#if hasDateRange}
 						<button type="button" onclick={() => { showBulkGenerate = !showBulkGenerate; showAddSession = false; }}
 							class="text-xs font-medium text-muted hover:text-slate-700">
-							{showBulkGenerate ? 'Cancel' : 'Generate'}
+							{showBulkGenerate ? m.common_cancel() : m.booking_detail_session_generate()}
 						</button>
 					{/if}
 					<button type="button" onclick={() => { showAddSession = !showAddSession; showBulkGenerate = false; }}
 						class="text-xs font-medium text-ocean hover:underline">
-						{showAddSession ? 'Cancel' : '+ Add'}
+						{showAddSession ? m.common_cancel() : m.booking_detail_session_add()}
 					</button>
 				</div>
 			</div>
@@ -575,58 +583,58 @@
 				<form method="post" action="?/bulkGenerateSessions"
 					use:enhance={withToast(() => { showBulkGenerate = false; })}
 					class="mx-4 mb-3 space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-					<p class="text-xs font-semibold text-amber-800">Generate for {data.booking.date} → {data.booking.dateEnd}</p>
+					<p class="text-xs font-semibold text-amber-800">{m.booking_detail_generate_for({ start: data.booking.date, end: data.booking.dateEnd ?? '' })}</p>
 					<div>
-						<label class="text-xs text-muted">Sessions / day</label>
+						<label class="text-xs text-muted">{m.booking_detail_sessions_per_day()}</label>
 						<input name="sessionsPerDay" type="number" min="1" max="6" bind:value={bulkSessionsPerDay}
 							class="mt-0.5 input text-xs w-24" />
 					</div>
 					<div class="space-y-1">
-						<label class="text-xs text-muted">Times</label>
+						<label class="text-xs text-muted">{m.booking_detail_sessions_times()}</label>
 						{#each bulkTimes as _, i}
 							<input name="sessionTime_{i}" type="time" bind:value={bulkTimes[i]} class="mt-0.5 input text-xs" />
 						{/each}
 					</div>
 					<label class="flex cursor-pointer items-center gap-2">
 						<input type="checkbox" name="weekdaysOnly" class="h-3.5 w-3.5 accent-ocean" />
-						<span class="text-xs text-gray-700">Weekdays only</span>
+						<span class="text-xs text-gray-700">{m.booking_detail_weekdays_only()}</span>
 					</label>
 					{#if data.sessions.length > 0}
 						<label class="flex cursor-pointer items-center gap-2">
 							<input type="checkbox" name="clearExisting" class="h-3.5 w-3.5 accent-red-500" />
-							<span class="text-xs text-red-600">Clear existing sessions first</span>
+							<span class="text-xs text-red-600">{m.booking_detail_clear_existing()}</span>
 						</label>
 					{/if}
-					<button type="submit" class="btn-primary btn-sm btn-block">Generate sessions</button>
+					<button type="submit" class="btn-primary btn-sm btn-block">{m.booking_detail_generate_sessions()}</button>
 				</form>
 			{/if}
 
 			{#if showAddSession}
 				<form method="post" action="?/addSession" use:enhance={withToast(() => { showAddSession = false; })}
 					class="mx-4 mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
-					<p class="text-xs font-semibold text-ocean">New session</p>
+					<p class="text-xs font-semibold text-ocean">{m.booking_detail_session_new()}</p>
 					<div class="grid grid-cols-2 gap-2">
 						<div>
-							<label class="text-xs text-muted">Date *</label>
+							<label class="text-xs text-muted">{m.booking_detail_session_date()}</label>
 							<input name="sessionDate" type="date" required value={data.booking.date} class="mt-0.5 input text-xs" />
 						</div>
 						<div>
-							<label class="text-xs text-muted">Time</label>
+							<label class="text-xs text-muted">{m.booking_detail_session_time()}</label>
 							<input name="sessionTime" type="time" bind:value={addFormTime} class="mt-0.5 input text-xs" />
 						</div>
 						<div>
-							<label class="text-xs text-muted">Duration (min)</label>
+							<label class="text-xs text-muted">{m.booking_detail_session_duration()}</label>
 							<input name="sessionDuration" type="number" min="15" step="15" bind:value={addFormDuration}
 								class="mt-0.5 input text-xs" />
 						</div>
 					</div>
 					<div>
-						<label class="text-xs text-muted">Notes / spot</label>
+						<label class="text-xs text-muted">{m.booking_detail_session_notes()}</label>
 						<input name="sessionNotes" placeholder={m.booking_detail_session_notes_placeholder()} class="mt-0.5 input text-xs" />
 					</div>
 					{#if data.instructors.length > 0}
 						<div>
-							<label class="text-xs text-muted mb-1 block">Instructors</label>
+							<label class="text-xs text-muted mb-1 block">{m.booking_detail_session_instructors()}</label>
 							<div class="space-y-1.5">
 								{#each data.instructors as instructor}
 									{@const conflicts = addConflicts[instructor.id] ?? []}
@@ -646,7 +654,7 @@
 							</div>
 						</div>
 					{/if}
-					<button type="submit" class="btn-primary btn-sm btn-block">Add session</button>
+					<button type="submit" class="btn-primary btn-sm btn-block">{m.booking_detail_session_save()}</button>
 				</form>
 			{/if}
 
@@ -655,7 +663,7 @@
 				<p class="px-4 pb-4 text-sm text-muted">
 					{data.booking.sessionsIncluded != null
 						? `${data.booking.sessionsIncluded} session${data.booking.sessionsIncluded > 1 ? 's' : ''} to schedule — tap + Add.`
-						: hasDateRange ? 'No sessions yet — use Generate or + Add.' : 'No sessions yet.'}
+						: hasDateRange ? m.booking_detail_no_sessions() : 'No sessions yet.'}
 				</p>
 			{:else}
 				<div class="divide-y divide-border/60">
@@ -672,7 +680,7 @@
 													{#if session.time}
 														{fmtTimeRange(session.time, sessionDur(session))}
 													{:else}
-														<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">unscheduled</span>
+														<span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">{m.booking_detail_session_unscheduled()}</span>
 													{/if}
 													{#if session.notes}
 														<span class="ml-1 text-xs font-normal text-muted">· {session.notes}</span>
@@ -684,13 +692,23 @@
 											</div>
 											<div class="flex shrink-0 items-center gap-1.5">
 												<span class="text-[10px] text-muted capitalize">{session.status}</span>
+												{#if session.skillLevel}
+													{@const levelLabel = session.skillLevel === 'beginner'
+														? m.skill_level_beginner()
+														: session.skillLevel === 'intermediate'
+															? m.skill_level_intermediate()
+															: m.skill_level_advanced()}
+													<span class="rounded-full bg-ocean/10 px-2 py-0.5 text-xs font-medium text-ocean">
+														{levelLabel}
+													</span>
+												{/if}
 												<button type="button"
 													onclick={() => editingSessionId = editingSessionId === session.id ? null : session.id}
-													class="btn-ghost btn-sm p-1 text-xs">Edit</button>
+													class="btn-ghost btn-sm p-1 text-xs">{m.booking_detail_session_edit()}</button>
 												<form method="post" action="?/cancelSession" use:enhance={withToast()}>
 													<input type="hidden" name="sessionId" value={session.id} />
 													<button type="submit"
-														onclick={(e) => { if (!confirm('Cancel this session?')) e.preventDefault(); }}
+														onclick={(e) => { if (!confirm(m.booking_detail_session_cancel_confirm())) e.preventDefault(); }}
 														class="btn-destructive btn-sm p-1 text-xs">✕</button>
 												</form>
 											</div>
@@ -698,7 +716,7 @@
 
 										<!-- Participants -->
 										<div class="mt-2 border-t border-border/40 pt-2">
-											<p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Attending</p>
+											<p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">{m.booking_detail_session_attending()}</p>
 											{#if session.participants.length > 0}
 												<div class="flex flex-wrap gap-1.5">
 													{#each session.participants as p}
@@ -712,12 +730,12 @@
 													{/each}
 												</div>
 											{:else}
-												<p class="text-xs italic text-muted">Defaults to booking client</p>
+												<p class="text-xs italic text-muted">{m.booking_detail_session_defaults_to_client()}</p>
 											{/if}
 											<form method="post" action="?/addParticipant" use:enhance={withToast()} class="mt-1.5 flex gap-2">
 												<input type="hidden" name="sessionId" value={session.id} />
 												<input name="participantName" placeholder={m.booking_detail_add_session_participant()} class="input input-sm flex-1 text-xs" />
-												<button type="submit" class="btn-ghost btn-sm text-xs">+ Add</button>
+												<button type="submit" class="btn-ghost btn-sm text-xs">{m.booking_detail_session_add()}</button>
 											</form>
 										</div>
 
@@ -729,20 +747,42 @@
 												<input type="hidden" name="sessionId" value={session.id} />
 												<div class="grid grid-cols-2 gap-2">
 													<div>
-														<label class="text-xs text-muted">Time</label>
+														<label class="text-xs text-muted">{m.booking_detail_session_time()}</label>
 														<input name="sessionTime" type="time" bind:value={editFormTime}
 															class="mt-0.5 input text-xs" />
 													</div>
 													<div>
-														<label class="text-xs text-muted">Duration (min)</label>
+														<label class="text-xs text-muted">{m.booking_detail_session_duration()}</label>
 														<input name="sessionDuration" type="number" min="15" step="15"
 															bind:value={editFormDuration}
 															class="mt-0.5 input text-xs" />
 													</div>
 													<div class="col-span-2">
-														<label class="text-xs text-muted">Notes</label>
+														<label class="text-xs text-muted">{m.booking_detail_session_notes()}</label>
 														<input name="sessionNotes" value={session.notes ?? ''}
 															class="mt-0.5 input text-xs" />
+													</div>
+													<div class="col-span-2">
+														<label class="text-xs text-muted">{m.booking_detail_session_level()}</label>
+														<div class="mt-0.5 flex gap-1.5">
+															{#each [
+																{ value: 'beginner', label: m.skill_level_beginner() },
+																{ value: 'intermediate', label: m.skill_level_intermediate() },
+																{ value: 'advanced', label: m.skill_level_advanced() }
+															] as lvl}
+																<button
+																	type="button"
+																	onclick={() => { editSessionLevel = editSessionLevel === lvl.value ? '' : lvl.value; }}
+																	class="flex-1 rounded border py-1 text-[10px] font-medium
+																		{editSessionLevel === lvl.value
+																		? 'border-ocean bg-ocean/10 text-ocean'
+																		: 'border-border text-muted hover:border-ocean/40'}"
+																>
+																	{lvl.label}
+																</button>
+															{/each}
+														</div>
+														<input type="hidden" name="sessionLevel" value={editSessionLevel} />
 													</div>
 												</div>
 												{#if data.instructors.length > 0}
@@ -765,7 +805,7 @@
 														{/each}
 													</div>
 												{/if}
-												<button type="submit" class="btn-primary btn-sm btn-block">Save session</button>
+												<button type="submit" class="btn-primary btn-sm btn-block">{m.booking_detail_session_save()}</button>
 											</form>
 										{/if}
 									</div>
