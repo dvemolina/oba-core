@@ -1,8 +1,8 @@
-import { eq, ne, sum, sql } from 'drizzle-orm';
+import { eq, sum, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bookingClients, bookings } from '$lib/server/db/schema';
 import { isInstructorRole } from '$lib/server/permissions';
-import { listSessionsForDateRange } from '$lib/features/sessions/queries';
+import { listSessionsForDate, listSessionsForDateRange } from '$lib/features/sessions/queries';
 import { listEventsForDateRange } from '$lib/features/events/queries';
 import { listBookingsForDateRange } from '$lib/features/bookings/queries';
 import { getTodayString, formatDate } from '$lib/features/calendar/utils';
@@ -28,37 +28,50 @@ async function loadStats(today: string) {
 export const load: PageServerLoad = async ({ locals }) => {
 	const today = getTodayString();
 
-	const past = new Date();
-	past.setDate(past.getDate() - 30);
 	const future = new Date();
-	future.setDate(future.getDate() + 90);
-
-	const from = formatDate(past);
-	const to = formatDate(future);
+	future.setDate(future.getDate() + 60);
+	const futureDateStr = formatDate(future);
 
 	let instructorId: string | undefined;
 	if (isInstructorRole(locals)) {
 		instructorId = locals.user!.id;
 	}
 
-	const [sessions, bookingsInRange, events, stats] = await Promise.all([
-		listSessionsForDateRange(from, to, instructorId),
-		listBookingsForDateRange(from, to),
-		listEventsForDateRange(today, to),
+	const [todaySessions, upcomingSessions, upcomingBookings, upcomingEvents, stats] = await Promise.all([
+		listSessionsForDate(today, instructorId),
+		listSessionsForDateRange(today, futureDateStr, instructorId),
+		listBookingsForDateRange(today, futureDateStr),
+		listEventsForDateRange(today, futureDateStr),
 		loadStats(today)
 	]);
 
-	// Active camps: roster + date range + not cancelled + end in future
-	const activeCamps = bookingsInRange.filter(
+	// Active camps: roster bookings currently running (dateEnd >= today) and not cancelled
+	const activeCamps = upcomingBookings.filter(
 		b => b.serviceHasRoster && b.dateEnd && b.status !== 'cancelled' && b.dateEnd >= today
 	);
 
-	const todaySessions = sessions.filter(s => s.date === today);
+	// Unscheduled upcoming sessions (exclude today's — shown separately)
+	const unscheduledUpcoming = upcomingSessions.filter(
+		s => s.status === 'unscheduled' && s.date > today
+	);
+
 	const scheduledToday = todaySessions.filter(s => s.status === 'scheduled').length;
-	const unscheduledTotal = sessions.filter(s => s.status === 'unscheduled' && s.date >= today).length;
+	const unscheduledToday = todaySessions.filter(s => s.status === 'unscheduled').length;
+
+	// Next 3 upcoming events
+	const nextEvents = upcomingEvents.filter(e => e.startDate >= today).slice(0, 3);
 
 	return {
-		sessions, activeCamps, events, today,
-		stats: { scheduledToday, unscheduledTotal, pendingRevenue: stats.pendingRevenue }
+		today,
+		todaySessions,
+		scheduledToday,
+		unscheduledToday,
+		unscheduledUpcoming,
+		activeCamps,
+		nextEvents,
+		stats: {
+			pendingRevenue: stats.pendingRevenue,
+			unscheduledCount: unscheduledUpcoming.length
+		}
 	};
 };
