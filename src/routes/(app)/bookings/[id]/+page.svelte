@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { toast } from '$lib/stores/toast.svelte';
+	import { fmtPricingFormula } from '$lib/utils/pricing';
 	import { DOT_COLORS } from '$lib/features/services/colors';
 	import { fmtTimeRange, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
 	import type { InstructorConflict } from '$lib/features/calendar/utils';
@@ -176,6 +177,11 @@
 		return Array.from(map.values());
 	}
 
+	// ── Participant editing ───────────────────────────────────────────────────
+	let editingParticipantId = $state<string | null>(null);
+	let editingParticipantName = $state('');
+
+	// ── Inventory allocations ─────────────────────────────────────────────────
 	let addingAlloc = $state(false);
 	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
 	let addAllocQty = $state(1);
@@ -715,38 +721,91 @@
 		{/if}
 	</div>
 
-	<!-- Participants (who's actually doing the activity) -->
+	<!-- ── Participants ──────────────────────────────────────────────────────── -->
 	{#if data.booking.serviceHasSessions || data.booking.serviceHasRoster}
-		<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
-			<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_participants()}</h2>
-			<p class="mb-3 text-xs text-muted">{m.booking_detail_participants_hint()}</p>
+		{@const participantCount = data.booking.participants.length}
+		{@const sessions = data.booking.sessionsIncluded ?? 1}
+		{@const serviceMode = data.service?.pricingMode ?? null}
+		{@const basePrice = data.service?.basePrice ?? '0'}
+		<section class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
+			<div class="flex items-center justify-between px-4 pt-4 pb-2">
+				<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_participants()}</h2>
+				{#if data.booking.status !== 'cancelled' && canSeeFinancials}
+					<form method="POST" action="?/recalcPrice" use:enhance={withToast()}>
+						<button type="submit" class="text-xs text-ocean hover:underline">Recalc price</button>
+					</form>
+				{/if}
+			</div>
 
-			{#if data.booking.participants.length > 0}
-				<ul class="mb-3 space-y-1.5">
-					{#each data.booking.participants as p}
-						<li class="flex items-center justify-between">
-							<span class="text-sm text-gray-800">{p.name}</span>
+			<!-- Count stepper -->
+			{#if data.booking.status !== 'cancelled'}
+			<form method="POST" action="?/setParticipantCount" use:enhance={withToast()} class="flex items-center gap-3 px-4 pb-3">
+				<span class="text-xs text-muted">Count:</span>
+				<div class="flex items-center gap-2">
+					<button type="button"
+						onclick={(e) => { const inp = e.currentTarget.closest('form')?.querySelector('input[name=count]') as HTMLInputElement; if (inp) { inp.value = String(Math.max(0, parseInt(inp.value) - 1)); } }}
+						class="flex h-7 w-7 items-center justify-center rounded-full border border-border text-sm text-gray-600 hover:bg-gray-100">−</button>
+					<input name="count" type="number" min="0" value={participantCount}
+						class="w-12 rounded-lg border border-border px-2 py-1 text-center text-sm font-semibold" />
+					<button type="button"
+						onclick={(e) => { const inp = e.currentTarget.closest('form')?.querySelector('input[name=count]') as HTMLInputElement; if (inp) { inp.value = String(parseInt(inp.value) + 1); } }}
+						class="flex h-7 w-7 items-center justify-center rounded-full border border-border text-sm text-gray-600 hover:bg-gray-100">+</button>
+				</div>
+				<button type="submit" class="btn-secondary btn-sm">Set</button>
+			</form>
+			{/if}
+
+			<!-- Participant name slots -->
+			{#if participantCount > 0}
+			<ul class="divide-y divide-border/50 border-t border-border/50">
+				{#each data.booking.participants as p}
+					<li class="flex items-center gap-2 px-4 py-2">
+						{#if editingParticipantId === p.id}
+							<form method="POST" action="?/renameParticipant"
+								use:enhance={withToast(() => { editingParticipantId = null; })}
+								class="flex flex-1 items-center gap-2">
+								<input type="hidden" name="participantId" value={p.id} />
+								<input name="name" type="text" bind:value={editingParticipantName}
+									class="input input-sm flex-1 text-sm" />
+								<button type="submit" class="btn-primary btn-sm">Save</button>
+								<button type="button" onclick={() => editingParticipantId = null} class="text-xs text-muted hover:text-gray-600">✕</button>
+							</form>
+						{:else}
+							<span class="flex-1 text-sm text-gray-800">{p.name}</span>
+							<button type="button"
+								onclick={() => { editingParticipantId = p.id; editingParticipantName = p.name; }}
+								class="text-xs text-ocean hover:underline">Edit</button>
 							<form method="POST" action="?/removeBookingParticipant" use:enhance={withToast()}>
 								<input type="hidden" name="participantId" value={p.id} />
 								<button type="submit" class="text-xs text-muted hover:text-red-500">✕</button>
 							</form>
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="mb-3 text-xs text-muted">{m.booking_detail_no_participants()}</p>
+						{/if}
+					</li>
+				{/each}
+			</ul>
 			{/if}
 
-			<form method="POST" action="?/addBookingParticipant" use:enhance={withToast()} class="flex flex-col gap-2">
-				<div class="flex gap-2">
-					<input name="name" type="text" placeholder={m.booking_detail_add_participant()} class="input input-sm flex-1" />
-					<button type="submit" class="btn-primary btn-sm">{m.common_add()}</button>
-				</div>
-				<label class="flex cursor-pointer items-center gap-2 text-xs text-muted">
-					<input type="checkbox" name="addToSessions" value="true" class="h-3.5 w-3.5" />
-					{m.booking_detail_add_to_sessions()}
-				</label>
+			<!-- Add named participant manually -->
+			{#if data.booking.status !== 'cancelled'}
+			<form method="POST" action="?/addBookingParticipant" use:enhance={withToast()} class="flex gap-2 px-4 py-3 border-t border-border/50">
+				<input name="name" type="text" placeholder={m.booking_detail_add_participant()} class="input input-sm flex-1" />
+				<input type="hidden" name="addToSessions" value="true" />
+				<button type="submit" class="btn-secondary btn-sm">{m.common_add()}</button>
 			</form>
+			{/if}
+
+			<!-- Price formula -->
+			{#if canSeeFinancials && serviceMode && participantCount > 0}
+			<div class="border-t border-border/50 px-4 py-3 bg-gray-50/60">
+				<p class="text-xs text-muted mb-0.5">Price formula</p>
+				<p class="text-sm font-medium text-gray-800">
+					{fmtPricingFormula(basePrice, serviceMode, { participants: participantCount, sessions })}
+				</p>
+				{#if data.booking.priceOverride}
+					<p class="text-xs text-amber-600 mt-0.5">Override active: €{data.booking.priceOverride}</p>
+				{/if}
+			</div>
+			{/if}
 		</section>
 	{/if}
 

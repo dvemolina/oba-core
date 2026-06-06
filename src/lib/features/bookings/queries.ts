@@ -1,5 +1,6 @@
 // src/lib/features/bookings/queries.ts
 import { and, count, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
+import { calculateAmount } from '$lib/utils/pricing';
 import { db } from '$lib/server/db';
 import {
 	bookings,
@@ -27,6 +28,7 @@ import type {
 } from './types';
 import { listParticipantsForBooking } from './participants.queries';
 import { listAllocationsForBooking } from '$lib/features/inventory/allocations.queries';
+import { getService } from '$lib/features/services/queries';
 
 function formatAllocationSummary(
 	itemName: string | null,
@@ -593,4 +595,50 @@ export async function deleteBooking(id: string): Promise<void> {
 
 	// Deleting the booking cascades: booking_clients, booking_sessions
 	await db.delete(bookings).where(eq(bookings.id, id));
+}
+
+/**
+ * Recalculate amountDue for every active bookingClient based on the service's
+ * pricingMode, current participant count, sessions included, and booking duration.
+ * Preserves amountPaid and updates paymentStatus accordingly.
+ * Called after participant count or session count changes.
+ */
+export async function recalcBookingAmounts(bookingId: string): Promise<void> {
+	const booking = await getBooking(bookingId);
+	if (!booking?.serviceId) return;
+
+	const service = await getService(booking.serviceId);
+	if (!service) return;
+
+	const participants = await listParticipantsForBooking(bookingId);
+	const participantCount = participants.length || booking.participantCount || 1;
+	const sessions = booking.sessionsIncluded ?? 1;
+
+	let days = 1;
+	if (booking.dateEnd) {
+		const d1 = new Date(booking.date + 'T00:00:00');
+		const d2 = new Date(booking.dateEnd + 'T00:00:00');
+		days = Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86_400_000));
+	}
+
+	const basePrice = parseFloat(service.basePrice);
+	const mode = service.pricingMode;
+	// For roster services each enrolled client is 1 participant (they each pay for themselves).
+	// For session-based services the primary client pays for all participants.
+	const isRoster = booking.serviceHasRoster;
+
+	const activeClients = booking.clients.filter(c => c.status !== 'cancelled');
+	for (const bc of activeClients) {
+		const p = isRoster ? 1 : participantCount;
+		const amount = calculateAmount(basePrice, mode, { participants: p, sessions, days });
+		const amountDue = amount.toFixed(2);
+		const paid = parseFloat(bc.amountPaid);
+		const due = parseFloat(amountDue);
+		const paymentStatus: 'pending' | 'partial' | 'paid' =
+			paid >= due ? 'paid' : paid > 0 ? 'partial' : 'pending';
+		await db.update(bookingClients).set({ amountDue, paymentStatus }).where(eq(bookingClients.id, bc.id));
+	}
+
+	// Keep booking.participantCount in sync
+	await db.update(bookings).set({ participantCount }).where(eq(bookings.id, bookingId));
 }

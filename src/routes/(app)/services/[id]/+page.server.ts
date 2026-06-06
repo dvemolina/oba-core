@@ -2,26 +2,22 @@ import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listRunsForService, createServiceRun, deleteServiceRun } from '$lib/features/services/runs.queries';
-import type { ServiceType, ServicePricingUnit } from '$lib/features/services/types';
-
-const VALID_PRICING_UNITS = new Set<ServicePricingUnit>([
-	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
-]);
-function parsePricingUnit(raw: string | null): ServicePricingUnit | null {
-	return raw && VALID_PRICING_UNITS.has(raw as ServicePricingUnit) ? raw as ServicePricingUnit : null;
-}
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
-import { listLinksForService, addInventoryLink, removeInventoryLink } from '$lib/features/inventory/serviceLinks.queries';
+import { listLinksForService, addInventoryLink, removeInventoryLink, updateInventoryLink } from '$lib/features/inventory/serviceLinks.queries';
 import { listInventoryItemTypes } from '$lib/features/inventory/queries';
+import { PRICING_MODE_OPTIONS } from '$lib/utils/pricing';
+import type { PricingMode } from '$lib/features/services/types';
+
+const VALID_PRICING_MODES = new Set<PricingMode>(PRICING_MODE_OPTIONS.map(o => o.value));
+function parsePricingMode(raw: string | null): PricingMode | null {
+	return raw && VALID_PRICING_MODES.has(raw as PricingMode) ? (raw as PricingMode) : null;
+}
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
-	const [service, instructors] = await Promise.all([
-		getService(params.id),
-		listInstructors()
-	]);
+	const [service, instructors] = await Promise.all([getService(params.id), listInstructors()]);
 	if (!service) error(404, 'Service not found');
 
 	const [inventoryLinks, allItemTypes, runs] = await Promise.all([
@@ -37,9 +33,9 @@ export const actions: Actions = {
 	update: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
-		const name = form.get('name')?.toString().trim() ?? '';
-		const type = form.get('type')?.toString().trim() || undefined;
-		const basePrice = form.get('basePrice')?.toString() ?? '';
+		const name        = form.get('name')?.toString().trim() ?? '';
+		const type        = form.get('type')?.toString().trim() || undefined;
+		const basePrice   = form.get('basePrice')?.toString() ?? '';
 		const description = form.get('description')?.toString().trim() || undefined;
 		const durationRaw = form.get('durationMinutes')?.toString();
 		const durationMinutes = durationRaw ? parseInt(durationRaw) : undefined;
@@ -56,17 +52,15 @@ export const actions: Actions = {
 		const hasDateRange       = form.get('hasDateRange') === 'true';
 		const hasInventoryUnits  = form.get('hasInventoryUnits') === 'true';
 		const requiresInstructor = form.get('requiresInstructor') !== 'false';
-		const pricingUnit        = hasInventoryUnits ? parsePricingUnit(form.get('pricingUnit')?.toString() ?? null) : null;
+		const pricingMode        = parsePricingMode(form.get('pricingMode')?.toString() ?? null);
 
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
-		if ((hasRoster || hasInventoryUnits) && !maxCapacity) {
+		if ((hasRoster || hasInventoryUnits) && !maxCapacity)
 			return fail(400, { error: 'Specify max participants / available units' });
-		}
 
 		await updateService(params.id, {
-			name, type, basePrice, pricingUnit, description, durationMinutes, defaultSessionsIncluded,
-			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
-			maxCapacity, color
+			name, type, basePrice, pricingMode, description, durationMinutes, defaultSessionsIncluded,
+			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor, maxCapacity, color
 		});
 		await setServiceInstructors(params.id, defaultInstructorIds);
 		return { message: 'Service updated' };
@@ -96,13 +90,32 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
+		if (!itemTypeId) return fail(400, { linkError: 'Select an item type' });
 		const quantityRaw = form.get('quantityPerBooking')?.toString();
 		const quantityPerBooking = quantityRaw ? parseInt(quantityRaw) : 1;
-		const isIncluded = form.get('isIncluded') === 'true';
-
-		if (!itemTypeId) return fail(400, { linkError: 'Select an item type' });
-		await addInventoryLink(params.id, { itemTypeId, quantityPerBooking, isIncluded });
+		const isIncluded = form.get('isIncluded') !== 'false';
+		const addonPriceRaw = form.get('addonPrice')?.toString().trim();
+		const addonPrice = !isIncluded && addonPriceRaw ? addonPriceRaw : null;
+		const addonPricingMode = !isIncluded ? parsePricingMode(form.get('addonPricingMode')?.toString() ?? null) : null;
+		const isOptional = form.get('isOptional') !== 'false';
+		await addInventoryLink(params.id, { itemTypeId, quantityPerBooking, isIncluded, addonPrice, addonPricingMode, isOptional });
 		return { message: 'Inventory linked' };
+	},
+
+	updateInventoryLink: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const linkId = form.get('linkId')?.toString() ?? '';
+		if (!linkId) return fail(400, { error: 'Missing link ID' });
+		const isIncluded = form.get('isIncluded') !== 'false';
+		const quantityRaw = form.get('quantityPerBooking')?.toString();
+		const quantityPerBooking = quantityRaw ? parseInt(quantityRaw) : undefined;
+		const addonPriceRaw = form.get('addonPrice')?.toString().trim();
+		const addonPrice = !isIncluded && addonPriceRaw ? addonPriceRaw : null;
+		const addonPricingMode = !isIncluded ? parsePricingMode(form.get('addonPricingMode')?.toString() ?? null) : null;
+		const isOptional = form.get('isOptional') !== 'false';
+		await updateInventoryLink(linkId, { isIncluded, addonPrice, addonPricingMode, isOptional, quantityPerBooking });
+		return { message: 'Link updated' };
 	},
 
 	removeInventoryLink: async ({ request, locals }) => {
@@ -118,13 +131,12 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
 		const startDate = form.get('startDate')?.toString() ?? '';
-		const endDate = form.get('endDate')?.toString() ?? '';
+		const endDate   = form.get('endDate')?.toString() ?? '';
 		const maxCapacityRaw = form.get('maxCapacity')?.toString();
 		const maxCapacity = maxCapacityRaw ? parseInt(maxCapacityRaw) : null;
 		const notes = form.get('notes')?.toString().trim() || null;
-		if (!startDate || !endDate || startDate >= endDate) {
+		if (!startDate || !endDate || startDate >= endDate)
 			return fail(400, { runError: 'Valid start and end dates required (end must be after start)' });
-		}
 		await createServiceRun(params.id, { startDate, endDate, maxCapacity, notes });
 		return { message: 'Run added' };
 	},
@@ -136,5 +148,5 @@ export const actions: Actions = {
 		if (!runId) return fail(400, { error: 'Missing run ID' });
 		await deleteServiceRun(runId);
 		return { message: 'Run deleted' };
-	},
+	}
 };

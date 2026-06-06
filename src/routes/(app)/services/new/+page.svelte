@@ -3,6 +3,7 @@
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import { PRICING_MODE_OPTIONS, defaultPricingMode } from '$lib/utils/pricing';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
@@ -69,6 +70,11 @@
 		hasInventoryUnits = f.hasInventoryUnits;
 		requiresInstructor = f.requiresInstructor;
 	});
+
+	// Smart default pricingMode derived from current flags
+	const smartPricingMode = $derived(
+		defaultPricingMode({ hasSessions, hasRoster, hasDateRange, hasInventoryUnits })
+	);
 
 	let showAdvanced = $state(false);
 </script>
@@ -168,19 +174,21 @@
 				<input name="maxCapacity" type="number" min="1" step="1" required
 					class="input" placeholder={m.service_new_available_units_placeholder()} />
 			</div>
-			<div>
-				<label class="label">{m.service_new_pricing_unit()}</label>
-				<select name="pricingUnit" class="input">
-					<option value="per_day" selected={selectedTemplateId === 'rental'}>{m.pricing_unit_per_day()}</option>
-					<option value="per_night" selected={selectedTemplateId === 'accommodation'}>{m.pricing_unit_per_night()}</option>
-					<option value="per_hour">{m.pricing_unit_per_hour()}</option>
-					<option value="per_half_day">{m.pricing_unit_per_half_day()}</option>
-					<option value="per_session">{m.pricing_unit_per_session()}</option>
-					<option value="flat">{m.pricing_unit_flat()}</option>
-				</select>
-				<p class="mt-1 text-xs text-muted">{m.service_new_pricing_unit_hint()}</p>
-			</div>
 		{/if}
+
+		<!-- Pricing mode — all service types -->
+		<div>
+			<label class="label">Pricing mode</label>
+			<select name="pricingMode" class="input">
+				<option value="">— none (manual) —</option>
+				{#each PRICING_MODE_OPTIONS as opt}
+					<option value={opt.value} selected={smartPricingMode === opt.value}>
+						{opt.label} — {opt.hint}
+					</option>
+				{/each}
+			</select>
+			<p class="mt-1 text-xs text-muted">Auto-selected based on service type. Determines how booking price is calculated.</p>
+		</div>
 
 		{#if requiresInstructor && data.instructors.length > 0}
 			<div>

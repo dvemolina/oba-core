@@ -24,7 +24,8 @@ import {
 	addParticipant,
 	removeParticipant
 } from '$lib/features/sessions/queries';
-import { addBookingParticipant, removeBookingParticipant } from '$lib/features/bookings/participants.queries';
+import { addBookingParticipant, removeBookingParticipant, renameParticipant, setParticipantCount } from '$lib/features/bookings/participants.queries';
+import { recalcBookingAmounts } from '$lib/features/bookings/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -398,5 +399,33 @@ export const actions: Actions = {
 			await createAllocation({ bookingId: params.id, itemTypeId, itemId: null, quantity: qty, attributeFilter, startDate, endDate });
 		}
 		return { error: null, message: `${qty}× ${type.name} añadidos` };
+	},
+
+	setParticipantCount: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const countRaw = form.get('count')?.toString();
+		const count = countRaw ? parseInt(countRaw) : 0;
+		if (isNaN(count) || count < 0) return fail(400, { error: 'Invalid count' });
+		await setParticipantCount(params.id, count);
+		await recalcBookingAmounts(params.id);
+		return { error: null, message: `${count} participant${count !== 1 ? 's' : ''} set` };
+	},
+
+	renameParticipant: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const id   = form.get('participantId')?.toString() ?? '';
+		const name = form.get('name')?.toString().trim() ?? '';
+		if (!id) return fail(400, { error: 'Missing participant id' });
+		if (!name) return fail(400, { error: 'Name required' });
+		await renameParticipant(id, name);
+		return { error: null, message: 'Participant renamed' };
+	},
+
+	recalcPrice: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		await recalcBookingAmounts(params.id);
+		return { error: null, message: 'Price recalculated' };
 	}
 };

@@ -36,6 +36,9 @@ export interface ServiceInventoryLink {
 	itemTypeId: string;
 	quantityPerBooking: number;
 	isIncluded: boolean;
+	addonPrice: string | null;
+	addonPricingMode: import('$lib/features/services/types').PricingMode | null;
+	isOptional: boolean;
 	createdAt: Date;
 }
 
@@ -97,4 +100,15 @@ export interface AddServiceInventoryLinkInput {
 	itemTypeId: string;
 	quantityPerBooking?: number;
 	isIncluded?: boolean;
+	addonPrice?: string | null;
+	addonPricingMode?: import('$lib/features/services/types').PricingMode | null;
+	isOptional?: boolean;
+}
+
+export interface UpdateServiceInventoryLinkInput {
+	quantityPerBooking?: number;
+	isIncluded?: boolean;
+	addonPrice?: string | null;
+	addonPricingMode?: import('$lib/features/services/types').PricingMode | null;
+	isOptional?: boolean;
 }

@@ -17,9 +17,10 @@
 	const isCamp        = $derived(!!(selectedService?.hasRoster && selectedService?.hasDateRange));
 	const isLesson      = $derived(!!(selectedService?.hasSessions && !isCamp));
 	const isAccommodation = $derived(!!selectedService?.hasInventoryUnits);
-	const inventoryPricingUnit = $derived(selectedService?.pricingUnit ?? null);
+	const inventoryPricingMode = $derived(selectedService?.pricingMode ?? null);
 	const inventoryNeedsDateRange = $derived(
-		inventoryPricingUnit === 'per_night' || inventoryPricingUnit === 'per_day'
+		inventoryPricingMode === 'per_night' || inventoryPricingMode === 'per_day' ||
+		inventoryPricingMode === 'per_unit_per_day' || inventoryPricingMode === 'per_person_per_day'
 	);
 	const runs = $derived(selectedService ? (data.runsByService[selectedService.id] ?? []) : []);
 	const showInstructor = $derived(
@@ -200,7 +201,7 @@
 					</div>
 					{#if invCheckIn && invCheckOut && invCheckIn < invCheckOut}
 						<div class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 text-sm">
-							<span class="text-gray-600">{calcInventoryUnits()} {inventoryPricingUnit === 'per_night' ? 'nights' : 'days'} × €{selectedService?.basePrice}</span>
+							<span class="text-gray-600">{calcInventoryUnits()} {inventoryPricingMode === 'per_night' ? 'nights' : 'days'} × €{selectedService?.basePrice}</span>
 							<span class="ml-auto font-semibold text-gray-900">= €{invCalculatedAmount}</span>
 						</div>
 					{/if}

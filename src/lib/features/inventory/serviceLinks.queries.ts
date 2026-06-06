@@ -4,7 +4,8 @@ import { serviceInventoryLinks, inventoryItemTypes } from '$lib/server/db/schema
 import type {
 	ServiceInventoryLink,
 	ServiceInventoryLinkWithType,
-	AddServiceInventoryLinkInput
+	AddServiceInventoryLinkInput,
+	UpdateServiceInventoryLinkInput
 } from './types';
 
 export async function listLinksForService(serviceId: string): Promise<ServiceInventoryLinkWithType[]> {
@@ -15,6 +16,9 @@ export async function listLinksForService(serviceId: string): Promise<ServiceInv
 			itemTypeId: serviceInventoryLinks.itemTypeId,
 			quantityPerBooking: serviceInventoryLinks.quantityPerBooking,
 			isIncluded: serviceInventoryLinks.isIncluded,
+			addonPrice: serviceInventoryLinks.addonPrice,
+			addonPricingMode: serviceInventoryLinks.addonPricingMode,
+			isOptional: serviceInventoryLinks.isOptional,
 			createdAt: serviceInventoryLinks.createdAt,
 			itemType: {
 				id: inventoryItemTypes.id,
@@ -46,19 +50,18 @@ export async function addInventoryLink(
 			serviceId,
 			itemTypeId: input.itemTypeId,
 			quantityPerBooking: input.quantityPerBooking ?? 1,
-			isIncluded: input.isIncluded ?? true
+			isIncluded: input.isIncluded ?? true,
+			addonPrice: input.addonPrice ?? null,
+			addonPricingMode: input.addonPricingMode ?? null,
+			isOptional: input.isOptional ?? true
 		})
 		.returning();
 	return row as ServiceInventoryLink;
 }
 
-export async function removeInventoryLink(id: string): Promise<void> {
-	await db.delete(serviceInventoryLinks).where(eq(serviceInventoryLinks.id, id));
-}
-
 export async function updateInventoryLink(
 	id: string,
-	input: Partial<Pick<AddServiceInventoryLinkInput, 'quantityPerBooking' | 'isIncluded'>>
+	input: UpdateServiceInventoryLinkInput
 ): Promise<ServiceInventoryLink> {
 	if (Object.keys(input).length === 0) throw new Error('updateInventoryLink: no fields to update');
 	const [row] = await db
@@ -68,4 +71,8 @@ export async function updateInventoryLink(
 		.returning();
 	if (!row) throw new Error(`ServiceInventoryLink not found: ${id}`);
 	return row as ServiceInventoryLink;
+}
+
+export async function removeInventoryLink(id: string): Promise<void> {
+	await db.delete(serviceInventoryLinks).where(eq(serviceInventoryLinks.id, id));
 }

@@ -8,18 +8,17 @@
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 	import { Trash2 } from 'lucide-svelte';
+	import { PRICING_MODE_OPTIONS, defaultPricingMode } from '$lib/utils/pricing';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	function pricingUnitLabel(unit: string | null): string {
-		if (!unit) return '';
-		const labels: Record<string, () => string> = {
-			per_hour: m.pricing_per_hour, per_half_day: m.pricing_per_half_day,
-			per_day: m.pricing_per_day, per_night: m.pricing_per_night,
-			per_session: m.pricing_per_session, flat: m.pricing_flat
-		};
-		return (labels[unit]?.() ?? unit);
+	function pricingModeLabel(mode: string | null): string {
+		if (!mode) return '';
+		return PRICING_MODE_OPTIONS.find(o => o.value === mode)?.label ?? mode;
 	}
+
+	// Add-on editing state per link
+	let editingLinkId = $state<string | null>(null);
 
 	// ── RBAC ─────────────────────────────────────────────────────────────────
 	const canEditServices = $derived(data.canEditServices);
@@ -86,7 +85,7 @@
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_price()}</span>
 				<span class="text-sm font-semibold text-gray-800">
-					€{data.service.basePrice}{#if data.service.pricingUnit} <span class="font-normal text-muted text-xs">{pricingUnitLabel(data.service.pricingUnit)}</span>{/if}
+					€{data.service.basePrice}{#if data.service.pricingMode} <span class="font-normal text-muted text-xs">· {pricingModeLabel(data.service.pricingMode)}</span>{/if}
 				</span>
 			</div>
 			{:else}
@@ -147,19 +146,78 @@
 			{:else}
 				<ul class="divide-y divide-gray-100">
 				{#each data.inventoryLinks as link}
-					<li class="flex items-center justify-between gap-3 px-4 py-3">
-						<div>
-							<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
-							<p class="text-xs text-gray-500">
-								{link.quantityPerBooking}× · {link.isIncluded ? m.service_detail_inventory_included() : m.service_detail_inventory_addon()}
-							</p>
+					<li class="px-4 py-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
+								<p class="text-xs text-gray-500">
+									{link.quantityPerBooking}×
+									· {link.isIncluded ? m.service_detail_inventory_included() : m.service_detail_inventory_addon()}
+									{#if !link.isIncluded && link.addonPrice}
+										· €{link.addonPrice} {pricingModeLabel(link.addonPricingMode)}
+										{link.isOptional ? '(optional)' : '(mandatory)'}
+									{/if}
+								</p>
+							</div>
+							{#if data.canEditServices}
+							<div class="flex shrink-0 gap-1">
+								<button type="button"
+									onclick={() => { editingLinkId = editingLinkId === link.id ? null : link.id; }}
+									class="rounded px-2 py-1 text-xs text-ocean hover:bg-ocean/5">Edit</button>
+								<form method="POST" action="?/removeInventoryLink" use:enhance>
+									<input type="hidden" name="linkId" value={link.id} />
+									<button type="submit" class="rounded p-1 text-gray-400 hover:text-red-500">
+										<Trash2 size={14} />
+									</button>
+								</form>
+							</div>
+							{/if}
 						</div>
-						{#if data.canEditServices}
-						<form method="POST" action="?/removeInventoryLink" use:enhance>
+
+						{#if editingLinkId === link.id && data.canEditServices}
+						<form method="POST" action="?/updateInventoryLink" use:enhance={() => () => async ({ result, update }) => {
+							if (result.type === 'success') { toast('Link updated'); editingLinkId = null; await update(); } else { await update(); }
+						}} class="mt-3 space-y-2 rounded-lg bg-gray-50 p-3">
 							<input type="hidden" name="linkId" value={link.id} />
-							<button type="submit" class="rounded p-1 text-gray-400 hover:text-red-500">
-								<Trash2 size={14} />
-							</button>
+							<div class="grid grid-cols-2 gap-2">
+								<div>
+									<label class="mb-1 block text-xs font-medium text-gray-600">Qty per booking</label>
+									<input name="quantityPerBooking" type="number" min="1" value={link.quantityPerBooking}
+										class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+								</div>
+								<div class="flex items-center gap-2 self-end pb-1.5">
+									<input id="inc_{link.id}" name="isIncluded" type="checkbox" value="true"
+										checked={link.isIncluded} class="rounded border-gray-300 text-ocean" />
+									<label for="inc_{link.id}" class="text-xs font-medium text-gray-600">Included in price</label>
+								</div>
+							</div>
+							{#if !link.isIncluded}
+							<div class="grid grid-cols-2 gap-2">
+								<div>
+									<label class="mb-1 block text-xs font-medium text-gray-600">Add-on price (€)</label>
+									<input name="addonPrice" type="number" step="0.01" min="0" value={link.addonPrice ?? ''}
+										placeholder="0.00" class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+								</div>
+								<div>
+									<label class="mb-1 block text-xs font-medium text-gray-600">Pricing mode</label>
+									<select name="addonPricingMode" class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+										<option value="">—</option>
+										{#each PRICING_MODE_OPTIONS as opt}
+											<option value={opt.value} selected={link.addonPricingMode === opt.value}>{opt.label}</option>
+										{/each}
+									</select>
+								</div>
+								<div class="flex items-center gap-2 col-span-2">
+									<input id="opt_{link.id}" name="isOptional" type="checkbox" value="true"
+										checked={link.isOptional} class="rounded border-gray-300 text-ocean" />
+									<label for="opt_{link.id}" class="text-xs font-medium text-gray-600">Optional (client can decline)</label>
+								</div>
+							</div>
+							{/if}
+							<div class="flex gap-2">
+								<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white">Save</button>
+								<button type="button" onclick={() => editingLinkId = null} class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Cancel</button>
+							</div>
 						</form>
 						{/if}
 					</li>
@@ -169,12 +227,13 @@
 
 			{#if data.canEditServices}
 				{#if data.allItemTypes.length > 0}
-				<form method="POST" action="?/addInventoryLink" use:enhance class="border-t border-gray-100 bg-gray-50 p-4">
-					<div class="flex flex-wrap items-end gap-3">
-						<div class="flex-1 min-w-40">
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="itemTypeId">{m.service_detail_inventory_item_type()}</label>
-							<select id="itemTypeId" name="itemTypeId" required
-								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+				<form method="POST" action="?/addInventoryLink" use:enhance class="border-t border-gray-100 bg-gray-50 p-4 space-y-3">
+					<p class="text-xs font-semibold text-gray-700">Link inventory type</p>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="col-span-2">
+							<label class="mb-1 block text-xs font-medium text-gray-600">{m.service_detail_inventory_item_type()}</label>
+							<select name="itemTypeId" required
+								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
 								<option value="">—</option>
 								{#each data.allItemTypes as t}
 									<option value={t.id}>{t.name}</option>
@@ -182,20 +241,41 @@
 							</select>
 						</div>
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="quantityPerBooking">{m.service_detail_inventory_qty_booking()}</label>
-							<input id="quantityPerBooking" name="quantityPerBooking" type="number" min="1" value="1"
-								class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+							<label class="mb-1 block text-xs font-medium text-gray-600">{m.service_detail_inventory_qty_booking()}</label>
+							<input name="quantityPerBooking" type="number" min="1" value="1"
+								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 						</div>
-						<div class="flex items-center gap-1.5 self-end pb-1.5">
-							<input id="isIncluded" name="isIncluded" type="checkbox" value="true" checked
+						<div class="flex items-center gap-2 self-end pb-1.5">
+							<input id="newIsIncluded" name="isIncluded" type="checkbox" value="true" checked
 								class="rounded border-gray-300 text-ocean" />
-							<label class="text-xs font-medium text-gray-600" for="isIncluded">{m.service_detail_inventory_included_label()}</label>
+							<label for="newIsIncluded" class="text-xs font-medium text-gray-600">{m.service_detail_inventory_included_label()}</label>
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-600">Add-on price (€) <span class="font-normal">(if not included)</span></label>
+							<input name="addonPrice" type="number" step="0.01" min="0" placeholder="0.00"
+								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-600">Add-on pricing mode</label>
+							<select name="addonPricingMode" class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+								<option value="">—</option>
+								{#each PRICING_MODE_OPTIONS as opt}
+									<option value={opt.value}>{opt.label}</option>
+								{/each}
+							</select>
+						</div>
+					</div>
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<input id="newIsOptional" name="isOptional" type="checkbox" value="true" checked
+								class="rounded border-gray-300 text-ocean" />
+							<label for="newIsOptional" class="text-xs font-medium text-gray-600">Optional add-on</label>
 						</div>
 						<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">
 							{m.service_detail_inventory_btn_link()}
 						</button>
 					</div>
-					{#if form?.linkError}<p class="mt-2 text-xs text-red-600">{form?.linkError}</p>{/if}
+					{#if form?.linkError}<p class="text-xs text-red-600">{form?.linkError}</p>{/if}
 				</form>
 				{:else}
 				<div class="border-t border-gray-100 p-4 text-sm text-gray-500">
@@ -419,23 +499,21 @@
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
-				<div>
-					<label class="label">{m.service_new_pricing_unit()}</label>
-					<select name="pricingUnit" class="input">
-						{#each [
-							{ value: 'per_day',      label: m.pricing_unit_per_day() },
-							{ value: 'per_night',    label: m.pricing_unit_per_night() },
-							{ value: 'per_hour',     label: m.pricing_unit_per_hour() },
-							{ value: 'per_half_day', label: m.pricing_unit_per_half_day() },
-							{ value: 'per_session',  label: m.pricing_unit_per_session() },
-							{ value: 'flat',         label: m.pricing_unit_flat() }
-						] as opt}
-							<option value={opt.value} selected={data.service.pricingUnit === opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-					<p class="mt-1 text-xs text-muted">{m.service_new_pricing_unit_hint()}</p>
-				</div>
 			{/if}
+
+			<!-- Pricing mode — applies to all service types -->
+			<div>
+				<label class="label">Pricing mode</label>
+				<select name="pricingMode" class="input">
+					<option value="">— none (manual) —</option>
+					{#each PRICING_MODE_OPTIONS as opt}
+						<option value={opt.value} selected={data.service.pricingMode === opt.value}>
+							{opt.label} — {opt.hint}
+						</option>
+					{/each}
+				</select>
+				<p class="mt-1 text-xs text-muted">Determines how the price is auto-calculated from participants, sessions, or duration.</p>
+			</div>
 
 			{#if editRequiresInstructor && data.instructors.length > 0}
 				<div>

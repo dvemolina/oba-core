@@ -22,8 +22,18 @@ export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed
 
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'partial', 'paid']);
 
-export const pricingUnitEnum = pgEnum('pricing_unit', [
-	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
+export const pricingModeEnum = pgEnum('pricing_mode', [
+	'flat',
+	'per_person',
+	'per_session',
+	'per_person_per_session',
+	'per_day',
+	'per_night',
+	'per_unit',
+	'per_unit_per_day',
+	'per_person_per_day',
+	'per_hour',
+	'per_half_day'
 ]);
 
 export const trackingModeEnum = pgEnum('tracking_mode', ['pool', 'specific']);
@@ -65,8 +75,8 @@ export const services = pgTable('services', {
 	durationMinutes: integer('duration_minutes'),
 	defaultSessionsIncluded: integer('default_sessions_included'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
-	// Only relevant when hasInventoryUnits=true — how this inventory service is billed
-	pricingUnit: pricingUnitEnum('pricing_unit'),
+	// How the service is priced — applies to all service types
+	pricingMode: pricingModeEnum('pricing_mode'),
 	maxCapacity: integer('max_capacity'),
 	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),
@@ -331,6 +341,10 @@ export const serviceInventoryLinks = pgTable('service_inventory_links', {
 		.references(() => inventoryItemTypes.id, { onDelete: 'cascade' }),
 	quantityPerBooking: integer('quantity_per_booking').notNull().default(1),
 	isIncluded: boolean('is_included').notNull().default(true),
+	// When not included: optional add-on with its own price
+	addonPrice: numeric('addon_price', { precision: 10, scale: 2 }),
+	addonPricingMode: pricingModeEnum('addon_pricing_mode'),
+	isOptional: boolean('is_optional').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_service_inventory_links_service').on(t.serviceId),

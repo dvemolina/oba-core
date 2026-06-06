@@ -1,11 +1,22 @@
 // Cosmetic label only — any string is valid. These are suggested presets shown in the UI.
 export type ServiceLabel = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation' | 'other' | (string & {});
 
-export type ServicePricingUnit = 'per_hour' | 'per_half_day' | 'per_day' | 'per_night' | 'per_session' | 'flat';
-
 // Aliases kept for compatibility
 export type ServiceTemplate = ServiceLabel;
 export type ServiceType = ServiceLabel;
+
+export type PricingMode =
+	| 'flat'
+	| 'per_person'
+	| 'per_session'
+	| 'per_person_per_session'
+	| 'per_day'
+	| 'per_night'
+	| 'per_unit'
+	| 'per_unit_per_day'
+	| 'per_person_per_day'
+	| 'per_hour'      // legacy
+	| 'per_half_day'; // legacy
 
 export interface Service {
 	id: string;
@@ -20,11 +31,11 @@ export interface Service {
 	requiresInstructor: boolean; // needs guide/instructor
 	// ── Config ────────────────────────────────────────────────────────────────
 	durationMinutes: number | null;
-	defaultSessionsIncluded: number | null; // default sessions per booking (1, 5, 10, etc.)
+	defaultSessionsIncluded: number | null;
 	basePrice: string;
-	pricingUnit: ServicePricingUnit | null;
+	pricingMode: PricingMode | null;
 	maxCapacity: number | null;
-	defaultInstructorIds: string[];     // fetched from service_instructors junction table
+	defaultInstructorIds: string[];
 	color: string;
 	active: boolean;
 	createdAt: Date;
@@ -43,7 +54,7 @@ export interface CreateServiceInput {
 	durationMinutes?: number;
 	defaultSessionsIncluded?: number;
 	basePrice: string;
-	pricingUnit?: ServicePricingUnit | null;
+	pricingMode?: PricingMode | null;
 	maxCapacity?: number;
 	color?: string;
 }
