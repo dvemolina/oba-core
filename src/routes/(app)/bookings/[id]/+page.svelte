@@ -155,11 +155,34 @@
 	}
 
 	// ── Inventory allocations ─────────────────────────────────────────────────
+	function groupInventoryItems(
+		items: { id: string; name: string; attributes: Record<string, string>; status: string }[],
+		attrEntries: [string, string[]][]
+	) {
+		type G = { label: string; attrs: Record<string, string>; available: number; total: number; items: typeof items };
+		if (items.length === 0) return [] as G[];
+		if (attrEntries.length === 0)
+			return [{ label: '', attrs: {}, available: items.filter(i => i.status === 'available').length, total: items.length, items }];
+		const map = new Map<string, G>();
+		for (const item of items) {
+			const label = attrEntries.map(([k]) => item.attributes[k]).filter(v => v?.trim()).join(' · ');
+			const attrs = Object.fromEntries(attrEntries.map(([k]) => [k, item.attributes[k] ?? ''])) as Record<string, string>;
+			if (!map.has(label)) map.set(label, { label, attrs, available: 0, total: 0, items: [] });
+			const g = map.get(label)!;
+			g.total++;
+			g.items.push(item);
+			if (item.status === 'available') g.available++;
+		}
+		return Array.from(map.values());
+	}
+
 	let addingAlloc = $state(false);
 	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
 	let addAllocSpecificItemId = $state('');
 	let addAllocQty = $state(1);
 	let reassigningAllocId = $state<string | null>(null);
+	let addAllocSelectedGroup = $state<string | null>(null);
+	let reassignGroupSelections = $state<Record<string, string | null>>({});
 
 	const ALLOC_STATUS_OPTIONS: { value: string; label: string }[] = [
 		{ value: 'allocated', label: 'Allocated' },
@@ -386,12 +409,17 @@
 
 		<!-- Add allocation form -->
 		{#if addingAlloc}
-		<form method="POST" action="?/addAlloc" use:enhance={withToast(() => { addingAlloc = false; })}
+		{@const addLink = data.serviceInventoryLinks.find(l => l.itemTypeId === addAllocTypeId)}
+		{@const addAttrEntries = Object.entries(addLink?.itemType.attributeSchema ?? {})}
+		{@const addGroups = groupInventoryItems(addAllocItems, addAttrEntries)}
+		{@const addSelectedGroup = addGroups.find(g => g.label === addAllocSelectedGroup) ?? null}
+		<form method="POST" action="?/addAlloc" use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocSpecificItemId = ''; })}
 			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
 			<div class="flex flex-wrap gap-3">
 				<div>
 					<label class="mb-1 block text-xs font-medium text-gray-600">Type</label>
 					<select name="itemTypeId" bind:value={addAllocTypeId}
+						onchange={() => { addAllocSelectedGroup = null; addAllocSpecificItemId = ''; }}
 						class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
 						{#each data.serviceInventoryLinks as link}
 							<option value={link.itemTypeId}>{link.itemType.name}</option>
@@ -405,25 +433,49 @@
 				</div>
 			</div>
 			{#if addAllocItems.length > 0}
+			<!-- Hidden attr inputs from selected group -->
+			{#if addSelectedGroup}
+				{#each Object.entries(addSelectedGroup.attrs) as [key, val]}
+					{#if val}<input type="hidden" name="attr_{addAllocTypeId}_{key}" value={val} />{/if}
+				{/each}
+			{/if}
 			<div>
-				<label class="mb-1.5 block text-xs font-medium text-gray-600">Assign unit</label>
+				<p class="mb-1.5 text-xs font-medium text-gray-600">Unit</p>
+				{#if addAttrEntries.length > 0}
+				<div class="mb-2 flex flex-wrap gap-1.5">
+					{#each addGroups as group}
+					{@const isSelected = addAllocSelectedGroup === group.label}
+					<button type="button"
+						onclick={() => { addAllocSelectedGroup = isSelected ? null : group.label; addAllocSpecificItemId = ''; }}
+						class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
+							{group.available === 0 ? 'opacity-50' : ''}
+							{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
+						{group.label || '—'}
+						<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700 font-normal">{group.available}</span>
+					</button>
+					{/each}
+				</div>
+				{/if}
+				{#if !addAttrEntries.length || addSelectedGroup}
+				{@const itemsToShow = addSelectedGroup ? addSelectedGroup.items : addAllocItems}
 				<div class="flex flex-wrap gap-1.5">
-					<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs {!addAllocSpecificItemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
+					<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!addAllocSpecificItemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
 						<input type="radio" name="specificItemId" value="" class="sr-only" bind:group={addAllocSpecificItemId} /> Auto
 					</label>
-					{#each addAllocItems as item}
+					{#each itemsToShow as item}
 					{@const avail = item.status === 'available'}
-					<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs {!avail ? 'cursor-not-allowed opacity-40' : addAllocSpecificItemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
+					<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : addAllocSpecificItemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
 						<input type="radio" name="specificItemId" value={item.id} class="sr-only" disabled={!avail} bind:group={addAllocSpecificItemId} />
 						{item.name.replace(/#/g, '').trim()}
 					</label>
 					{/each}
 				</div>
+				{/if}
 			</div>
 			{/if}
 			<div class="flex gap-2">
 				<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90">Add</button>
-				<button type="button" onclick={() => (addingAlloc = false)} class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+				<button type="button" onclick={() => { addingAlloc = false; addAllocSelectedGroup = null; }} class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
 			</div>
 		</form>
 		{/if}
@@ -482,25 +534,47 @@
 
 				<!-- Item reassignment picker -->
 				{#if reassigningAllocId === alloc.id && isSpecific}
-				<form method="POST" action="?/reassignAllocItem" use:enhance={withToast(() => { reassigningAllocId = null; })}
-					class="rounded-lg border border-gray-100 bg-gray-50 p-2">
+				{@const reAttrEntries = Object.entries(data.itemsByAllocType[alloc.itemTypeId]?.[0]?.attributes ? Object.fromEntries(Object.keys(data.itemsByAllocType[alloc.itemTypeId][0].attributes).map(k => [k, []])) : {})}
+				{@const reGroups = groupInventoryItems(typeItems, Object.entries(alloc.attributeFilter ?? {}).length > 0 ? Object.entries(alloc.attributeFilter ?? {}).map(([k]) => [k, []]) : Object.keys(typeItems[0]?.attributes ?? {}).map(k => [k, []]))}
+				{@const reSelectedGroupLabel = reassignGroupSelections[alloc.id] ?? null}
+				{@const reSelectedGroup = reGroups.find(g => g.label === reSelectedGroupLabel) ?? null}
+				<form method="POST" action="?/reassignAllocItem" use:enhance={withToast(() => { reassigningAllocId = null; delete reassignGroupSelections[alloc.id]; })}
+					class="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2">
 					<input type="hidden" name="allocId" value={alloc.id} />
+					{#if reGroups.length > 1}
 					<div class="flex flex-wrap gap-1.5">
-						<label class="flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-xs {!alloc.itemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
+						{#each reGroups as group}
+						{@const isSelected = reSelectedGroupLabel === group.label}
+						<button type="button"
+							onclick={() => { reassignGroupSelections[alloc.id] = isSelected ? null : group.label; }}
+							class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
+								{group.available === 0 ? 'opacity-50' : ''}
+								{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
+							{group.label || '—'}
+							<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700 font-normal">{group.available}</span>
+						</button>
+						{/each}
+					</div>
+					{/if}
+					{#if reGroups.length <= 1 || reSelectedGroup}
+					{@const itemsToShow = reSelectedGroup ? reSelectedGroup.items : typeItems}
+					<div class="flex flex-wrap gap-1.5">
+						<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!alloc.itemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
 							<input type="radio" name="itemId" value="" class="sr-only" checked={!alloc.itemId} /> Auto
 						</label>
-						{#each typeItems as item}
+						{#each itemsToShow as item}
 						{@const avail = item.status === 'available' || item.id === alloc.itemId}
-						<label class="flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : alloc.itemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
+						<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : alloc.itemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
 							<input type="radio" name="itemId" value={item.id} class="sr-only" disabled={!avail} checked={alloc.itemId === item.id} />
 							{item.name.replace(/#/g, '').trim()}
 							{#if item.status !== 'available'}<span class="ml-1 text-gray-400">({item.status})</span>{/if}
 						</label>
 						{/each}
 					</div>
-					<div class="mt-2 flex gap-2">
+					{/if}
+					<div class="flex gap-2">
 						<button type="submit" class="rounded bg-ocean px-2 py-1 text-xs font-medium text-white hover:bg-ocean/90">Save</button>
-						<button type="button" onclick={() => (reassigningAllocId = null)} class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Cancel</button>
+						<button type="button" onclick={() => { reassigningAllocId = null; delete reassignGroupSelections[alloc.id]; }} class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Cancel</button>
 					</div>
 				</form>
 				{/if}

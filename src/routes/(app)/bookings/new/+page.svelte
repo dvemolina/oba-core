@@ -32,10 +32,31 @@
 	// ── Inventory: date range + auto-calculated amount ─────────────────────────
 	let invCheckIn  = $state('');
 	let invCheckOut = $state('');
-	// Selected attribute filters per link (itemTypeId → {attrKey → value})
-	let linkAttrSelections = $state<Record<string, Record<string, string>>>({});
-	// Explicitly selected item per link (itemTypeId → itemId or '')
+	// Selected attribute group chip per link (itemTypeId → group label or null = auto from all)
+	let linkSelectedGroups = $state<Record<string, string | null>>({});
+	// Explicitly selected item per link (itemTypeId → itemId or '' = auto within group)
 	let linkSelectedItemIds = $state<Record<string, string>>({});
+
+	function groupInventoryItems(
+		items: { id: string; name: string; attributes: Record<string, string>; status: string }[],
+		attrEntries: [string, string[]][]
+	) {
+		type G = { label: string; attrs: Record<string, string>; available: number; total: number; items: typeof items };
+		if (items.length === 0) return [] as G[];
+		if (attrEntries.length === 0)
+			return [{ label: '', attrs: {}, available: items.filter(i => i.status === 'available').length, total: items.length, items }];
+		const map = new Map<string, G>();
+		for (const item of items) {
+			const label = attrEntries.map(([k]) => item.attributes[k]).filter(v => v?.trim()).join(' · ');
+			const attrs = Object.fromEntries(attrEntries.map(([k]) => [k, item.attributes[k] ?? ''])) as Record<string, string>;
+			if (!map.has(label)) map.set(label, { label, attrs, available: 0, total: 0, items: [] });
+			const g = map.get(label)!;
+			g.total++;
+			g.items.push(item);
+			if (item.status === 'available') g.available++;
+		}
+		return Array.from(map.values());
+	}
 
 	function calcInventoryUnits(): number {
 		if (!inventoryNeedsDateRange || !invCheckIn || !invCheckOut) return 1;
@@ -380,53 +401,60 @@
 						{:else}
 							{#each links as link}
 								{@const attrEntries = Object.entries(link.itemType.attributeSchema)}
-								{@const selectedAttrs = linkAttrSelections[link.itemTypeId] ?? {}}
-								{@const matchingItems = link.items.filter(item =>
-									attrEntries.every(([k]) => !selectedAttrs[k] || item.attributes[k] === selectedAttrs[k])
-								)}
+								{@const groups = groupInventoryItems(link.items, attrEntries)}
+								{@const selectedGroupLabel = linkSelectedGroups[link.itemTypeId] ?? null}
+								{@const selectedGroup = groups.find(g => g.label === selectedGroupLabel) ?? null}
 								<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
 									<div class="flex items-center justify-between">
 										<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
 										<span class="text-xs text-gray-500">{link.isIncluded ? m.booking_new_inventory_included() : m.booking_new_inventory_addon()}</span>
 									</div>
-									<!-- Qty + attribute filters -->
-									<div class="flex flex-wrap gap-3">
-										<div>
-											<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">{m.booking_new_inventory_quantity()}</label>
-											<input id="qty_{link.itemTypeId}" name="qty_{link.itemTypeId}" type="number" min="1"
-												value={link.quantityPerBooking}
-												class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
-										</div>
-										{#each attrEntries as [key, values]}
-										<div>
-											<label class="mb-1 block text-xs text-gray-600 capitalize" for="attr_{link.itemTypeId}_{key}">{key}</label>
-											<select id="attr_{link.itemTypeId}_{key}" name="attr_{link.itemTypeId}_{key}"
-												onchange={(e) => {
-													const cur = linkAttrSelections[link.itemTypeId] ?? {};
-													linkAttrSelections[link.itemTypeId] = { ...cur, [key]: e.currentTarget.value };
-													linkSelectedItemIds[link.itemTypeId] = '';
-												}}
-												class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
-												<option value="">—</option>
-												{#each values as v}<option value={v}>{v}</option>{/each}
-											</select>
-										</div>
-										{/each}
-									</div>
-									<!-- Specific item picker (specific-tracking types only) -->
-									{#if link.itemType.trackingMode === 'specific' && link.items.length > 0}
 									<div>
-										<p class="mb-1.5 text-xs font-medium text-gray-600">Assign unit</p>
+										<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">{m.booking_new_inventory_quantity()}</label>
+										<input id="qty_{link.itemTypeId}" name="qty_{link.itemTypeId}" type="number" min="1"
+											value={link.quantityPerBooking}
+											class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+									</div>
+									{#if link.itemType.trackingMode === 'specific' && link.items.length > 0}
+									<!-- Hidden attr inputs from selected group chip -->
+									{#if selectedGroup}
+										{#each Object.entries(selectedGroup.attrs) as [key, val]}
+											{#if val}<input type="hidden" name="attr_{link.itemTypeId}_{key}" value={val} />{/if}
+										{/each}
+									{/if}
+									<div>
+										<p class="mb-1.5 text-xs font-medium text-gray-600">Unit</p>
+										<!-- Attribute group chips (only when type has attrs) -->
+										{#if attrEntries.length > 0}
+										<div class="mb-2 flex flex-wrap gap-1.5">
+											{#each groups as group}
+											{@const isSelected = selectedGroupLabel === group.label}
+											<button type="button"
+												onclick={() => { linkSelectedGroups[link.itemTypeId] = isSelected ? null : group.label; linkSelectedItemIds[link.itemTypeId] = ''; }}
+												class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
+													{group.available === 0 ? 'opacity-50' : ''}
+													{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
+												{group.label || '—'}
+												<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700 font-normal">{group.available}</span>
+											</button>
+											{/each}
+										</div>
+										{/if}
+										<!-- Item radios: always shown if no attrs; shown within selected group if attrs -->
+										{#if !attrEntries.length || selectedGroup}
+										{@const itemsToShow = selectedGroup ? selectedGroup.items : link.items}
 										<div class="flex flex-wrap gap-1.5">
-											<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors {!linkSelectedItemIds[link.itemTypeId] ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
+											<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs transition-colors
+												{!linkSelectedItemIds[link.itemTypeId] ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
 												<input type="radio" name="specificItem_{link.itemTypeId}" value="" class="sr-only"
 													checked={!linkSelectedItemIds[link.itemTypeId]}
 													onchange={() => (linkSelectedItemIds[link.itemTypeId] = '')} />
 												Auto
 											</label>
-											{#each matchingItems as item}
+											{#each itemsToShow as item}
 											{@const available = item.status === 'available'}
-											<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors {!available ? 'cursor-not-allowed opacity-40' : linkSelectedItemIds[link.itemTypeId] === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
+											<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs transition-colors
+												{!available ? 'cursor-not-allowed opacity-40' : linkSelectedItemIds[link.itemTypeId] === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
 												<input type="radio" name="specificItem_{link.itemTypeId}" value={item.id} class="sr-only"
 													disabled={!available}
 													checked={linkSelectedItemIds[link.itemTypeId] === item.id}
@@ -435,6 +463,7 @@
 											</label>
 											{/each}
 										</div>
+										{/if}
 									</div>
 									{/if}
 								</div>
