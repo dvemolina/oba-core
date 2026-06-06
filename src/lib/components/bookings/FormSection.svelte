@@ -24,11 +24,11 @@
 	);
 </script>
 
-<div class="overflow-hidden rounded-(--radius-card) ring-1 {open ? 'ring-ocean/60' : 'ring-border'}">
+<div class="rounded-(--radius-card) ring-1 {open ? 'ring-ocean/60' : 'ring-border'}">
 	<button
 		type="button"
 		onclick={() => (open = !open)}
-		class="flex w-full items-center justify-between bg-surface px-4 py-3 text-left"
+		class="flex w-full items-center justify-between bg-surface px-4 py-3 text-left rounded-t-(--radius-card) {open ? '' : 'rounded-b-(--radius-card)'}"
 	>
 		<span class="text-sm font-semibold text-navy">{title}</span>
 		<div class="flex items-center gap-2">
@@ -44,7 +44,7 @@
 		</div>
 	</button>
 	{#if open}
-		<div class="border-t border-border bg-white px-4 py-4">
+		<div class="border-t border-border bg-white px-4 py-4 rounded-b-(--radius-card)">
 			{@render children()}
 		</div>
 	{/if}
