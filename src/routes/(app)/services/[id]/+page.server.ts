@@ -90,7 +90,7 @@ export const actions: Actions = {
 		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
 		const quantityRaw = form.get('quantityPerBooking')?.toString();
 		const quantityPerBooking = quantityRaw ? parseInt(quantityRaw) : 1;
-		const isIncluded = form.get('isIncluded') !== 'false';
+		const isIncluded = form.get('isIncluded') === 'true';
 		const priceOverride = form.get('priceOverride')?.toString() || null;
 
 		if (!itemTypeId) return fail(400, { linkError: 'Select an item type' });

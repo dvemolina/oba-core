@@ -180,6 +180,11 @@
 							<input id="priceOverride" name="priceOverride" type="number" step="0.01" placeholder="—"
 								class="w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 						</div>
+						<div class="flex items-center gap-1.5 self-end pb-1.5">
+							<input id="isIncluded" name="isIncluded" type="checkbox" value="true" checked
+								class="rounded border-gray-300 text-ocean" />
+							<label class="text-xs font-medium text-gray-600" for="isIncluded">Included</label>
+						</div>
 						<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">
 							Link
 						</button>
