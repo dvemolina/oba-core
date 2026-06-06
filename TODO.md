@@ -8,7 +8,7 @@
 [] - WhatsApp/email reminders to clients (n8n integration partially wired)
 [] - Multi-tenancy: no tenant scoping yet — required before white-label SaaS
 [] - Choerency and homogeneization in between each tab of the app. Template reused or adpated for each tab, but with a clear and continued hierarchy and semantics? Now it feels like each page on the app and every component is just different and not cohesive.
-
+[] - In booking form, becareful in the modules when theres a dropdown or something that opens, if overflows it gets hidden by the border of the module.
 ## Design
 [] - Full UI/UX redesign inspired by tipitisurf.com (deprioritised — current UI is functional and clean)
 
