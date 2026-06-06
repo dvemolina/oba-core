@@ -290,8 +290,6 @@ export const inventoryItemTypes = pgTable('inventory_item_types', {
 		.$type<Record<string, string[]>>()
 		.notNull()
 		.default({}),
-	unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
-	pricingUnit: pricingUnitEnum('pricing_unit').notNull().default('per_day'),
 	capacity: integer('capacity'),
 	active: boolean('active').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -330,7 +328,6 @@ export const serviceInventoryLinks = pgTable('service_inventory_links', {
 		.references(() => inventoryItemTypes.id, { onDelete: 'cascade' }),
 	quantityPerBooking: integer('quantity_per_booking').notNull().default(1),
 	isIncluded: boolean('is_included').notNull().default(true),
-	priceOverride: numeric('price_override', { precision: 10, scale: 2 }),
 	createdAt: timestamp('created_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_service_inventory_links_service').on(t.serviceId),

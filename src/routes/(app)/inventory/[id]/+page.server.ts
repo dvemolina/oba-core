@@ -12,7 +12,7 @@ import {
 	deleteInventoryItem
 } from '$lib/features/inventory/queries';
 import type { Actions, PageServerLoad } from './$types';
-import type { PricingUnit, ItemStatus } from '$lib/features/inventory/types';
+import type { ItemStatus } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
@@ -27,8 +27,6 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const description = form.get('description')?.toString().trim() || undefined;
-		const unitPrice = form.get('unitPrice')?.toString() ?? '';
-		const pricingUnit = (form.get('pricingUnit')?.toString() ?? 'per_day') as PricingUnit;
 		const totalPoolSizeRaw = form.get('totalPoolSize')?.toString();
 		const totalPoolSize = totalPoolSizeRaw ? parseInt(totalPoolSizeRaw) : null;
 		const capacityRaw = form.get('capacity')?.toString();
@@ -44,13 +42,10 @@ export const actions: Actions = {
 		}
 
 		if (!name) return fail(400, { error: 'Name is required' });
-		if (!unitPrice || isNaN(parseFloat(unitPrice))) return fail(400, { error: 'Valid price required' });
 
 		await updateInventoryItemType(params.id, {
 			name,
 			description,
-			unitPrice,
-			pricingUnit,
 			totalPoolSize,
 			capacity,
 			attributeSchema

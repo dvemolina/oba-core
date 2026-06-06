@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { requireRole } from '$lib/server/permissions';
 import { createInventoryItemType } from '$lib/features/inventory/queries';
 import type { Actions, PageServerLoad } from './$types';
-import type { TrackingMode, PricingUnit } from '$lib/features/inventory/types';
+import type { TrackingMode } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireRole(locals, 'admin', 'owner');
@@ -19,8 +19,6 @@ export const actions: Actions = {
 		const trackingMode = (form.get('trackingMode')?.toString() ?? 'pool') as TrackingMode;
 		const totalPoolSizeRaw = form.get('totalPoolSize')?.toString();
 		const totalPoolSize = totalPoolSizeRaw ? parseInt(totalPoolSizeRaw) : null;
-		const unitPrice = form.get('unitPrice')?.toString() ?? '';
-		const pricingUnit = (form.get('pricingUnit')?.toString() ?? 'per_day') as PricingUnit;
 		const capacityRaw = form.get('capacity')?.toString();
 		const capacity = capacityRaw ? parseInt(capacityRaw) : null;
 
@@ -34,7 +32,6 @@ export const actions: Actions = {
 		}
 
 		if (!name) return fail(400, { error: 'Name is required' });
-		if (!unitPrice || isNaN(parseFloat(unitPrice))) return fail(400, { error: 'Valid price is required' });
 		if (trackingMode === 'pool' && (!totalPoolSize || totalPoolSize < 1)) {
 			return fail(400, { error: 'Pool size required for pool tracking mode' });
 		}
@@ -45,8 +42,6 @@ export const actions: Actions = {
 			trackingMode,
 			totalPoolSize,
 			attributeSchema,
-			unitPrice,
-			pricingUnit,
 			capacity
 		});
 

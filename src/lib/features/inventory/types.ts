@@ -1,5 +1,4 @@
 export type TrackingMode = 'pool' | 'specific';
-export type PricingUnit = 'per_hour' | 'per_half_day' | 'per_day' | 'per_night' | 'per_session' | 'flat';
 export type ItemStatus = 'available' | 'maintenance' | 'retired';
 export type AllocationStatus = 'allocated' | 'returned' | 'damaged' | 'lost';
 
@@ -10,8 +9,6 @@ export interface InventoryItemType {
 	trackingMode: TrackingMode;
 	totalPoolSize: number | null;
 	attributeSchema: Record<string, string[]>;
-	unitPrice: string; // Drizzle returns numeric as string
-	pricingUnit: PricingUnit;
 	capacity: number | null;
 	active: boolean;
 	createdAt: Date;
@@ -39,7 +36,6 @@ export interface ServiceInventoryLink {
 	itemTypeId: string;
 	quantityPerBooking: number;
 	isIncluded: boolean;
-	priceOverride: string | null;
 	createdAt: Date;
 }
 
@@ -68,7 +64,7 @@ export interface InventoryAllocationWithDetails extends InventoryAllocation {
 
 export interface AvailabilityResult {
 	availableCount: number;
-	availableItems: InventoryItem[]; // specific mode only; empty for pool mode
+	availableItems: InventoryItem[];
 }
 
 export interface CreateInventoryItemTypeInput {
@@ -77,8 +73,6 @@ export interface CreateInventoryItemTypeInput {
 	trackingMode: TrackingMode;
 	totalPoolSize?: number | null;
 	attributeSchema?: Record<string, string[]>;
-	unitPrice: string;
-	pricingUnit: PricingUnit;
 	capacity?: number | null;
 }
 
@@ -103,5 +97,4 @@ export interface AddServiceInventoryLinkInput {
 	itemTypeId: string;
 	quantityPerBooking?: number;
 	isIncluded?: boolean;
-	priceOverride?: string | null;
 }

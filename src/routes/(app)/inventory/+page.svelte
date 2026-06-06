@@ -5,14 +5,6 @@
 
 	let { data }: { data: PageData } = $props();
 
-	const PRICING_LABELS: Record<string, () => string> = {
-		per_hour: m.pricing_per_hour,
-		per_half_day: m.pricing_per_half_day,
-		per_day: m.pricing_per_day,
-		per_night: m.pricing_per_night,
-		per_session: m.pricing_per_session,
-		flat: m.pricing_flat
-	};
 </script>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6">
@@ -67,12 +59,11 @@
 						<p class="text-sm text-gray-500 line-clamp-2">{type.description}</p>
 					{/if}
 
-					<div class="flex items-center justify-between text-sm">
-						<span class="font-medium text-gray-900">€{parseFloat(type.unitPrice).toFixed(2)} <span class="font-normal text-gray-500">{(PRICING_LABELS[type.pricingUnit] ?? (() => type.pricingUnit))()}</span></span>
-						{#if type.trackingMode === 'pool' && type.totalPoolSize}
-							<span class="text-gray-500">{m.inventory_units_count({ count: type.totalPoolSize })}</span>
-						{/if}
+					{#if type.trackingMode === 'pool' && type.totalPoolSize}
+					<div class="text-sm text-gray-500">
+						{m.inventory_units_count({ count: type.totalPoolSize })}
 					</div>
+					{/if}
 
 					{#if Object.keys(type.attributeSchema).length > 0}
 						<div class="flex flex-wrap gap-1">

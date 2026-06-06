@@ -91,10 +91,9 @@ export const actions: Actions = {
 		const quantityRaw = form.get('quantityPerBooking')?.toString();
 		const quantityPerBooking = quantityRaw ? parseInt(quantityRaw) : 1;
 		const isIncluded = form.get('isIncluded') === 'true';
-		const priceOverride = form.get('priceOverride')?.toString() || null;
 
 		if (!itemTypeId) return fail(400, { linkError: 'Select an item type' });
-		await addInventoryLink(params.id, { itemTypeId, quantityPerBooking, isIncluded, priceOverride });
+		await addInventoryLink(params.id, { itemTypeId, quantityPerBooking, isIncluded });
 		return { message: 'Inventory linked' };
 	},
 

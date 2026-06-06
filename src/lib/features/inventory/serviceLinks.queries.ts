@@ -15,7 +15,6 @@ export async function listLinksForService(serviceId: string): Promise<ServiceInv
 			itemTypeId: serviceInventoryLinks.itemTypeId,
 			quantityPerBooking: serviceInventoryLinks.quantityPerBooking,
 			isIncluded: serviceInventoryLinks.isIncluded,
-			priceOverride: serviceInventoryLinks.priceOverride,
 			createdAt: serviceInventoryLinks.createdAt,
 			itemType: {
 				id: inventoryItemTypes.id,
@@ -24,8 +23,6 @@ export async function listLinksForService(serviceId: string): Promise<ServiceInv
 				trackingMode: inventoryItemTypes.trackingMode,
 				totalPoolSize: inventoryItemTypes.totalPoolSize,
 				attributeSchema: inventoryItemTypes.attributeSchema,
-				unitPrice: inventoryItemTypes.unitPrice,
-				pricingUnit: inventoryItemTypes.pricingUnit,
 				capacity: inventoryItemTypes.capacity,
 				active: inventoryItemTypes.active,
 				createdAt: inventoryItemTypes.createdAt,
@@ -49,8 +46,7 @@ export async function addInventoryLink(
 			serviceId,
 			itemTypeId: input.itemTypeId,
 			quantityPerBooking: input.quantityPerBooking ?? 1,
-			isIncluded: input.isIncluded ?? true,
-			priceOverride: input.priceOverride ?? null
+			isIncluded: input.isIncluded ?? true
 		})
 		.returning();
 	return row as ServiceInventoryLink;
@@ -62,7 +58,7 @@ export async function removeInventoryLink(id: string): Promise<void> {
 
 export async function updateInventoryLink(
 	id: string,
-	input: Partial<Pick<AddServiceInventoryLinkInput, 'quantityPerBooking' | 'isIncluded' | 'priceOverride'>>
+	input: Partial<Pick<AddServiceInventoryLinkInput, 'quantityPerBooking' | 'isIncluded'>>
 ): Promise<ServiceInventoryLink> {
 	if (Object.keys(input).length === 0) throw new Error('updateInventoryLink: no fields to update');
 	const [row] = await db

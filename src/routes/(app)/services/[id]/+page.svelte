@@ -140,7 +140,6 @@
 							<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
 							<p class="text-xs text-gray-500">
 								{link.quantityPerBooking}× · {link.isIncluded ? m.service_detail_inventory_included() : m.service_detail_inventory_addon()}
-								{link.priceOverride ? ` · €${parseFloat(link.priceOverride).toFixed(2)}` : ''}
 							</p>
 						</div>
 						{#if data.canEditServices}
@@ -174,11 +173,6 @@
 							<label class="mb-1 block text-xs font-medium text-gray-600" for="quantityPerBooking">{m.service_detail_inventory_qty_booking()}</label>
 							<input id="quantityPerBooking" name="quantityPerBooking" type="number" min="1" value="1"
 								class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
-						</div>
-						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="priceOverride">{m.service_detail_inventory_price_override()}</label>
-							<input id="priceOverride" name="priceOverride" type="number" step="0.01" placeholder="—"
-								class="w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 						</div>
 						<div class="flex items-center gap-1.5 self-end pb-1.5">
 							<input id="isIncluded" name="isIncluded" type="checkbox" value="true" checked

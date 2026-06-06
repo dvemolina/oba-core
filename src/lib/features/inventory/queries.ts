@@ -48,8 +48,6 @@ export async function createInventoryItemType(input: CreateInventoryItemTypeInpu
 			trackingMode: input.trackingMode,
 			totalPoolSize: input.totalPoolSize ?? null,
 			attributeSchema: input.attributeSchema ?? {},
-			unitPrice: input.unitPrice,
-			pricingUnit: input.pricingUnit,
 			capacity: input.capacity ?? null
 		})
 		.returning();

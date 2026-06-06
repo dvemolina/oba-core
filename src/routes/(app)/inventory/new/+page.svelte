@@ -10,15 +10,6 @@
 	let attributes = $state<{ key: string; values: string }[]>([]);
 	let loading = $state(false);
 
-	const PRICING_OPTIONS = $derived([
-		{ value: 'per_hour', label: m.pricing_unit_per_hour() },
-		{ value: 'per_half_day', label: m.pricing_unit_per_half_day() },
-		{ value: 'per_day', label: m.pricing_unit_per_day() },
-		{ value: 'per_night', label: m.pricing_unit_per_night() },
-		{ value: 'per_session', label: m.pricing_unit_per_session() },
-		{ value: 'flat', label: m.pricing_unit_flat() }
-	]);
-
 	function addAttribute() {
 		attributes.push({ key: '', values: '' });
 	}
@@ -93,34 +84,6 @@
 					/>
 				</div>
 			{/if}
-
-			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700" for="unitPrice">{m.inventory_field_price()} *</label>
-					<input
-						id="unitPrice"
-						name="unitPrice"
-						type="number"
-						step="0.01"
-						min="0"
-						required
-						placeholder="0.00"
-						class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean"
-					/>
-				</div>
-				<div>
-					<label class="mb-1 block text-sm font-medium text-gray-700" for="pricingUnit">{m.inventory_field_pricing_unit()} *</label>
-					<select
-						id="pricingUnit"
-						name="pricingUnit"
-						class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean"
-					>
-						{#each PRICING_OPTIONS as opt}
-							<option value={opt.value}>{opt.label}</option>
-						{/each}
-					</select>
-				</div>
-			</div>
 
 			<div>
 				<label class="mb-1 block text-sm font-medium text-gray-700" for="capacity">
