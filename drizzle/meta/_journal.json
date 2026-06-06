@@ -155,6 +155,13 @@
       "when": 1748995200000,
       "tag": "0027_participant_count_skill_level",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1749168000000,
+      "tag": "0028_inventory_tables",
+      "breakpoints": true
     }
   ]
 }

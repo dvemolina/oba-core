@@ -21,6 +21,10 @@ export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed
 
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'partial', 'paid']);
 
+export const pricingUnitEnum = pgEnum('pricing_unit', [
+	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
+]);
+
 // ── Tables ────────────────────────────────────────────────────────────────────
 
 export const clients = pgTable('clients', {
@@ -298,6 +302,93 @@ export const bookingInstructors = pgTable('booking_instructors', {
 }, (t) => [
 	index('idx_booking_instructors_booking').on(t.bookingId),
 	index('idx_booking_instructors_user').on(t.instructorId)
+]);
+
+// ── Inventory ─────────────────────────────────────────────────────────────────
+
+export const inventoryItemTypes = pgTable('inventory_item_types', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	name: text('name').notNull(),
+	description: text('description'),
+	trackingMode: text('tracking_mode').notNull().default('pool'), // 'pool' | 'specific'
+	totalPoolSize: integer('total_pool_size'),
+	attributeSchema: jsonb('attribute_schema')
+		.$type<Record<string, string[]>>()
+		.notNull()
+		.default({}),
+	unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
+	pricingUnit: pricingUnitEnum('pricing_unit').notNull().default('per_day'),
+	capacity: integer('capacity'),
+	active: boolean('active').notNull().default(true),
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	updatedAt: timestamp('updated_at').notNull().defaultNow()
+});
+
+export const inventoryItems = pgTable('inventory_items', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	itemTypeId: text('item_type_id')
+		.notNull()
+		.references(() => inventoryItemTypes.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	attributes: jsonb('attributes')
+		.$type<Record<string, string>>()
+		.notNull()
+		.default({}),
+	status: text('status').notNull().default('available'), // 'available' | 'maintenance' | 'retired'
+	notes: text('notes'),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_inventory_items_type').on(t.itemTypeId)
+]);
+
+export const serviceInventoryLinks = pgTable('service_inventory_links', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	serviceId: text('service_id')
+		.notNull()
+		.references(() => services.id, { onDelete: 'cascade' }),
+	itemTypeId: text('item_type_id')
+		.notNull()
+		.references(() => inventoryItemTypes.id, { onDelete: 'cascade' }),
+	quantityPerBooking: integer('quantity_per_booking').notNull().default(1),
+	isIncluded: boolean('is_included').notNull().default(true),
+	priceOverride: numeric('price_override', { precision: 10, scale: 2 }),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_service_inventory_links_service').on(t.serviceId),
+	index('idx_service_inventory_links_item_type').on(t.itemTypeId)
+]);
+
+export const inventoryAllocations = pgTable('inventory_allocations', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	bookingId: text('booking_id')
+		.notNull()
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	itemTypeId: text('item_type_id')
+		.notNull()
+		.references(() => inventoryItemTypes.id),
+	itemId: text('item_id')
+		.references(() => inventoryItems.id, { onDelete: 'set null' }),
+	quantity: integer('quantity').notNull().default(1),
+	attributeFilter: jsonb('attribute_filter').$type<Record<string, string> | null>(),
+	startDate: date('start_date').notNull(),
+	endDate: date('end_date'),
+	status: text('status').notNull().default('allocated'), // 'allocated' | 'returned' | 'damaged' | 'lost'
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	updatedAt: timestamp('updated_at').notNull().defaultNow()
+}, (t) => [
+	index('idx_inventory_allocations_booking').on(t.bookingId),
+	index('idx_inventory_allocations_item_type').on(t.itemTypeId),
+	index('idx_inventory_allocations_item').on(t.itemId),
+	index('idx_inventory_allocations_dates').on(t.startDate, t.endDate)
 ]);
 
 // Re-export Better Auth schema so db/index.ts imports everything from one place
