@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun } from 'lucide-svelte';
+	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun, Package } from 'lucide-svelte';
 	import { env } from '$env/dynamic/public';
 	const PUBLIC_BUSINESS_NAME = env.PUBLIC_BUSINESS_NAME ?? 'OBA';
 	import * as m from '$lib/paraglide/messages';
@@ -14,7 +14,8 @@
 		{ href: '/bookings',  label: () => m.nav_bookings(), icon: BookOpen,   roles: ['admin','owner','manager'] },
 		{ href: '/clients',   label: () => m.nav_clients(),  icon: Users,      roles: ['admin','owner','manager'] },
 		{ href: '/staff',     label: () => m.nav_staff(),    icon: UserCheck,  roles: ['admin','owner'] },
-		{ href: '/services',  label: () => m.nav_services(), icon: LayoutGrid, roles: ['admin','owner','manager'] },
+		{ href: '/services',  label: () => m.nav_services(),   icon: LayoutGrid, roles: ['admin','owner','manager'] },
+		{ href: '/inventory', label: () => m.nav_inventory(), icon: Package,    roles: ['admin','owner','manager'] },
 	];
 
 	const items = $derived(allItems.filter(i => i.roles.includes(role)));

@@ -31,6 +31,7 @@
   "nav_clients": "Clients",
   "nav_staff": "Staff",
   "nav_services": "Services",
+  "nav_inventory": "Inventory",
   "nav_settings": "Settings",
   "nav_more": "More",
   "nav_close": "Close",
@@ -361,5 +362,11 @@
   "pwa_install_ios_step3": "Tap \"Add\" — done!",
   "pwa_install_got_it": "Got it",
   "pwa_install_button": "Install app",
-  "pwa_install_not_now": "Not now"
+  "pwa_install_not_now": "Not now",
+  "pricing_per_hour": "per hour",
+  "pricing_per_half_day": "per half-day",
+  "pricing_per_day": "per day",
+  "pricing_per_night": "per night",
+  "pricing_per_session": "per session",
+  "pricing_flat": "flat fee"
 }

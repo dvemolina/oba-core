@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { Calendar, BookOpen, Users, LayoutGrid, Sun, UserCheck, Settings, Grid2X2, X } from 'lucide-svelte';
+	import { Calendar, BookOpen, Users, LayoutGrid, Sun, UserCheck, Settings, Grid2X2, X, Package } from 'lucide-svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let { role = 'instructor' }: { role: string } = $props();
@@ -12,8 +12,9 @@
 		{ href: '/calendar',  label: () => m.nav_calendar(), icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
 		{ href: '/bookings',  label: () => m.nav_bookings(), icon: BookOpen,   roles: ['admin','owner','manager'] },
 		{ href: '/clients',   label: () => m.nav_clients(),  icon: Users,      roles: ['admin','owner','manager'] },
-		{ href: '/services',  label: () => m.nav_services(), icon: LayoutGrid, roles: ['admin','owner','manager'] },
-		{ href: '/staff',     label: () => m.nav_staff(),    icon: UserCheck,  roles: ['admin','owner'] },
+		{ href: '/services',  label: () => m.nav_services(),   icon: LayoutGrid, roles: ['admin','owner','manager'] },
+		{ href: '/inventory', label: () => m.nav_inventory(), icon: Package,    roles: ['admin','owner','manager'] },
+		{ href: '/staff',     label: () => m.nav_staff(),     icon: UserCheck,  roles: ['admin','owner'] },
 		{ href: '/settings',  label: () => m.nav_settings(), icon: Settings,   roles: ['admin','owner','manager','instructor'] },
 	];
 
