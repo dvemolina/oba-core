@@ -4,28 +4,34 @@
 --            explicit RESTRICT on allocation itemTypeId FK
 -- ============================================================
 
-CREATE TYPE "public"."tracking_mode" AS ENUM('pool', 'specific');
+DO $$ BEGIN
+  CREATE TYPE "public"."tracking_mode" AS ENUM('pool', 'specific');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --> statement-breakpoint
 
-CREATE TYPE "public"."item_status" AS ENUM('available', 'maintenance', 'retired');
+DO $$ BEGIN
+  CREATE TYPE "public"."item_status" AS ENUM('available', 'maintenance', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --> statement-breakpoint
 
-CREATE TYPE "public"."allocation_status" AS ENUM('allocated', 'returned', 'damaged', 'lost');
+DO $$ BEGIN
+  CREATE TYPE "public"."allocation_status" AS ENUM('allocated', 'returned', 'damaged', 'lost');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --> statement-breakpoint
 
-ALTER TABLE "inventory_item_types"
-  ALTER COLUMN "tracking_mode" TYPE "public"."tracking_mode"
-  USING "tracking_mode"::"public"."tracking_mode";
+ALTER TABLE "inventory_item_types" ALTER COLUMN "tracking_mode" DROP DEFAULT;
+ALTER TABLE "inventory_item_types" ALTER COLUMN "tracking_mode" TYPE "public"."tracking_mode" USING "tracking_mode"::"public"."tracking_mode";
+ALTER TABLE "inventory_item_types" ALTER COLUMN "tracking_mode" SET DEFAULT 'pool';
 --> statement-breakpoint
 
-ALTER TABLE "inventory_items"
-  ALTER COLUMN "status" TYPE "public"."item_status"
-  USING "status"::"public"."item_status";
+ALTER TABLE "inventory_items" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "inventory_items" ALTER COLUMN "status" TYPE "public"."item_status" USING "status"::"public"."item_status";
+ALTER TABLE "inventory_items" ALTER COLUMN "status" SET DEFAULT 'available';
 --> statement-breakpoint
 
-ALTER TABLE "inventory_allocations"
-  ALTER COLUMN "status" TYPE "public"."allocation_status"
-  USING "status"::"public"."allocation_status";
+ALTER TABLE "inventory_allocations" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "inventory_allocations" ALTER COLUMN "status" TYPE "public"."allocation_status" USING "status"::"public"."allocation_status";
+ALTER TABLE "inventory_allocations" ALTER COLUMN "status" SET DEFAULT 'allocated';
 --> statement-breakpoint
 
 CREATE UNIQUE INDEX "uq_service_inventory_links" ON "service_inventory_links" USING btree ("service_id", "item_type_id");
