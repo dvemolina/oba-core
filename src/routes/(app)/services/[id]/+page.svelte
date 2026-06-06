@@ -11,6 +11,16 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	function pricingUnitLabel(unit: string | null): string {
+		if (!unit) return '';
+		const labels: Record<string, () => string> = {
+			per_hour: m.pricing_per_hour, per_half_day: m.pricing_per_half_day,
+			per_day: m.pricing_per_day, per_night: m.pricing_per_night,
+			per_session: m.pricing_per_session, flat: m.pricing_flat
+		};
+		return (labels[unit]?.() ?? unit);
+	}
+
 	// ── RBAC ─────────────────────────────────────────────────────────────────
 	const canEditServices = $derived(data.canEditServices);
 
@@ -75,7 +85,9 @@
 			{#if canEditServices}
 			<div class="flex items-center justify-between">
 				<span class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_price()}</span>
-				<span class="text-sm font-semibold text-gray-800">€{data.service.basePrice}</span>
+				<span class="text-sm font-semibold text-gray-800">
+					€{data.service.basePrice}{#if data.service.pricingUnit} <span class="font-normal text-muted text-xs">{pricingUnitLabel(data.service.pricingUnit)}</span>{/if}
+				</span>
 			</div>
 			{:else}
 			<div class="flex items-center justify-between">
@@ -406,6 +418,22 @@
 					<label class="label">{m.service_new_available_units()}</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
+				</div>
+				<div>
+					<label class="label">{m.service_new_pricing_unit()}</label>
+					<select name="pricingUnit" class="input">
+						{#each [
+							{ value: 'per_day',      label: m.pricing_unit_per_day() },
+							{ value: 'per_night',    label: m.pricing_unit_per_night() },
+							{ value: 'per_hour',     label: m.pricing_unit_per_hour() },
+							{ value: 'per_half_day', label: m.pricing_unit_per_half_day() },
+							{ value: 'per_session',  label: m.pricing_unit_per_session() },
+							{ value: 'flat',         label: m.pricing_unit_flat() }
+						] as opt}
+							<option value={opt.value} selected={data.service.pricingUnit === opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+					<p class="mt-1 text-xs text-muted">{m.service_new_pricing_unit_hint()}</p>
 				</div>
 			{/if}
 

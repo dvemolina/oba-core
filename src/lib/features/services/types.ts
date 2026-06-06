@@ -1,6 +1,8 @@
 // Cosmetic label only — any string is valid. These are suggested presets shown in the UI.
 export type ServiceLabel = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation' | 'other' | (string & {});
 
+export type ServicePricingUnit = 'per_hour' | 'per_half_day' | 'per_day' | 'per_night' | 'per_session' | 'flat';
+
 // Aliases kept for compatibility
 export type ServiceTemplate = ServiceLabel;
 export type ServiceType = ServiceLabel;
@@ -20,6 +22,7 @@ export interface Service {
 	durationMinutes: number | null;
 	defaultSessionsIncluded: number | null; // default sessions per booking (1, 5, 10, etc.)
 	basePrice: string;
+	pricingUnit: ServicePricingUnit | null;
 	maxCapacity: number | null;
 	defaultInstructorIds: string[];     // fetched from service_instructors junction table
 	color: string;
@@ -40,6 +43,7 @@ export interface CreateServiceInput {
 	durationMinutes?: number;
 	defaultSessionsIncluded?: number;
 	basePrice: string;
+	pricingUnit?: ServicePricingUnit | null;
 	maxCapacity?: number;
 	color?: string;
 }

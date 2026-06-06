@@ -183,6 +183,13 @@
       "when": 1749427200000,
       "tag": "0031_inventory_drop_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1749513600000,
+      "tag": "0032_service_pricing_unit",
+      "breakpoints": true
     }
   ]
 }

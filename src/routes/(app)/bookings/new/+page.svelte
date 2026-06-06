@@ -19,10 +19,42 @@
 	const isCamp = $derived(!!(selectedService?.hasRoster && selectedService?.hasDateRange));
 	const isLesson = $derived(!!(selectedService?.hasSessions && !isCamp));
 	const isAccommodation = $derived(!!selectedService?.hasInventoryUnits);
+	const inventoryPricingUnit = $derived(selectedService?.pricingUnit ?? null);
+	// For date-range billing units show check-in + check-out; others show a single date
+	const inventoryNeedsDateRange = $derived(
+		inventoryPricingUnit === 'per_night' || inventoryPricingUnit === 'per_day'
+	);
 	const runs = $derived(selectedService ? (data.runsByService[selectedService.id] ?? []) : []);
 	const showInstructor = $derived(
 		!isLesson && !isCamp && !isAccommodation && (selectedService?.requiresInstructor ?? false)
 	);
+
+	// ── Inventory: date range + auto-calculated amount ─────────────────────────
+	let invCheckIn  = $state('');
+	let invCheckOut = $state('');
+
+	function calcInventoryUnits(): number {
+		if (!inventoryNeedsDateRange || !invCheckIn || !invCheckOut) return 1;
+		const d1 = new Date(invCheckIn), d2 = new Date(invCheckOut);
+		const diff = Math.round((d2.getTime() - d1.getTime()) / 86_400_000);
+		return Math.max(1, diff);
+	}
+
+	const invCalculatedAmount = $derived(
+		invCheckIn && invCheckOut && inventoryNeedsDateRange
+			? (parseFloat(selectedService?.basePrice ?? '0') * calcInventoryUnits()).toFixed(2)
+			: selectedService?.basePrice ?? '0'
+	);
+
+	// Keep client amounts in sync when dates or service change for inventory bookings
+	$effect(() => {
+		if (isAccommodation) {
+			const amt = invCalculatedAmount;
+			untrack(() => {
+				selectedClients = selectedClients.map(c => ({ ...c, amountDue: amt }));
+			});
+		}
+	});
 
 	// ── Lesson: sessions + participants ────────────────────────────────────────
 	let sessionsIncluded = $state(untrack(() => selectedService?.defaultSessionsIncluded ?? 1));
@@ -85,7 +117,7 @@
 	);
 
 	function addClient(client: (typeof data.clients)[0]) {
-		const price = selectedService?.basePrice ?? '0';
+		const price = isAccommodation ? invCalculatedAmount : (selectedService?.basePrice ?? '0');
 		selectedClients = [
 			...selectedClients,
 			{ clientId: client.id, name: `${client.firstName} ${client.lastName}`, amountDue: price }
@@ -305,18 +337,37 @@
 				{#if selectedService?.hasInventoryUnits}
 					{@const links = data.inventoryLinksByService[selectedService.id] ?? []}
 					<div class="space-y-3">
+						<!-- Dates: date-range for per_night/per_day, single date otherwise -->
+						{#if inventoryNeedsDateRange}
 						<div class="grid grid-cols-2 gap-3">
 							<div>
 								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-date">{m.booking_new_checkin()}</label>
-								<input id="inv-date" name="date" type="date" required value={data.defaultDate}
+								<input id="inv-date" name="date" type="date" required
+									bind:value={invCheckIn}
 									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
 							</div>
 							<div>
 								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-dateEnd">{m.booking_new_checkout()}</label>
 								<input id="inv-dateEnd" name="dateEnd" type="date" required
+									bind:value={invCheckOut}
 									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
 							</div>
 						</div>
+						<!-- Cost preview -->
+						{#if invCheckIn && invCheckOut && invCheckIn < invCheckOut}
+						<div class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 text-sm">
+							<span class="text-gray-600">{calcInventoryUnits()} {inventoryPricingUnit === 'per_night' ? 'nights' : 'days'} × €{selectedService.basePrice}</span>
+							<span class="ml-auto font-semibold text-gray-900">= €{invCalculatedAmount}</span>
+						</div>
+						{/if}
+						{:else}
+						<div>
+							<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-date">{m.booking_new_date()}</label>
+							<input id="inv-date" name="date" type="date" required
+								bind:value={invCheckIn}
+								class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
+						</div>
+						{/if}
 
 						{#if links.length === 0}
 							<p class="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">

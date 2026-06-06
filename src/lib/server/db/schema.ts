@@ -65,6 +65,8 @@ export const services = pgTable('services', {
 	durationMinutes: integer('duration_minutes'),
 	defaultSessionsIncluded: integer('default_sessions_included'),
 	basePrice: numeric('base_price', { precision: 10, scale: 2 }).notNull(),
+	// Only relevant when hasInventoryUnits=true — how this inventory service is billed
+	pricingUnit: pricingUnitEnum('pricing_unit'),
 	maxCapacity: integer('max_capacity'),
 	color: text('color').notNull().default('ocean'),
 	active: boolean('active').notNull().default(true),

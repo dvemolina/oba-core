@@ -3,7 +3,15 @@ import { createService, setServiceInstructors } from '$lib/features/services/que
 import { listInstructors } from '$lib/features/instructors/queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
+import type { ServicePricingUnit } from '$lib/features/services/types';
 import { requireRole } from '$lib/server/permissions';
+
+const VALID_PRICING_UNITS = new Set<ServicePricingUnit>([
+	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
+]);
+function parsePricingUnit(raw: string | null): ServicePricingUnit | null {
+	return raw && VALID_PRICING_UNITS.has(raw as ServicePricingUnit) ? raw as ServicePricingUnit : null;
+}
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
@@ -35,6 +43,7 @@ export const actions: Actions = {
 		const hasDateRange      = form.get('hasDateRange') === 'true';
 		const hasInventoryUnits = form.get('hasInventoryUnits') === 'true';
 		const requiresInstructor = form.get('requiresInstructor') !== 'false'; // default true
+		const pricingUnit       = hasInventoryUnits ? parsePricingUnit(form.get('pricingUnit')?.toString() ?? null) : null;
 
 		const values = { name, basePrice, description: description ?? '', color };
 
@@ -49,7 +58,7 @@ export const actions: Actions = {
 		}
 
 		const newService = await createService({
-			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
+			name, type, basePrice, pricingUnit, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
 			maxCapacity, color
 		});

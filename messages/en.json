@@ -376,6 +376,9 @@
   "pricing_unit_per_session": "Per session",
   "pricing_unit_flat": "Flat fee",
 
+  "service_new_pricing_unit": "Pricing unit",
+  "service_new_pricing_unit_hint": "How this service is billed per use of inventory",
+
   "inventory_page_title": "Inventory",
   "inventory_page_subtitle": "Physical items and equipment available to link to services",
   "inventory_btn_new_type": "New item type",

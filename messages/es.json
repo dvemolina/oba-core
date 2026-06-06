@@ -378,6 +378,9 @@
 
   "nav_inventory": "Inventario",
 
+  "service_new_pricing_unit": "Unidad de precio",
+  "service_new_pricing_unit_hint": "Cómo se factura este servicio por uso de inventario",
+
   "inventory_page_title": "Inventario",
   "inventory_page_subtitle": "Artículos y equipamiento disponibles para vincular a servicios",
   "inventory_btn_new_type": "Nuevo tipo de artículo",

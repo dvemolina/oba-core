@@ -168,6 +168,18 @@
 				<input name="maxCapacity" type="number" min="1" step="1" required
 					class="input" placeholder={m.service_new_available_units_placeholder()} />
 			</div>
+			<div>
+				<label class="label">{m.service_new_pricing_unit()}</label>
+				<select name="pricingUnit" class="input">
+					<option value="per_day" selected={selectedTemplateId === 'rental'}>{m.pricing_unit_per_day()}</option>
+					<option value="per_night" selected={selectedTemplateId === 'accommodation'}>{m.pricing_unit_per_night()}</option>
+					<option value="per_hour">{m.pricing_unit_per_hour()}</option>
+					<option value="per_half_day">{m.pricing_unit_per_half_day()}</option>
+					<option value="per_session">{m.pricing_unit_per_session()}</option>
+					<option value="flat">{m.pricing_unit_flat()}</option>
+				</select>
+				<p class="mt-1 text-xs text-muted">{m.service_new_pricing_unit_hint()}</p>
+			</div>
 		{/if}
 
 		{#if requiresInstructor && data.instructors.length > 0}

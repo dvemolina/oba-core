@@ -2,7 +2,14 @@ import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listRunsForService, createServiceRun, deleteServiceRun } from '$lib/features/services/runs.queries';
-import type { ServiceType } from '$lib/features/services/types';
+import type { ServiceType, ServicePricingUnit } from '$lib/features/services/types';
+
+const VALID_PRICING_UNITS = new Set<ServicePricingUnit>([
+	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
+]);
+function parsePricingUnit(raw: string | null): ServicePricingUnit | null {
+	return raw && VALID_PRICING_UNITS.has(raw as ServicePricingUnit) ? raw as ServicePricingUnit : null;
+}
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
@@ -49,6 +56,7 @@ export const actions: Actions = {
 		const hasDateRange       = form.get('hasDateRange') === 'true';
 		const hasInventoryUnits  = form.get('hasInventoryUnits') === 'true';
 		const requiresInstructor = form.get('requiresInstructor') !== 'false';
+		const pricingUnit        = hasInventoryUnits ? parsePricingUnit(form.get('pricingUnit')?.toString() ?? null) : null;
 
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
 		if ((hasRoster || hasInventoryUnits) && !maxCapacity) {
@@ -56,7 +64,7 @@ export const actions: Actions = {
 		}
 
 		await updateService(params.id, {
-			name, type, basePrice, description, durationMinutes, defaultSessionsIncluded,
+			name, type, basePrice, pricingUnit, description, durationMinutes, defaultSessionsIncluded,
 			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor,
 			maxCapacity, color
 		});
