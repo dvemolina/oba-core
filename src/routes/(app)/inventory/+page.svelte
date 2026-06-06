@@ -1,41 +1,42 @@
 <script lang="ts">
 	import { Package, Plus, Tag } from 'lucide-svelte';
 	import type { PageData } from './$types';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 
-	const PRICING_LABELS: Record<string, string> = {
-		per_hour: 'per hour',
-		per_half_day: 'per half-day',
-		per_day: 'per day',
-		per_night: 'per night',
-		per_session: 'per session',
-		flat: 'flat'
+	const PRICING_LABELS: Record<string, () => string> = {
+		per_hour: m.pricing_per_hour,
+		per_half_day: m.pricing_per_half_day,
+		per_day: m.pricing_per_day,
+		per_night: m.pricing_per_night,
+		per_session: m.pricing_per_session,
+		flat: m.pricing_flat
 	};
 </script>
 
 <div class="mx-auto max-w-4xl p-4 md:p-6">
 	<div class="mb-6 flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">Inventory</h1>
-			<p class="mt-1 text-sm text-gray-500">Physical items and equipment available to link to services</p>
+			<h1 class="text-2xl font-bold text-gray-900">{m.inventory_page_title()}</h1>
+			<p class="mt-1 text-sm text-gray-500">{m.inventory_page_subtitle()}</p>
 		</div>
 		<a
 			href="/inventory/new"
 			class="flex items-center gap-2 rounded-lg bg-ocean px-4 py-2 text-sm font-medium text-white hover:bg-ocean/90"
 		>
 			<Plus size={16} />
-			New item type
+			{m.inventory_btn_new_type()}
 		</a>
 	</div>
 
 	{#if data.itemTypes.length === 0}
 		<div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
 			<Package size={40} class="mb-3 text-gray-300" />
-			<p class="font-medium text-gray-500">No inventory item types yet</p>
-			<p class="mt-1 text-sm text-gray-400">Create your first item type to start tracking physical inventory</p>
+			<p class="font-medium text-gray-500">{m.inventory_empty_title()}</p>
+			<p class="mt-1 text-sm text-gray-400">{m.inventory_empty_desc()}</p>
 			<a href="/inventory/new" class="mt-4 rounded-lg bg-ocean px-4 py-2 text-sm font-medium text-white hover:bg-ocean/90">
-				Create item type
+				{m.inventory_empty_btn()}
 			</a>
 		</div>
 	{:else}
@@ -53,12 +54,12 @@
 							<div>
 								<p class="font-semibold text-gray-900 group-hover:text-ocean">{type.name}</p>
 								{#if !type.active}
-									<span class="text-xs text-gray-400">Inactive</span>
+									<span class="text-xs text-gray-400">{m.inventory_badge_inactive()}</span>
 								{/if}
 							</div>
 						</div>
 						<span class="rounded-full px-2 py-0.5 text-xs font-medium {type.trackingMode === 'pool' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}">
-							{type.trackingMode === 'pool' ? 'Pool' : 'Specific'}
+							{type.trackingMode === 'pool' ? m.inventory_badge_pool() : m.inventory_badge_specific()}
 						</span>
 					</div>
 
@@ -67,9 +68,9 @@
 					{/if}
 
 					<div class="flex items-center justify-between text-sm">
-						<span class="font-medium text-gray-900">€{parseFloat(type.unitPrice).toFixed(2)} <span class="font-normal text-gray-500">{PRICING_LABELS[type.pricingUnit] ?? type.pricingUnit}</span></span>
+						<span class="font-medium text-gray-900">€{parseFloat(type.unitPrice).toFixed(2)} <span class="font-normal text-gray-500">{(PRICING_LABELS[type.pricingUnit] ?? (() => type.pricingUnit))()}</span></span>
 						{#if type.trackingMode === 'pool' && type.totalPoolSize}
-							<span class="text-gray-500">{type.totalPoolSize} units</span>
+							<span class="text-gray-500">{m.inventory_units_count({ count: type.totalPoolSize })}</span>
 						{/if}
 					</div>
 

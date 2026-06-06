@@ -126,12 +126,12 @@
 		{#if data.service.hasInventoryUnits}
 		<section class="mb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-gray-100 p-4">
-				<h2 class="font-semibold text-gray-900">Linked inventory</h2>
-				<a href="/inventory/new" class="text-xs text-ocean hover:underline">+ New item type</a>
+				<h2 class="font-semibold text-gray-900">{m.service_detail_linked_inventory()}</h2>
+				<a href="/inventory/new" class="text-xs text-ocean hover:underline">+ {m.inventory_btn_new_type()}</a>
 			</div>
 
 			{#if data.inventoryLinks.length === 0}
-				<p class="p-4 text-sm text-gray-400">No inventory linked. Link an item type below.</p>
+				<p class="p-4 text-sm text-gray-400">{m.service_detail_no_linked_inventory()}</p>
 			{:else}
 				<ul class="divide-y divide-gray-100">
 				{#each data.inventoryLinks as link}
@@ -139,7 +139,7 @@
 						<div>
 							<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
 							<p class="text-xs text-gray-500">
-								{link.quantityPerBooking}× · {link.isIncluded ? 'Included' : 'Add-on'}
+								{link.quantityPerBooking}× · {link.isIncluded ? m.service_detail_inventory_included() : m.service_detail_inventory_addon()}
 								{link.priceOverride ? ` · €${parseFloat(link.priceOverride).toFixed(2)}` : ''}
 							</p>
 						</div>
@@ -161,39 +161,39 @@
 				<form method="POST" action="?/addInventoryLink" use:enhance class="border-t border-gray-100 bg-gray-50 p-4">
 					<div class="flex flex-wrap items-end gap-3">
 						<div class="flex-1 min-w-40">
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="itemTypeId">Item type</label>
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="itemTypeId">{m.service_detail_inventory_item_type()}</label>
 							<select id="itemTypeId" name="itemTypeId" required
 								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
-								<option value="">Select…</option>
+								<option value="">—</option>
 								{#each data.allItemTypes as t}
 									<option value={t.id}>{t.name}</option>
 								{/each}
 							</select>
 						</div>
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="quantityPerBooking">Qty / booking</label>
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="quantityPerBooking">{m.service_detail_inventory_qty_booking()}</label>
 							<input id="quantityPerBooking" name="quantityPerBooking" type="number" min="1" value="1"
 								class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 						</div>
 						<div>
-							<label class="mb-1 block text-xs font-medium text-gray-600" for="priceOverride">Price override</label>
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="priceOverride">{m.service_detail_inventory_price_override()}</label>
 							<input id="priceOverride" name="priceOverride" type="number" step="0.01" placeholder="—"
 								class="w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 						</div>
 						<div class="flex items-center gap-1.5 self-end pb-1.5">
 							<input id="isIncluded" name="isIncluded" type="checkbox" value="true" checked
 								class="rounded border-gray-300 text-ocean" />
-							<label class="text-xs font-medium text-gray-600" for="isIncluded">Included</label>
+							<label class="text-xs font-medium text-gray-600" for="isIncluded">{m.service_detail_inventory_included_label()}</label>
 						</div>
 						<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">
-							Link
+							{m.service_detail_inventory_btn_link()}
 						</button>
 					</div>
 					{#if form?.linkError}<p class="mt-2 text-xs text-red-600">{form?.linkError}</p>{/if}
 				</form>
 				{:else}
 				<div class="border-t border-gray-100 p-4 text-sm text-gray-500">
-					<a href="/inventory/new" class="text-ocean hover:underline">Create an item type</a> first, then link it here.
+					<a href="/inventory/new" class="text-ocean hover:underline">{m.service_detail_inventory_create_first()}</a> {m.service_detail_inventory_create_hint()}
 				</div>
 				{/if}
 			{/if}

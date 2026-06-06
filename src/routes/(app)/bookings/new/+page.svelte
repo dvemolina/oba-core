@@ -307,12 +307,12 @@
 					<div class="space-y-3">
 						<div class="grid grid-cols-2 gap-3">
 							<div>
-								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-date">Check-in *</label>
+								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-date">{m.booking_new_checkin()}</label>
 								<input id="inv-date" name="date" type="date" required value={data.defaultDate}
 									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
 							</div>
 							<div>
-								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-dateEnd">Check-out *</label>
+								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-dateEnd">{m.booking_new_checkout()}</label>
 								<input id="inv-dateEnd" name="dateEnd" type="date" required
 									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
 							</div>
@@ -320,18 +320,18 @@
 
 						{#if links.length === 0}
 							<p class="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-								No inventory linked to this service. <a href="/services/{selectedService.id}" class="underline">Configure in service settings</a>.
+								{m.booking_new_inventory_no_links()} <a href="/services/{selectedService.id}" class="underline">{m.booking_new_inventory_configure()}</a>.
 							</p>
 						{:else}
 							{#each links as link}
 								<div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
 									<div class="mb-2 flex items-center justify-between">
 										<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
-										<span class="text-xs text-gray-500">{link.isIncluded ? 'Included' : 'Add-on'}</span>
+										<span class="text-xs text-gray-500">{link.isIncluded ? m.booking_new_inventory_included() : m.booking_new_inventory_addon()}</span>
 									</div>
 									<div class="flex flex-wrap gap-3">
 										<div>
-											<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">Quantity</label>
+											<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">{m.booking_new_inventory_quantity()}</label>
 											<input id="qty_{link.itemTypeId}" name="qty_{link.itemTypeId}" type="number" min="1"
 												value={link.quantityPerBooking}
 												class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
@@ -341,7 +341,7 @@
 											<label class="mb-1 block text-xs text-gray-600 capitalize" for="attr_{link.itemTypeId}_{key}">{key}</label>
 											<select id="attr_{link.itemTypeId}_{key}" name="attr_{link.itemTypeId}_{key}"
 												class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
-												<option value="">Any</option>
+												<option value="">—</option>
 												{#each values as v}<option value={v}>{v}</option>{/each}
 											</select>
 										</div>

@@ -349,17 +349,21 @@
 	{#if data.booking.allocations.length > 0}
 	<div class="rounded-xl border border-gray-200 bg-white shadow-sm">
 		<div class="border-b border-gray-100 p-4">
-			<h2 class="font-semibold text-gray-900">Inventory</h2>
+			<h2 class="font-semibold text-gray-900">{m.booking_detail_inventory_section()}</h2>
 		</div>
 		<ul class="divide-y divide-gray-100">
 			{#each data.booking.allocations as alloc}
+			{@const allocStatusLabel = alloc.status === 'allocated' ? m.booking_detail_alloc_status_allocated()
+				: alloc.status === 'returned' ? m.booking_detail_alloc_status_returned()
+				: alloc.status === 'damaged' ? m.booking_detail_alloc_status_damaged()
+				: m.booking_detail_alloc_status_lost()}
 			<li class="flex items-center justify-between px-4 py-3">
 				<div>
 					<p class="text-sm font-medium text-gray-900">
 						{alloc.itemName ?? `${alloc.quantity}× ${alloc.itemTypeName}`}
 					</p>
 					{#if alloc.itemName && alloc.quantity > 1}
-						<p class="text-xs text-gray-500">{alloc.quantity} units</p>
+						<p class="text-xs text-gray-500">{m.booking_detail_alloc_units({ count: alloc.quantity })}</p>
 					{/if}
 					{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
 						<div class="mt-0.5 flex flex-wrap gap-1">
@@ -370,7 +374,7 @@
 					{/if}
 				</div>
 				<span class="rounded-full px-2 py-0.5 text-xs {alloc.status === 'allocated' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
-					{alloc.status}
+					{allocStatusLabel}
 				</span>
 			</li>
 			{/each}
