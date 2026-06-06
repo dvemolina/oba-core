@@ -197,12 +197,17 @@ export const actions: Actions = {
 				})
 			);
 
-			// Named participants: add to booking + all sessions
-			if (participantNames.length > 0) {
-				await bulkAddBookingParticipants(booking.id, participantNames);
+			// Named participants, or auto-generate placeholders from count
+			const namesToCreate = participantNames.length > 0
+				? participantNames
+				: participantCount && participantCount > 0
+					? Array.from({ length: participantCount }, (_, i) => `Participant ${i + 1}`)
+					: [];
+			if (namesToCreate.length > 0) {
+				await bulkAddBookingParticipants(booking.id, namesToCreate);
 				await Promise.all(
 					createdSessions.flatMap(s =>
-						participantNames.map(name => addParticipant({ sessionId: s.id, name }))
+						namesToCreate.map(name => addParticipant({ sessionId: s.id, name }))
 					)
 				);
 			}
