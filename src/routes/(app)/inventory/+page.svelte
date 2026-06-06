@@ -67,7 +67,7 @@
 					{/if}
 
 					<div class="flex items-center justify-between text-sm">
-						<span class="font-medium text-gray-900">€{type.unitPrice} <span class="font-normal text-gray-500">{PRICING_LABELS[type.pricingUnit] ?? type.pricingUnit}</span></span>
+						<span class="font-medium text-gray-900">€{parseFloat(type.unitPrice).toFixed(2)} <span class="font-normal text-gray-500">{PRICING_LABELS[type.pricingUnit] ?? type.pricingUnit}</span></span>
 						{#if type.trackingMode === 'pool' && type.totalPoolSize}
 							<span class="text-gray-500">{type.totalPoolSize} units</span>
 						{/if}
