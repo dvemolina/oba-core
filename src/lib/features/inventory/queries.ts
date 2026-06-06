@@ -107,6 +107,26 @@ export async function createInventoryItem(
 	return row as InventoryItem;
 }
 
+export async function bulkCreateInventoryItems(
+	itemTypeId: string,
+	inputs: CreateInventoryItemInput[]
+): Promise<InventoryItem[]> {
+	if (inputs.length === 0) return [];
+	const rows = await db
+		.insert(inventoryItems)
+		.values(
+			inputs.map((input, i) => ({
+				itemTypeId,
+				name: input.name,
+				attributes: input.attributes ?? {},
+				notes: input.notes,
+				sortOrder: input.sortOrder ?? i
+			}))
+		)
+		.returning();
+	return rows as InventoryItem[];
+}
+
 export async function updateInventoryItem(
 	id: string,
 	input: Partial<CreateInventoryItemInput & { status: ItemStatus }>

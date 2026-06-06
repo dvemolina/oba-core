@@ -2,10 +2,12 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { requireRole, canEditServices } from '$lib/server/permissions';
 import {
 	getInventoryItemTypeWithItems,
+	getInventoryItemType,
 	updateInventoryItemType,
 	toggleInventoryItemTypeActive,
 	deleteInventoryItemType,
 	createInventoryItem,
+	bulkCreateInventoryItems,
 	updateInventoryItem,
 	deleteInventoryItem
 } from '$lib/features/inventory/queries';
@@ -68,13 +70,16 @@ export const actions: Actions = {
 		redirect(303, '/inventory');
 	},
 
-	addItem: async ({ request, params, locals }) => {
+	bulkAddItems: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');
 		const form = await request.formData();
-		const name = form.get('name')?.toString().trim() ?? '';
-		if (!name) return fail(400, { itemError: 'Name is required' });
+		const baseName = form.get('baseName')?.toString().trim() ?? '';
+		const countRaw = parseInt(form.get('count')?.toString() ?? '1');
+		const count = isNaN(countRaw) || countRaw < 1 ? 1 : Math.min(countRaw, 100);
 
-		const itemType = await getInventoryItemTypeWithItems(params.id);
+		if (!baseName) return fail(400, { itemError: 'Name is required' });
+
+		const itemType = await getInventoryItemType(params.id);
 		const attributes: Record<string, string> = {};
 		if (itemType) {
 			for (const key of Object.keys(itemType.attributeSchema)) {
@@ -83,8 +88,20 @@ export const actions: Actions = {
 			}
 		}
 
-		await createInventoryItem(params.id, { name, attributes });
-		return { message: 'Item added' };
+		if (count === 1) {
+			await createInventoryItem(params.id, { name: baseName, attributes });
+		} else {
+			await bulkCreateInventoryItems(
+				params.id,
+				Array.from({ length: count }, (_, i) => ({
+					name: `${baseName} #${i + 1}`,
+					attributes,
+					sortOrder: i
+				}))
+			);
+		}
+
+		return { message: count === 1 ? 'Item added' : `${count} items added` };
 	},
 
 	updateItemStatus: async ({ request, locals }) => {

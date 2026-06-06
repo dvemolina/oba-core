@@ -6,7 +6,25 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let addingItem = $state(false);
+	// Auto-open add form when freshly created type has 0 items
+	let addingItem = $state(data.itemType.trackingMode === 'specific' && data.itemType.items.length === 0 && data.canEdit);
+
+	// Bulk-add form state
+	let selectedAttrs = $state<Record<string, string>>({});
+	let itemCount = $state(1);
+
+	// Auto-generate name from type name + selected attribute values
+	let namePreview = $derived(
+		[data.itemType.name, ...Object.values(selectedAttrs).filter(Boolean)].join(' ')
+	);
+
+	// Preview list of names that will be created
+	let namesList = $derived(
+		itemCount === 1
+			? [namePreview]
+			: Array.from({ length: Math.min(itemCount, 5) }, (_, i) => `${namePreview} #${i + 1}`)
+			  .concat(itemCount > 5 ? [`… #${itemCount}`] : [])
+	);
 
 	const PRICING_OPTIONS = $derived([
 		{ value: 'per_hour', label: m.pricing_unit_per_hour() },
@@ -136,35 +154,105 @@
 		</div>
 
 		{#if addingItem && data.canEdit}
-		<form method="POST" action="?/addItem" use:enhance={() => { return ({ update }) => { addingItem = false; update(); }; }}
-			class="border-b border-gray-100 bg-gray-50 p-4">
-			<div class="flex flex-wrap items-end gap-3">
-				<div class="min-w-35 flex-1">
-					<label class="mb-1 block text-xs font-medium text-gray-600">{m.inventory_item_name_label()} *</label>
-					<input name="name" type="text" required placeholder={m.inventory_item_name_placeholder()}
-						class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
-				</div>
+		<form
+			method="POST"
+			action="?/bulkAddItems"
+			use:enhance={() => {
+				return ({ update }) => {
+					selectedAttrs = {};
+					itemCount = 1;
+					addingItem = false;
+					update();
+				};
+			}}
+			class="border-b border-gray-100 bg-gray-50 p-4 space-y-4"
+		>
+			<!-- Attribute pickers → drive name preview -->
+			{#if attrEntries.length > 0}
+			<div class="flex flex-wrap gap-3">
 				{#each attrEntries as [key, values]}
 				<div>
 					<label class="mb-1 block text-xs font-medium text-gray-600 capitalize">{key}</label>
-					<select name="attr_{key}"
-						class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+					<select
+						name="attr_{key}"
+						bind:value={selectedAttrs[key]}
+						class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean"
+					>
 						<option value="">—</option>
 						{#each values as v}<option value={v}>{v}</option>{/each}
 					</select>
 				</div>
 				{/each}
-				<button type="submit"
-					class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">{m.inventory_btn_add()}</button>
-				<button type="button" onclick={() => (addingItem = false)}
-					class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">{m.common_cancel()}</button>
 			</div>
-			{#if form?.itemError}<p class="mt-2 text-xs text-red-600">{form.itemError}</p>{/if}
+			{/if}
+
+			<!-- Name + count row -->
+			<div class="flex flex-wrap items-end gap-3">
+				<div class="min-w-48 flex-1">
+					<label class="mb-1 block text-xs font-medium text-gray-600">{m.inventory_item_name_label()} *</label>
+					<input
+						name="baseName"
+						type="text"
+						required
+						value={namePreview}
+						placeholder={m.inventory_item_name_placeholder()}
+						class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean"
+					/>
+				</div>
+				<div>
+					<label class="mb-1 block text-xs font-medium text-gray-600">{m.inventory_item_count_label()}</label>
+					<input
+						name="count"
+						type="number"
+						min="1"
+						max="100"
+						bind:value={itemCount}
+						class="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean"
+					/>
+				</div>
+				<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">
+					{m.inventory_btn_add()}
+				</button>
+				{#if data.itemType.items.length > 0}
+				<button type="button" onclick={() => (addingItem = false)}
+					class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+					{m.common_cancel()}
+				</button>
+				{/if}
+			</div>
+
+			<!-- Name preview -->
+			{#if namePreview}
+			<div class="rounded-lg bg-white border border-gray-200 px-3 py-2">
+				<p class="mb-1 text-xs font-medium text-gray-500">{m.inventory_item_name_preview()}</p>
+				<ul class="space-y-0.5">
+					{#each namesList as name}
+						<li class="text-sm text-gray-800">{name}</li>
+					{/each}
+				</ul>
+				{#if itemCount > 1}
+				<p class="mt-1 text-xs text-gray-400">{m.inventory_item_bulk_hint()}</p>
+				{/if}
+			</div>
+			{/if}
+
+			{#if form?.itemError}<p class="text-xs text-red-600">{form.itemError}</p>{/if}
 		</form>
 		{/if}
 
-		{#if data.itemType.items.length === 0}
-			<div class="p-6 text-center text-sm text-gray-400">{m.inventory_items_empty()}</div>
+		{#if data.itemType.items.length === 0 && !addingItem}
+			<div class="flex flex-col items-center gap-2 p-6 text-center">
+				<p class="text-sm font-medium text-gray-500">{m.inventory_items_empty()}</p>
+				<p class="text-xs text-gray-400">{m.inventory_items_empty_cta()}</p>
+				{#if data.canEdit}
+				<button
+					onclick={() => (addingItem = true)}
+					class="mt-1 flex items-center gap-1 rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90"
+				>
+					<Plus size={14} /> {m.inventory_btn_add_item()}
+				</button>
+				{/if}
+			</div>
 		{:else}
 			<ul class="divide-y divide-gray-100">
 			{#each data.itemType.items as item}
