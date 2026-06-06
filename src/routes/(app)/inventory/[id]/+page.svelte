@@ -169,26 +169,29 @@
 		</div>
 		{/if}
 
-		<div class="flex items-center justify-between gap-3 pt-1">
-			<div class="flex gap-2">
-				<form method="POST" action="?/toggle" use:enhance>
-					<button type="submit" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-						{data.itemType.active ? m.inventory_btn_deactivate() : m.inventory_btn_activate()}
-					</button>
-				</form>
-				<form method="POST" action="?/delete" use:enhance>
-					<button type="submit"
-						onclick={(e) => { if (!confirm(m.inventory_confirm_delete_type())) e.preventDefault(); }}
-						class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
-						{m.inventory_btn_delete_type()}
-					</button>
-				</form>
-			</div>
+		<div class="flex justify-end pt-1">
 			<button type="submit" class="rounded-lg bg-ocean px-4 py-2 text-sm font-medium text-white hover:bg-ocean/90">
 				{m.inventory_detail_save()}
 			</button>
 		</div>
 	</form>
+	{/if}
+
+	{#if data.canEdit}
+	<div class="flex gap-2">
+		<form method="POST" action="?/toggle" use:enhance>
+			<button type="submit" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+				{data.itemType.active ? m.inventory_btn_deactivate() : m.inventory_btn_activate()}
+			</button>
+		</form>
+		<form method="POST" action="?/delete" use:enhance>
+			<button type="submit"
+				onclick={(e) => { if (!confirm(m.inventory_confirm_delete_type())) e.preventDefault(); }}
+				class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+				{m.inventory_btn_delete_type()}
+			</button>
+		</form>
+	</div>
 	{/if}
 
 	<!-- Items section (specific tracking) -->
