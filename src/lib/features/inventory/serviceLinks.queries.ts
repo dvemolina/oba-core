@@ -33,7 +33,7 @@ export async function listLinksForService(serviceId: string): Promise<ServiceInv
 			}
 		})
 		.from(serviceInventoryLinks)
-		.leftJoin(inventoryItemTypes, eq(serviceInventoryLinks.itemTypeId, inventoryItemTypes.id))
+		.innerJoin(inventoryItemTypes, eq(serviceInventoryLinks.itemTypeId, inventoryItemTypes.id))
 		.where(eq(serviceInventoryLinks.serviceId, serviceId))
 		.orderBy(serviceInventoryLinks.createdAt);
 	return rows as ServiceInventoryLinkWithType[];
@@ -64,10 +64,12 @@ export async function updateInventoryLink(
 	id: string,
 	input: Partial<Pick<AddServiceInventoryLinkInput, 'quantityPerBooking' | 'isIncluded' | 'priceOverride'>>
 ): Promise<ServiceInventoryLink> {
+	if (Object.keys(input).length === 0) throw new Error('updateInventoryLink: no fields to update');
 	const [row] = await db
 		.update(serviceInventoryLinks)
 		.set(input)
 		.where(eq(serviceInventoryLinks.id, id))
 		.returning();
+	if (!row) throw new Error(`ServiceInventoryLink not found: ${id}`);
 	return row as ServiceInventoryLink;
 }
