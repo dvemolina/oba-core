@@ -39,10 +39,36 @@
 	};
 
 	let attrEntries = $derived(Object.entries(data.itemType.attributeSchema));
+	let managingItems = $state(false);
 
 	function statusLabel(status: string): string {
 		return STATUS_OPTIONS.find(o => o.value === status)?.label ?? status;
 	}
+
+	// Group items by their attribute combination for the chip view
+	type ItemGroup = { label: string; available: number; maintenance: number; retired: number; total: number; items: typeof data.itemType.items };
+
+	let itemGroups = $derived((): ItemGroup[] => {
+		const items = data.itemType.items;
+		if (items.length === 0) return [];
+		if (attrEntries.length === 0) {
+			const g = { label: data.itemType.name, available: 0, maintenance: 0, retired: 0, total: items.length, items };
+			for (const i of items) { if (i.status === 'available') g.available++; else if (i.status === 'maintenance') g.maintenance++; else g.retired++; }
+			return [g];
+		}
+		const map = new Map<string, ItemGroup>();
+		for (const item of items) {
+			const label = attrEntries.map(([k]) => item.attributes[k] ?? '—').join(' / ');
+			if (!map.has(label)) map.set(label, { label, available: 0, maintenance: 0, retired: 0, total: 0, items: [] });
+			const g = map.get(label)!;
+			g.total++;
+			g.items.push(item);
+			if (item.status === 'available') g.available++;
+			else if (item.status === 'maintenance') g.maintenance++;
+			else g.retired++;
+		}
+		return Array.from(map.values());
+	});
 </script>
 
 <div class="mx-auto max-w-2xl p-4 md:p-6">
@@ -229,47 +255,79 @@
 				</button>
 				{/if}
 			</div>
-		{:else}
-			<ul class="divide-y divide-gray-100">
-			{#each data.itemType.items as item}
-				<li class="flex items-center justify-between gap-3 px-4 py-3">
-					<div>
-						<p class="text-sm font-medium text-gray-900">{item.name}</p>
-						{#if Object.keys(item.attributes).length > 0}
-						<div class="mt-0.5 flex flex-wrap gap-1">
-							{#each Object.entries(item.attributes) as [k, v]}
-								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{k}: {v}</span>
-							{/each}
+		{:else if data.itemType.items.length > 0}
+			<!-- ── Chip overview ── -->
+			<div class="flex flex-wrap gap-2 p-4">
+				{#each itemGroups() as group}
+				<div class="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-xs">
+					{#if group.label && group.label !== data.itemType.name}
+					<span class="text-sm font-medium text-gray-800">{group.label}</span>
+					{/if}
+					<!-- available count -->
+					<span class="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+						{group.available}
+					</span>
+					{#if group.maintenance > 0}
+					<span class="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+						{group.maintenance}
+					</span>
+					{/if}
+					{#if group.retired > 0}
+					<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400">
+						{group.retired}
+					</span>
+					{/if}
+				</div>
+				{/each}
+				<!-- legend -->
+				<div class="flex items-center gap-3 pl-1 text-xs text-gray-400">
+					<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-400"></span> {m.inventory_status_available()}</span>
+					<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-amber-400"></span> {m.inventory_status_maintenance()}</span>
+					<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-gray-300"></span> {m.inventory_status_retired()}</span>
+				</div>
+			</div>
+
+			<!-- ── Manage individual items (collapsible) ── -->
+			{#if data.canEdit}
+			<div class="border-t border-gray-100">
+				<button
+					onclick={() => (managingItems = !managingItems)}
+					class="flex w-full items-center justify-between px-4 py-2.5 text-xs font-medium text-gray-500 hover:text-gray-700"
+				>
+					<span>Manage individual items</span>
+					<span class="text-gray-400">{managingItems ? '▲' : '▼'}</span>
+				</button>
+				{#if managingItems}
+				<ul class="divide-y divide-gray-100">
+				{#each data.itemType.items as item}
+					<li class="flex items-center justify-between gap-3 px-4 py-2">
+						<p class="min-w-0 flex-1 truncate text-sm text-gray-800">{item.name}</p>
+						<div class="flex shrink-0 items-center gap-2">
+							<form method="POST" action="?/updateItemStatus" use:enhance>
+								<input type="hidden" name="itemId" value={item.id} />
+								<select name="status"
+									onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+									class="rounded-lg border border-gray-300 px-2 py-1 text-xs {STATUS_COLORS[item.status] ?? ''}">
+									{#each STATUS_OPTIONS as opt}
+										<option value={opt.value} selected={item.status === opt.value}>{opt.label}</option>
+									{/each}
+								</select>
+							</form>
+							<form method="POST" action="?/deleteItem" use:enhance>
+								<input type="hidden" name="itemId" value={item.id} />
+								<button type="submit"
+									onclick={(e) => { if (!confirm(m.inventory_confirm_delete_item())) e.preventDefault(); }}
+									class="rounded p-1 text-gray-400 hover:text-red-500">
+									<Trash2 size={14} />
+								</button>
+							</form>
 						</div>
-						{/if}
-					</div>
-					<div class="flex items-center gap-2">
-						{#if data.canEdit}
-						<form method="POST" action="?/updateItemStatus" use:enhance>
-							<input type="hidden" name="itemId" value={item.id} />
-							<select name="status"
-								onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-								class="rounded-lg border border-gray-300 px-2 py-1 text-xs {STATUS_COLORS[item.status] ?? ''}">
-								{#each STATUS_OPTIONS as opt}
-									<option value={opt.value} selected={item.status === opt.value}>{opt.label}</option>
-								{/each}
-							</select>
-						</form>
-						<form method="POST" action="?/deleteItem" use:enhance>
-							<input type="hidden" name="itemId" value={item.id} />
-							<button type="submit"
-								onclick={(e) => { if (!confirm(m.inventory_confirm_delete_item())) e.preventDefault(); }}
-								class="rounded p-1 text-gray-400 hover:text-red-500">
-								<Trash2 size={14} />
-							</button>
-						</form>
-						{:else}
-						<span class="rounded-full px-2 py-0.5 text-xs {STATUS_COLORS[item.status] ?? ''}">{statusLabel(item.status)}</span>
-						{/if}
-					</div>
-				</li>
-			{/each}
-			</ul>
+					</li>
+				{/each}
+				</ul>
+				{/if}
+			</div>
+			{/if}
 		{/if}
 	</div>
 	{:else}
