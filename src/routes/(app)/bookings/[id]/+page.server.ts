@@ -56,8 +56,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
 	);
 
-	// Inventory: load items per unique allocation type + service links for "add" capability
-	const allocItemTypeIds = [...new Set(booking.allocations.map(a => a.itemTypeId))];
+	const serviceInventoryLinks = service?.hasInventoryUnits ? await listLinksForService(service.id) : [];
+
+	// Load items for all relevant types: existing allocations + service link types (for the add form)
+	const allocItemTypeIds = [...new Set([
+		...booking.allocations.map(a => a.itemTypeId),
+		...serviceInventoryLinks.map(l => l.itemTypeId)
+	])];
 	const itemsByAllocType: Record<string, Awaited<ReturnType<typeof listItemsByType>>> = {};
 	const allocTypeTracking: Record<string, 'pool' | 'specific'> = {};
 	await Promise.all(
@@ -67,7 +72,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			itemsByAllocType[typeId] = type?.trackingMode === 'specific' ? await listItemsByType(typeId) : [];
 		})
 	);
-	const serviceInventoryLinks = service?.hasInventoryUnits ? await listLinksForService(service.id) : [];
 
 	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks };
 };
@@ -81,6 +85,7 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Not found' });
 
 		const isSessionBased = booking.serviceHasSessions;
+		const priceOverrideRaw = form.get('priceOverride')?.toString().trim();
 		await updateBooking(params.id, {
 			...(isSessionBased ? {} : {
 				instructorId: form.get('instructorId')?.toString() || null,
@@ -90,7 +95,8 @@ export const actions: Actions = {
 			isFlexible: form.get('isFlexible') === 'true',
 			status: newStatus,
 			spotNotes: form.get('spotNotes')?.toString() || null,
-			notes: form.get('notes')?.toString() || null
+			notes: form.get('notes')?.toString() || null,
+			priceOverride: priceOverrideRaw ? priceOverrideRaw : null
 		});
 		const message = newStatus === 'confirmed' ? 'Booking confirmed' : 'Booking updated';
 		return { error: null, message };
@@ -363,23 +369,21 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Booking not found' });
 		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
 		if (!itemTypeId) return fail(400, { error: 'Item type required' });
-		const qty = parseInt(form.get('quantity')?.toString() ?? '1');
 		const specificItemId = form.get('specificItemId')?.toString() || null;
+		if (!specificItemId) return fail(400, { error: 'Select a specific item' });
 
 		const type = await getInventoryItemType(itemTypeId);
 		if (!type) return fail(400, { error: 'Item type not found' });
 
 		const startDate = booking.date;
 		const endDate = booking.dateEnd ?? null;
-		const avail = await checkAvailability(itemTypeId, startDate, endDate, qty, undefined, params.id);
-		if (avail.availableCount < qty) {
-			return fail(400, { error: `Not enough "${type.name}" available` });
+		const avail = await checkAvailability(itemTypeId, startDate, endDate, 1, undefined, params.id);
+		const itemAvailable = avail.availableItems.some(i => i.id === specificItemId);
+		if (!itemAvailable) {
+			return fail(400, { error: `"${type.name}" not available` });
 		}
-		const itemId = (specificItemId && avail.availableItems.some(i => i.id === specificItemId))
-			? specificItemId
-			: (avail.availableItems[0]?.id ?? null);
 
-		await createAllocation({ bookingId: params.id, itemTypeId, itemId, quantity: qty, startDate, endDate });
+		await createAllocation({ bookingId: params.id, itemTypeId, itemId: specificItemId, quantity: 1, startDate, endDate });
 		return { error: null, message: `${type.name} added` };
 	}
 };

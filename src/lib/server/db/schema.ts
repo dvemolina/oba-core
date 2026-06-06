@@ -129,6 +129,7 @@ export const bookings = pgTable('bookings', {
 	source: text('source').notNull().default('admin'),
 	spotNotes: text('spot_notes'),
 	notes: text('notes'),
+	priceOverride: numeric('price_override', { precision: 10, scale: 2 }),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [

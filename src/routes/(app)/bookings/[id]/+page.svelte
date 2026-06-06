@@ -179,7 +179,6 @@
 	let addingAlloc = $state(false);
 	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
 	let addAllocSpecificItemId = $state('');
-	let addAllocQty = $state(1);
 	let reassigningAllocId = $state<string | null>(null);
 	let addAllocSelectedGroup = $state<string | null>(null);
 	let reassignGroupSelections = $state<Record<string, string | null>>({});
@@ -335,6 +334,15 @@
 						<p class="mt-0.5 text-sm text-gray-700">{data.booking.notes}</p>
 					</div>
 				{/if}
+				{#if canSeeFinancials && (data.booking.priceOverride || data.booking.serviceBasePrice)}
+					<div class="flex items-center justify-between">
+						<span class="text-xs text-muted">Precio por cliente</span>
+						<span class="text-sm font-medium text-gray-800">
+							€{data.booking.priceOverride ?? data.booking.serviceBasePrice}
+							{#if data.booking.priceOverride}<span class="ml-1 text-[10px] text-amber-600">(personalizado)</span>{/if}
+						</span>
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -388,6 +396,16 @@
 					<textarea name="notes" rows="2"
 						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none">{data.booking.notes ?? ''}</textarea>
 				</div>
+				{#if canSeeFinancials}
+				<div>
+					<label class="mb-1 block text-xs text-muted">Precio por cliente (€)</label>
+					<input name="priceOverride" type="number" step="0.01" min="0"
+						value={data.booking.priceOverride ?? data.booking.serviceBasePrice ?? ''}
+						placeholder={data.booking.serviceBasePrice ? `Base: €${data.booking.serviceBasePrice}` : 'Precio'}
+						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none" />
+					<p class="mt-0.5 text-[10px] text-muted">Sobrescribe el precio base del servicio para esta reserva</p>
+				</div>
+				{/if}
 				<button type="submit" class="btn-primary btn-block">{m.common_save()}</button>
 			</form>
 		</div>
@@ -401,7 +419,7 @@
 			{#if data.serviceInventoryLinks.length > 0 && data.booking.status !== 'cancelled'}
 			<button
 				type="button"
-				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocSpecificItemId = ''; addAllocQty = 1; }}
+				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocSpecificItemId = ''; }}
 				class="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
 			>+ Add</button>
 			{/if}
@@ -415,22 +433,15 @@
 		{@const addSelectedGroup = addGroups.find(g => g.label === addAllocSelectedGroup) ?? null}
 		<form method="POST" action="?/addAlloc" use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocSpecificItemId = ''; })}
 			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
-			<div class="flex flex-wrap gap-3">
-				<div>
-					<label class="mb-1 block text-xs font-medium text-gray-600">Type</label>
-					<select name="itemTypeId" bind:value={addAllocTypeId}
-						onchange={() => { addAllocSelectedGroup = null; addAllocSpecificItemId = ''; }}
-						class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
-						{#each data.serviceInventoryLinks as link}
-							<option value={link.itemTypeId}>{link.itemType.name}</option>
-						{/each}
-					</select>
-				</div>
-				<div>
-					<label class="mb-1 block text-xs font-medium text-gray-600">Qty</label>
-					<input name="quantity" type="number" min="1" bind:value={addAllocQty}
-						class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
-				</div>
+			<div>
+				<label class="mb-1 block text-xs font-medium text-gray-600">Type</label>
+				<select name="itemTypeId" bind:value={addAllocTypeId}
+					onchange={() => { addAllocSelectedGroup = null; addAllocSpecificItemId = ''; }}
+					class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+					{#each data.serviceInventoryLinks as link}
+						<option value={link.itemTypeId}>{link.itemType.name}</option>
+					{/each}
+				</select>
 			</div>
 			{#if addAllocItems.length > 0}
 			<!-- Hidden attr inputs from selected group -->
@@ -459,9 +470,6 @@
 				{#if !addAttrEntries.length || addSelectedGroup}
 				{@const itemsToShow = addSelectedGroup ? addSelectedGroup.items : addAllocItems}
 				<div class="flex flex-wrap gap-1.5">
-					<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!addAllocSpecificItemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
-						<input type="radio" name="specificItemId" value="" class="sr-only" bind:group={addAllocSpecificItemId} /> Auto
-					</label>
 					{#each itemsToShow as item}
 					{@const avail = item.status === 'available'}
 					<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : addAllocSpecificItemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
@@ -469,6 +477,9 @@
 						{item.name.replace(/#/g, '').trim()}
 					</label>
 					{/each}
+					{#if itemsToShow.filter(i => i.status === 'available').length === 0}
+						<p class="text-xs text-muted italic">No items available</p>
+					{/if}
 				</div>
 				{/if}
 			</div>
@@ -559,9 +570,6 @@
 					{#if reGroups.length <= 1 || reSelectedGroup}
 					{@const itemsToShow = reSelectedGroup ? reSelectedGroup.items : typeItems}
 					<div class="flex flex-wrap gap-1.5">
-						<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!alloc.itemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
-							<input type="radio" name="itemId" value="" class="sr-only" checked={!alloc.itemId} /> Auto
-						</label>
 						{#each itemsToShow as item}
 						{@const avail = item.status === 'available' || item.id === alloc.itemId}
 						<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : alloc.itemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
@@ -621,7 +629,7 @@
 						class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 ring-1 ring-ocean/30">
 						<span class="flex-1 text-sm text-gray-800">{selectedEnroll.name}</span>
 						<input type="hidden" name="clientId" value={selectedEnroll.clientId} />
-						<input type="hidden" name="amountDue" value={data.booking.serviceMaxCapacity ? '' : ''} />
+						<input type="hidden" name="amountDue" value={data.booking.priceOverride ?? data.booking.serviceBasePrice ?? '0'} />
 						<button type="submit" class="btn-primary btn-sm">{m.booking_detail_enroll()}</button>
 						<button type="button" onclick={() => selectedEnroll = null} class="text-xs text-muted hover:text-gray-700">✕</button>
 					</form>
@@ -693,15 +701,26 @@
 						{/if}
 					</div>
 					{#if canSeeFinancials}
-					<form method="post" action="?/updatePayment" use:enhance={withToast()} class="flex items-end gap-2">
+					<form method="post" action="?/updatePayment" use:enhance={withToast()} class="space-y-2">
 						<input type="hidden" name="bookingClientId" value={bc.id} />
 						<input type="hidden" name="amountDue" value={bc.amountDue} />
+						<div class="flex items-end gap-2">
+							<div class="flex-1">
+								<label class="text-xs text-muted">{m.booking_detail_paid_of()} €{bc.amountDue}</label>
+								<input name="amountPaid" type="number" step="0.01" min="0" value={bc.amountPaid}
+									class="mt-0.5 input" />
+							</div>
+							<button type="submit" class="btn-secondary btn-sm">{m.booking_detail_save_payment()}</button>
+						</div>
+					</form>
+					<form method="post" action="?/updateAmountDue" use:enhance={withToast()} class="flex items-end gap-2">
+						<input type="hidden" name="bookingClientId" value={bc.id} />
 						<div class="flex-1">
-							<label class="text-xs text-muted">{m.booking_detail_paid_of()} €{bc.amountDue}</label>
-							<input name="amountPaid" type="number" step="0.01" min="0" max={bc.amountDue} value={bc.amountPaid}
+							<label class="text-xs text-muted">Precio a cobrar (€)</label>
+							<input name="amountDue" type="number" step="0.01" min="0" value={bc.amountDue}
 								class="mt-0.5 input" />
 						</div>
-						<button type="submit" class="btn-secondary btn-sm">{m.booking_detail_save_payment()}</button>
+						<button type="submit" class="btn-secondary btn-sm">Fijar</button>
 					</form>
 					{/if}
 					{#if bc.status === 'enrolled' && data.booking.status !== 'cancelled'}

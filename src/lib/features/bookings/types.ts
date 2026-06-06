@@ -56,6 +56,8 @@ export interface Booking {
 	source: BookingSource;
 	spotNotes: string | null;
 	notes: string | null;
+	priceOverride: string | null;
+	serviceBasePrice: string | null;
 	clients: BookingClient[];
 	participants: BookingParticipant[];
 	createdAt: Date;
@@ -139,4 +141,5 @@ export interface UpdateBookingInput {
 	status?: BookingStatus;
 	spotNotes?: string | null;
 	notes?: string | null;
+	priceOverride?: string | null;
 }

@@ -303,6 +303,8 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			source: bookings.source,
 			spotNotes: bookings.spotNotes,
 			notes: bookings.notes,
+			priceOverride: bookings.priceOverride,
+			serviceBasePrice: services.basePrice,
 			participantCount: bookings.participantCount,
 			createdAt: bookings.createdAt,
 			updatedAt: bookings.updatedAt

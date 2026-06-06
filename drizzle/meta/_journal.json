@@ -190,6 +190,13 @@
       "when": 1749513600000,
       "tag": "0032_service_pricing_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1749600000000,
+      "tag": "0033_booking_price_override",
+      "breakpoints": true
     }
   ]
 }
