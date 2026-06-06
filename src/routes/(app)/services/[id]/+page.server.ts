@@ -6,6 +6,8 @@ import type { ServiceType } from '$lib/features/services/types';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
+import { listLinksForService, addInventoryLink, removeInventoryLink } from '$lib/features/inventory/serviceLinks.queries';
+import { listInventoryItemTypes } from '$lib/features/inventory/queries';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
@@ -15,11 +17,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 	if (!service) error(404, 'Service not found');
 
-	const runs = await listRunsForService(params.id);
-	// TODO: Task 10 — replace with listLinksForService when inventory UI is implemented
-	const unitTypes: never[] = [];
+	const [inventoryLinks, allItemTypes, runs] = await Promise.all([
+		listLinksForService(params.id),
+		service.hasInventoryUnits ? listInventoryItemTypes() : Promise.resolve([]),
+		listRunsForService(params.id)
+	]);
 
-	return { service, instructors, unitTypes, runs, canEditServices: canEditServices(locals) };
+	return { service, instructors, inventoryLinks, allItemTypes, runs, canEditServices: canEditServices(locals) };
 };
 
 export const actions: Actions = {
@@ -80,11 +84,28 @@ export const actions: Actions = {
 		return { deleted: true, message: 'Service deleted' };
 	},
 
-	// TODO: Task 10 — these actions will be replaced by inventory link management UI
-	addUnitType: async () => fail(400, { error: 'Not implemented' }),
-	deleteUnitType: async () => fail(400, { error: 'Not implemented' }),
-	addUnit: async () => fail(400, { error: 'Not implemented' }),
-	deleteUnit: async () => fail(400, { error: 'Not implemented' }),
+	addInventoryLink: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
+		const quantityRaw = form.get('quantityPerBooking')?.toString();
+		const quantityPerBooking = quantityRaw ? parseInt(quantityRaw) : 1;
+		const isIncluded = form.get('isIncluded') !== 'false';
+		const priceOverride = form.get('priceOverride')?.toString() || null;
+
+		if (!itemTypeId) return fail(400, { linkError: 'Select an item type' });
+		await addInventoryLink(params.id, { itemTypeId, quantityPerBooking, isIncluded, priceOverride });
+		return { message: 'Inventory linked' };
+	},
+
+	removeInventoryLink: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const linkId = form.get('linkId')?.toString() ?? '';
+		if (!linkId) return fail(400, { error: 'Missing link ID' });
+		await removeInventoryLink(linkId);
+		return { message: 'Link removed' };
+	},
 
 	addRun: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');

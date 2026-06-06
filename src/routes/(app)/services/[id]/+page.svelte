@@ -7,6 +7,7 @@
 	import type { ServiceColorKey } from '$lib/features/services/colors';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import { Trash2 } from 'lucide-svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -122,11 +123,76 @@
 			{/if}
 		</div>
 
-		<!-- TODO: Task 10 — Inventory link management UI goes here (replaces old accommodation unit management) -->
 		{#if data.service.hasInventoryUnits}
-			<div class="mb-4 rounded-lg border border-dashed border-border p-4">
-				<p class="text-center text-xs text-muted">Inventory management coming soon (Task 10)</p>
+		<section class="mb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+			<div class="flex items-center justify-between border-b border-gray-100 p-4">
+				<h2 class="font-semibold text-gray-900">Linked inventory</h2>
+				<a href="/inventory/new" class="text-xs text-ocean hover:underline">+ New item type</a>
 			</div>
+
+			{#if data.inventoryLinks.length === 0}
+				<p class="p-4 text-sm text-gray-400">No inventory linked. Link an item type below.</p>
+			{:else}
+				<ul class="divide-y divide-gray-100">
+				{#each data.inventoryLinks as link}
+					<li class="flex items-center justify-between gap-3 px-4 py-3">
+						<div>
+							<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
+							<p class="text-xs text-gray-500">
+								{link.quantityPerBooking}× · {link.isIncluded ? 'Included' : 'Add-on'}
+								{link.priceOverride ? ` · €${parseFloat(link.priceOverride).toFixed(2)}` : ''}
+							</p>
+						</div>
+						{#if data.canEditServices}
+						<form method="POST" action="?/removeInventoryLink" use:enhance>
+							<input type="hidden" name="linkId" value={link.id} />
+							<button type="submit" class="rounded p-1 text-gray-400 hover:text-red-500">
+								<Trash2 size={14} />
+							</button>
+						</form>
+						{/if}
+					</li>
+				{/each}
+				</ul>
+			{/if}
+
+			{#if data.canEditServices}
+				{#if data.allItemTypes.length > 0}
+				<form method="POST" action="?/addInventoryLink" use:enhance class="border-t border-gray-100 bg-gray-50 p-4">
+					<div class="flex flex-wrap items-end gap-3">
+						<div class="flex-1 min-w-40">
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="itemTypeId">Item type</label>
+							<select id="itemTypeId" name="itemTypeId" required
+								class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+								<option value="">Select…</option>
+								{#each data.allItemTypes as t}
+									<option value={t.id}>{t.name}</option>
+								{/each}
+							</select>
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="quantityPerBooking">Qty / booking</label>
+							<input id="quantityPerBooking" name="quantityPerBooking" type="number" min="1" value="1"
+								class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+						</div>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-gray-600" for="priceOverride">Price override</label>
+							<input id="priceOverride" name="priceOverride" type="number" step="0.01" placeholder="—"
+								class="w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+						</div>
+						<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-sm font-medium text-white hover:bg-ocean/90">
+							Link
+						</button>
+					</div>
+					{#if form?.linkError}<p class="mt-2 text-xs text-red-600">{form?.linkError}</p>{/if}
+				</form>
+				{:else}
+				<div class="border-t border-gray-100 p-4 text-sm text-gray-500">
+					<a href="/inventory/new" class="text-ocean hover:underline">Create an item type</a> first, then link it here.
+				</div>
+				{/if}
+			{/if}
+		</section>
 		{/if}
 
 		<!-- Runs (for date-range services) -->
