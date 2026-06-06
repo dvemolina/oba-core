@@ -362,7 +362,7 @@ export const actions: Actions = {
 		return { error: null, message: 'Allocation removed' };
 	},
 
-	addAllocPool: async ({ request, params, locals }) => {
+	addAlloc: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const booking = await getBooking(params.id);
@@ -375,7 +375,6 @@ export const actions: Actions = {
 		const type = await getInventoryItemType(itemTypeId);
 		if (!type) return fail(400, { error: 'Item type not found' });
 
-		// Build attribute filter from submitted key/val pairs
 		const attrKeys = form.getAll('attrKey').map(String);
 		const attrVals = form.getAll('attrVal').map(String);
 		const attributeFilter = attrKeys.length > 0
@@ -389,35 +388,16 @@ export const actions: Actions = {
 			return fail(400, { error: `Not enough "${type.name}" available` });
 		}
 
-		await createAllocation({ bookingId: params.id, itemTypeId, itemId: null, quantity: qty, attributeFilter, startDate, endDate });
-		return { error: null, message: `${qty}× ${type.name} reservados` };
-	},
-
-	addAllocSpecific: async ({ request, params, locals }) => {
-		requireRole(locals, 'admin', 'owner', 'manager');
-		const form = await request.formData();
-		const booking = await getBooking(params.id);
-		if (!booking) return fail(404, { error: 'Booking not found' });
-		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
-		if (!itemTypeId) return fail(400, { error: 'Item type required' });
-		const specificItemIds = form.getAll('specificItemId').map(String).filter(Boolean);
-		if (specificItemIds.length === 0) return fail(400, { error: 'Select at least one item' });
-
-		const type = await getInventoryItemType(itemTypeId);
-		if (!type) return fail(400, { error: 'Item type not found' });
-
-		const startDate = booking.date;
-		const endDate = booking.dateEnd ?? null;
-		const avail = await checkAvailability(itemTypeId, startDate, endDate, specificItemIds.length, undefined, params.id);
-		const availableIds = new Set(avail.availableItems.map(i => i.id));
-		const unavailable = specificItemIds.filter(id => !availableIds.has(id));
-		if (unavailable.length > 0) {
-			return fail(400, { error: `Algunos items no están disponibles` });
+		// For specific-tracked types: create one allocation per unit (auto-assigned)
+		// For pool-tracked types: single allocation with quantity
+		if (type.trackingMode === 'specific') {
+			const itemIds = avail.availableItems.slice(0, qty).map(i => i.id);
+			await createAllocations(itemIds.map(itemId => ({
+				bookingId: params.id, itemTypeId, itemId, quantity: 1, attributeFilter, startDate, endDate
+			})));
+		} else {
+			await createAllocation({ bookingId: params.id, itemTypeId, itemId: null, quantity: qty, attributeFilter, startDate, endDate });
 		}
-
-		await createAllocations(specificItemIds.map(itemId => ({
-			bookingId: params.id, itemTypeId, itemId, quantity: 1, startDate, endDate
-		})));
-		return { error: null, message: `${specificItemIds.length}× ${type.name} añadidos` };
+		return { error: null, message: `${qty}× ${type.name} añadidos` };
 	}
 };

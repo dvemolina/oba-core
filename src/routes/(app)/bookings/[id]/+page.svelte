@@ -178,13 +178,10 @@
 
 	let addingAlloc = $state(false);
 	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
-	let addAllocSelectedItemIds = $state<Set<string>>(new Set());
 	let addAllocQty = $state(1);
-	let reassigningAllocId = $state<string | null>(null);
 	let addAllocSelectedGroup = $state<string | null>(null);
+	let reassigningAllocId = $state<string | null>(null);
 	let reassignGroupSelections = $state<Record<string, string | null>>({});
-
-	const addAllocTracking = $derived(data.allocTypeTracking[addAllocTypeId] ?? 'specific');
 
 	const ALLOC_STATUS_OPTIONS: { value: string; label: string }[] = [
 		{ value: 'allocated', label: 'Allocated' },
@@ -422,7 +419,7 @@
 			{#if data.serviceInventoryLinks.length > 0 && data.booking.status !== 'cancelled'}
 			<button
 				type="button"
-				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocSelectedItemIds = new Set(); addAllocQty = 1; addAllocSelectedGroup = null; }}
+				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocQty = 1; addAllocSelectedGroup = null; }}
 				class="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
 			>+ Add</button>
 			{/if}
@@ -434,28 +431,36 @@
 		{@const addAttrEntries = Object.entries(addLink?.itemType.attributeSchema ?? {})}
 		{@const addGroups = groupInventoryItems(addAllocItems, addAttrEntries)}
 		{@const addSelectedGroup = addGroups.find(g => g.label === addAllocSelectedGroup) ?? null}
-		<div class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
+		{@const availCount = (addSelectedGroup ? addSelectedGroup.items : addAllocItems).filter(i => i.status === 'available').length}
+		<form method="POST" action="?/addAlloc"
+			use:enhance={withToast(() => { addAllocSelectedGroup = null; addAllocQty = 1; })}
+			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
 			<!-- Type selector -->
+			{#if data.serviceInventoryLinks.length > 1}
 			<div>
 				<label class="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
-				<select bind:value={addAllocTypeId}
-					onchange={() => { addAllocSelectedGroup = null; addAllocSelectedItemIds = new Set(); addAllocQty = 1; }}
+				<select name="itemTypeId" bind:value={addAllocTypeId}
+					onchange={() => { addAllocSelectedGroup = null; addAllocQty = 1; }}
 					class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
 					{#each data.serviceInventoryLinks as link}
 						<option value={link.itemTypeId}>{link.itemType.name}</option>
 					{/each}
 				</select>
 			</div>
+			{:else}
+				<input type="hidden" name="itemTypeId" value={addAllocTypeId} />
+				<p class="text-xs font-semibold text-gray-700">{addLink?.itemType.name}</p>
+			{/if}
 
 			{#if addAttrEntries.length > 0}
-			<!-- Group/variant chips -->
+			<!-- Variant chips -->
 			<div>
 				<p class="mb-1.5 text-xs font-medium text-gray-600">Variante</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each addGroups as group}
 					{@const isSelected = addAllocSelectedGroup === group.label}
 					<button type="button"
-						onclick={() => { addAllocSelectedGroup = isSelected ? null : group.label; addAllocSelectedItemIds = new Set(); addAllocQty = 1; }}
+						onclick={() => { addAllocSelectedGroup = isSelected ? null : group.label; addAllocQty = 1; }}
 						class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
 							{group.available === 0 ? 'opacity-50' : ''}
 							{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
@@ -464,15 +469,16 @@
 					</button>
 					{/each}
 				</div>
+				{#if addSelectedGroup}
+					{#each Object.entries(addSelectedGroup.attrs) as [key, val]}
+						{#if val}<input type="hidden" name="attrKey" value={key} /><input type="hidden" name="attrVal" value={val} />{/if}
+					{/each}
+				{/if}
 			</div>
 			{/if}
 
+			<!-- Quantity stepper — always shown once variant selected (or if no variants) -->
 			{#if !addAttrEntries.length || addSelectedGroup}
-			{@const itemsToShow = addSelectedGroup ? addSelectedGroup.items : addAllocItems}
-			{@const availCount = itemsToShow.filter(i => i.status === 'available').length}
-
-			{#if addAllocTracking === 'pool'}
-			<!-- Pool mode: just pick quantity, no individual items -->
 			<div class="flex items-center gap-3">
 				<label class="text-xs font-medium text-gray-600">Cantidad</label>
 				<div class="flex items-center gap-2">
@@ -482,173 +488,60 @@
 					<button type="button" onclick={() => addAllocQty = Math.min(availCount, addAllocQty + 1)}
 						class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-sm text-gray-600 hover:bg-gray-100">+</button>
 				</div>
-				<span class="text-xs text-muted">{availCount} disponibles</span>
-			</div>
-			{:else}
-			<!-- Specific mode: multi-select individual item chips -->
-			<div>
-				<p class="mb-1.5 text-xs font-medium text-gray-600">
-					Unidades
-					{#if addAllocSelectedItemIds.size > 0}
-						<span class="ml-1 font-semibold text-ocean">({addAllocSelectedItemIds.size} sel.)</span>
-					{/if}
-				</p>
-				<div class="flex flex-wrap gap-1.5">
-					{#each itemsToShow as item}
-					{@const avail = item.status === 'available'}
-					{@const selected = addAllocSelectedItemIds.has(item.id)}
-					<button type="button" disabled={!avail}
-						onclick={() => {
-							const next = new Set(addAllocSelectedItemIds);
-							if (selected) next.delete(item.id); else next.add(item.id);
-							addAllocSelectedItemIds = next;
-						}}
-						class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
-							{!avail ? 'cursor-not-allowed opacity-40 border-gray-200 bg-white text-gray-400' :
-							 selected ? 'border-ocean bg-ocean/10 text-ocean' :
-							 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
-						{item.name.replace(/#/g, '').trim()}
-					</button>
-					{/each}
-					{#if availCount === 0}
-						<p class="text-xs italic text-muted">Sin unidades disponibles</p>
-					{/if}
-				</div>
-			</div>
-			{/if}
-
-			<!-- Submit -->
-			<div class="flex gap-2 pt-1">
-				{#if addAllocTracking === 'pool'}
-				<form method="POST" action="?/addAllocPool"
-					use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; })}>
-					<input type="hidden" name="itemTypeId" value={addAllocTypeId} />
-					<input type="hidden" name="quantity" value={addAllocQty} />
-					{#if addSelectedGroup}
-						{#each Object.entries(addSelectedGroup.attrs) as [key, val]}
-							{#if val}<input type="hidden" name="attrKey" value={key} /><input type="hidden" name="attrVal" value={val} />{/if}
-						{/each}
-					{/if}
-					<button type="submit" disabled={addAllocQty < 1 || addAllocQty > availCount}
-						class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90 disabled:opacity-40">
-						Reservar {addAllocQty}
-					</button>
-				</form>
+				{#if availCount === 0}
+					<span class="text-xs text-red-500">Sin stock</span>
 				{:else}
-				<form method="POST" action="?/addAllocSpecific"
-					use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocSelectedItemIds = new Set(); })}>
-					<input type="hidden" name="itemTypeId" value={addAllocTypeId} />
-					{#each [...addAllocSelectedItemIds] as itemId}
-						<input type="hidden" name="specificItemId" value={itemId} />
-					{/each}
-					<button type="submit" disabled={addAllocSelectedItemIds.size === 0}
-						class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90 disabled:opacity-40">
-						Añadir {addAllocSelectedItemIds.size > 0 ? addAllocSelectedItemIds.size : ''} unidad{addAllocSelectedItemIds.size !== 1 ? 'es' : ''}
-					</button>
-				</form>
+					<span class="text-xs text-muted">{availCount} disponibles</span>
 				{/if}
-				<button type="button" onclick={() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocSelectedItemIds = new Set(); }}
+			</div>
+			<input type="hidden" name="quantity" value={addAllocQty} />
+			<div class="flex gap-2">
+				<button type="submit" disabled={addAllocQty < 1 || availCount === 0}
+					class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90 disabled:opacity-40">
+					Añadir {addAllocQty}
+				</button>
+				<button type="button" onclick={() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; }}
 					class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
 			</div>
 			{/if}
-		</div>
+		</form>
 		{/if}
 
 		<!-- Existing allocations -->
 		{#if data.booking.allocations.length > 0}
 		<ul class="divide-y divide-gray-100">
 			{#each data.booking.allocations as alloc}
-			{@const typeItems = data.itemsByAllocType[alloc.itemTypeId] ?? []}
-			{@const isSpecific = data.allocTypeTracking[alloc.itemTypeId] === 'specific'}
-			<li class="space-y-2 px-4 py-3">
-				<div class="flex items-start justify-between gap-3">
-					<div class="min-w-0">
-						<p class="text-sm font-medium text-gray-900">
-							{alloc.itemName ?? `${alloc.quantity}× ${alloc.itemTypeName}`}
-						</p>
-						{#if alloc.itemName && alloc.quantity > 1}
-							<p class="text-xs text-gray-500">{m.booking_detail_alloc_units({ count: alloc.quantity })}</p>
-						{/if}
-						{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
-							<div class="mt-0.5 flex flex-wrap gap-1">
-								{#each Object.entries(alloc.attributeFilter) as [k, v]}
-									<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{k}: {v}</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-					<div class="flex shrink-0 items-center gap-2">
-						<!-- Status selector -->
-						<form method="POST" action="?/updateAllocStatus" use:enhance={withToast()}>
-							<input type="hidden" name="allocId" value={alloc.id} />
-							<select name="status"
-								onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-								class="rounded-lg border border-gray-300 px-2 py-1 text-xs {ALLOC_STATUS_COLORS[alloc.status] ?? ''}">
-								{#each ALLOC_STATUS_OPTIONS as opt}
-									<option value={opt.value} selected={alloc.status === opt.value}>{opt.label}</option>
-								{/each}
-							</select>
-						</form>
-						<!-- Reassign toggle -->
-						{#if isSpecific && typeItems.length > 0}
-						<button type="button"
-							onclick={() => { reassigningAllocId = reassigningAllocId === alloc.id ? null : alloc.id; }}
-							class="rounded px-1.5 py-1 text-xs text-gray-400 hover:text-ocean"
-							title="Reassign item">⇄</button>
-						{/if}
-						<!-- Remove -->
-						<form method="POST" action="?/removeAlloc" use:enhance={withToast()}>
-							<input type="hidden" name="allocId" value={alloc.id} />
-							<button type="submit"
-								onclick={(e) => { if (!confirm('Remove this allocation?')) e.preventDefault(); }}
-								class="rounded p-1 text-gray-400 hover:text-red-500" title="Remove">✕</button>
-						</form>
-					</div>
+			<li class="flex items-center justify-between gap-3 px-4 py-3">
+				<div class="min-w-0">
+					<p class="text-sm font-medium text-gray-900">
+						{alloc.quantity}× {alloc.itemTypeName}
+					</p>
+					{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
+						<div class="mt-0.5 flex flex-wrap gap-1">
+							{#each Object.values(alloc.attributeFilter) as v}
+								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{v}</span>
+							{/each}
+						</div>
+					{/if}
 				</div>
-
-				<!-- Item reassignment picker -->
-				{#if reassigningAllocId === alloc.id && isSpecific}
-				{@const reAttrEntries = Object.entries(data.itemsByAllocType[alloc.itemTypeId]?.[0]?.attributes ? Object.fromEntries(Object.keys(data.itemsByAllocType[alloc.itemTypeId][0].attributes).map(k => [k, []])) : {})}
-				{@const reGroups = groupInventoryItems(typeItems, Object.entries(alloc.attributeFilter ?? {}).length > 0 ? Object.entries(alloc.attributeFilter ?? {}).map(([k]) => [k, []]) : Object.keys(typeItems[0]?.attributes ?? {}).map(k => [k, []]))}
-				{@const reSelectedGroupLabel = reassignGroupSelections[alloc.id] ?? null}
-				{@const reSelectedGroup = reGroups.find(g => g.label === reSelectedGroupLabel) ?? null}
-				<form method="POST" action="?/reassignAllocItem" use:enhance={withToast(() => { reassigningAllocId = null; delete reassignGroupSelections[alloc.id]; })}
-					class="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2">
-					<input type="hidden" name="allocId" value={alloc.id} />
-					{#if reGroups.length > 1}
-					<div class="flex flex-wrap gap-1.5">
-						{#each reGroups as group}
-						{@const isSelected = reSelectedGroupLabel === group.label}
-						<button type="button"
-							onclick={() => { reassignGroupSelections[alloc.id] = isSelected ? null : group.label; }}
-							class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
-								{group.available === 0 ? 'opacity-50' : ''}
-								{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
-							{group.label || '—'}
-							<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700 font-normal">{group.available}</span>
-						</button>
-						{/each}
-					</div>
-					{/if}
-					{#if reGroups.length <= 1 || reSelectedGroup}
-					{@const itemsToShow = reSelectedGroup ? reSelectedGroup.items : typeItems}
-					<div class="flex flex-wrap gap-1.5">
-						{#each itemsToShow as item}
-						{@const avail = item.status === 'available' || item.id === alloc.itemId}
-						<label class="flex cursor-pointer items-center rounded-full border px-2.5 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : alloc.itemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
-							<input type="radio" name="itemId" value={item.id} class="sr-only" disabled={!avail} checked={alloc.itemId === item.id} />
-							{item.name.replace(/#/g, '').trim()}
-							{#if item.status !== 'available'}<span class="ml-1 text-gray-400">({item.status})</span>{/if}
-						</label>
-						{/each}
-					</div>
-					{/if}
-					<div class="flex gap-2">
-						<button type="submit" class="rounded bg-ocean px-2 py-1 text-xs font-medium text-white hover:bg-ocean/90">Save</button>
-						<button type="button" onclick={() => { reassigningAllocId = null; delete reassignGroupSelections[alloc.id]; }} class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Cancel</button>
-					</div>
-				</form>
-				{/if}
+				<div class="flex shrink-0 items-center gap-2">
+					<form method="POST" action="?/updateAllocStatus" use:enhance={withToast()}>
+						<input type="hidden" name="allocId" value={alloc.id} />
+						<select name="status"
+							onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+							class="rounded-lg border border-gray-300 px-2 py-1 text-xs {ALLOC_STATUS_COLORS[alloc.status] ?? ''}">
+							{#each ALLOC_STATUS_OPTIONS as opt}
+								<option value={opt.value} selected={alloc.status === opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</form>
+					<form method="POST" action="?/removeAlloc" use:enhance={withToast()}>
+						<input type="hidden" name="allocId" value={alloc.id} />
+						<button type="submit"
+							onclick={(e) => { if (!confirm('Remove this allocation?')) e.preventDefault(); }}
+							class="rounded p-1 text-gray-400 hover:text-red-500">✕</button>
+					</form>
+				</div>
 			</li>
 			{/each}
 		</ul>
