@@ -143,12 +143,6 @@
 		<h1 class="text-xl font-bold text-navy">{m.booking_new_title()}</h1>
 	</div>
 
-	<!-- Always-submitted client hidden inputs (outside any FormSection) -->
-	{#each selectedClients as c}
-		<input type="hidden" name="clientId" value={c.clientId} />
-		<input type="hidden" name="amountDue" value={c.amountDue} />
-	{/each}
-
 	<form
 		method="post"
 		class="space-y-3"
@@ -279,6 +273,11 @@
 		<!-- ── Client ─────────────────────────────────────────────────────────── -->
 		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border space-y-2">
 			<p class="text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_clients()}</p>
+
+			{#each selectedClients as c}
+				<input type="hidden" name="clientId" value={c.clientId} />
+				<input type="hidden" name="amountDue" value={c.amountDue} />
+			{/each}
 
 			{#if selectedClients.length > 0}
 				<div class="flex flex-wrap gap-2">
