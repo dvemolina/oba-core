@@ -43,9 +43,7 @@
 			</svg>
 		</div>
 	</button>
-	{#if open}
-		<div class="border-t border-border bg-white px-4 py-4 rounded-b-(--radius-card)">
-			{@render children()}
-		</div>
-	{/if}
+	<div class="border-t border-border bg-white px-4 py-4 rounded-b-(--radius-card) {!open ? 'hidden' : ''}">
+		{@render children()}
+	</div>
 </div>

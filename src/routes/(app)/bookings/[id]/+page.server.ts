@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import {
 	cancelBooking,
 	deleteBooking,
@@ -154,13 +154,12 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner');
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Not found' });
-		if (booking.status !== 'cancelled')
-			return fail(400, { error: 'Only cancelled bookings can be deleted' });
 		const hasPaid = booking.clients.some(c => parseFloat(c.amountPaid) > 0);
 		if (hasPaid)
 			return fail(400, { error: 'Cannot delete a booking with recorded payments' });
+		if (booking.status !== 'cancelled') await cancelBooking(params.id);
 		await deleteBooking(params.id);
-		redirect(303, '/bookings');
+		return { deleted: true, message: 'Booking deleted' };
 	},
 
 	updateAmountDue: async ({ request, locals }) => {

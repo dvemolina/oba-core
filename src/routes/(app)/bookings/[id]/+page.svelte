@@ -226,9 +226,13 @@
 			if (result.type === 'success') {
 				if (result.data?.message) toast(result.data.message);
 				if (result.data?.cancelled) { await goto('/calendar'); return; }
+				if (result.data?.deleted) { await goto('/bookings'); return; }
 				onSuccess?.();
 				await update();
-			} else if (result.type === 'failure') { await update(); }
+			} else if (result.type === 'failure') {
+				if (result.data?.error) toast(result.data.error, 'error');
+				await update();
+			}
 		};
 	}
 
@@ -1079,7 +1083,7 @@
 		</div>
 	{/if}
 
-	{#if data.booking.status === 'cancelled' && (data.userRole === 'owner' || data.userRole === 'admin')}
+	{#if data.userRole === 'owner' || data.userRole === 'admin'}
 		{@const hasPaid = data.booking.clients.some(c => parseFloat(c.amountPaid) > 0)}
 		{#if !hasPaid}
 			<form method="post" action="?/delete" use:enhance={withToast()}>
