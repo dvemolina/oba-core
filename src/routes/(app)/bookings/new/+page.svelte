@@ -32,6 +32,10 @@
 	// ── Inventory: date range + auto-calculated amount ─────────────────────────
 	let invCheckIn  = $state('');
 	let invCheckOut = $state('');
+	// Selected attribute filters per link (itemTypeId → {attrKey → value})
+	let linkAttrSelections = $state<Record<string, Record<string, string>>>({});
+	// Explicitly selected item per link (itemTypeId → itemId or '')
+	let linkSelectedItemIds = $state<Record<string, string>>({});
 
 	function calcInventoryUnits(): number {
 		if (!inventoryNeedsDateRange || !invCheckIn || !invCheckOut) return 1;
@@ -375,11 +379,17 @@
 							</p>
 						{:else}
 							{#each links as link}
-								<div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
-									<div class="mb-2 flex items-center justify-between">
+								{@const attrEntries = Object.entries(link.itemType.attributeSchema)}
+								{@const selectedAttrs = linkAttrSelections[link.itemTypeId] ?? {}}
+								{@const matchingItems = link.items.filter(item =>
+									attrEntries.every(([k]) => !selectedAttrs[k] || item.attributes[k] === selectedAttrs[k])
+								)}
+								<div class="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+									<div class="flex items-center justify-between">
 										<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
 										<span class="text-xs text-gray-500">{link.isIncluded ? m.booking_new_inventory_included() : m.booking_new_inventory_addon()}</span>
 									</div>
+									<!-- Qty + attribute filters -->
 									<div class="flex flex-wrap gap-3">
 										<div>
 											<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">{m.booking_new_inventory_quantity()}</label>
@@ -387,10 +397,15 @@
 												value={link.quantityPerBooking}
 												class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
 										</div>
-										{#each Object.entries(link.itemType.attributeSchema) as [key, values]}
+										{#each attrEntries as [key, values]}
 										<div>
 											<label class="mb-1 block text-xs text-gray-600 capitalize" for="attr_{link.itemTypeId}_{key}">{key}</label>
 											<select id="attr_{link.itemTypeId}_{key}" name="attr_{link.itemTypeId}_{key}"
+												onchange={(e) => {
+													const cur = linkAttrSelections[link.itemTypeId] ?? {};
+													linkAttrSelections[link.itemTypeId] = { ...cur, [key]: e.currentTarget.value };
+													linkSelectedItemIds[link.itemTypeId] = '';
+												}}
 												class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
 												<option value="">—</option>
 												{#each values as v}<option value={v}>{v}</option>{/each}
@@ -398,6 +413,30 @@
 										</div>
 										{/each}
 									</div>
+									<!-- Specific item picker (specific-tracking types only) -->
+									{#if link.itemType.trackingMode === 'specific' && link.items.length > 0}
+									<div>
+										<p class="mb-1.5 text-xs font-medium text-gray-600">Assign unit</p>
+										<div class="flex flex-wrap gap-1.5">
+											<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors {!linkSelectedItemIds[link.itemTypeId] ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
+												<input type="radio" name="specificItem_{link.itemTypeId}" value="" class="sr-only"
+													checked={!linkSelectedItemIds[link.itemTypeId]}
+													onchange={() => (linkSelectedItemIds[link.itemTypeId] = '')} />
+												Auto
+											</label>
+											{#each matchingItems as item}
+											{@const available = item.status === 'available'}
+											<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors {!available ? 'cursor-not-allowed opacity-40' : linkSelectedItemIds[link.itemTypeId] === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}">
+												<input type="radio" name="specificItem_{link.itemTypeId}" value={item.id} class="sr-only"
+													disabled={!available}
+													checked={linkSelectedItemIds[link.itemTypeId] === item.id}
+													onchange={() => { if (available) linkSelectedItemIds[link.itemTypeId] = item.id; }} />
+												{item.name.replace(/#/g, '').trim()}
+											</label>
+											{/each}
+										</div>
+									</div>
+									{/if}
 								</div>
 							{/each}
 						{/if}

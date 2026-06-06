@@ -40,6 +40,26 @@
 
 	let attrEntries = $derived(Object.entries(data.itemType.attributeSchema));
 	let managingItems = $state(false);
+	let selectedGroup = $state<string | null>(null);
+
+	function itemGroupLabel(item: (typeof data.itemType.items)[0]): string {
+		return attrEntries.map(([k]) => item.attributes[k]).filter(v => v && v.trim()).join(' · ');
+	}
+
+	let filteredItems = $derived(
+		selectedGroup === null
+			? data.itemType.items
+			: data.itemType.items.filter(item => itemGroupLabel(item) === selectedGroup)
+	);
+
+	function selectGroup(label: string) {
+		if (selectedGroup === label) {
+			selectedGroup = null;
+		} else {
+			selectedGroup = label;
+			managingItems = true;
+		}
+	}
 
 	function statusLabel(status: string): string {
 		return STATUS_OPTIONS.find(o => o.value === status)?.label ?? status;
@@ -259,25 +279,23 @@
 			<!-- ── Chip overview ── -->
 			<div class="flex flex-wrap gap-2 p-4">
 				{#each itemGroups() as group}
-				<div class="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-xs">
+				{@const active = selectedGroup === group.label}
+				<button
+					type="button"
+					onclick={() => selectGroup(group.label)}
+					class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 shadow-xs transition-colors {active ? 'border-ocean bg-ocean/5' : 'border-gray-200 bg-white hover:border-gray-300'}"
+				>
 					{#if group.label && group.label !== data.itemType.name}
-					<span class="text-sm font-medium text-gray-800">{group.label}</span>
+					<span class="text-sm font-medium {active ? 'text-ocean' : 'text-gray-800'}">{group.label}</span>
 					{/if}
-					<!-- available count -->
-					<span class="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-						{group.available}
-					</span>
+					<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{group.available}</span>
 					{#if group.maintenance > 0}
-					<span class="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-						{group.maintenance}
-					</span>
+					<span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{group.maintenance}</span>
 					{/if}
 					{#if group.retired > 0}
-					<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400">
-						{group.retired}
-					</span>
+					<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-400">{group.retired}</span>
 					{/if}
-				</div>
+				</button>
 				{/each}
 				<!-- legend -->
 				<div class="flex items-center gap-3 pl-1 text-xs text-gray-400">
@@ -294,12 +312,18 @@
 					onclick={() => (managingItems = !managingItems)}
 					class="flex w-full items-center justify-between px-4 py-2.5 text-xs font-medium text-gray-500 hover:text-gray-700"
 				>
-					<span>Manage individual items</span>
+					<span>
+						{#if selectedGroup}
+							{selectedGroup} <span class="text-gray-400">({filteredItems.length})</span>
+						{:else}
+							All items ({data.itemType.items.length})
+						{/if}
+					</span>
 					<span class="text-gray-400">{managingItems ? '▲' : '▼'}</span>
 				</button>
 				{#if managingItems}
 				<ul class="divide-y divide-gray-100">
-				{#each data.itemType.items as item, i}
+				{#each filteredItems as item, i}
 					<li class="flex items-center justify-between gap-3 px-4 py-2">
 						<div class="flex min-w-0 flex-1 items-center gap-2">
 							<span class="w-5 shrink-0 text-right text-xs text-gray-400">{i + 1}</span>

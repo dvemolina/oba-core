@@ -10,7 +10,7 @@ import type { ServiceRun } from '$lib/features/services/runs.types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole } from '$lib/server/permissions';
 import { listLinksForService } from '$lib/features/inventory/serviceLinks.queries';
-import { checkAvailability } from '$lib/features/inventory/queries';
+import { checkAvailability, listItemsByType } from '$lib/features/inventory/queries';
 import type { CreateAllocationInput } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
@@ -24,10 +24,17 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const defaultTime = url.searchParams.get('time') ?? '';
 
 	const inventoryServices = services.filter((s) => s.hasInventoryUnits);
-	const inventoryLinksByService: Record<string, Awaited<ReturnType<typeof listLinksForService>>> = {};
+	type LinkWithItems = Awaited<ReturnType<typeof listLinksForService>>[0] & { items: Awaited<ReturnType<typeof listItemsByType>> };
+	const inventoryLinksByService: Record<string, LinkWithItems[]> = {};
 	await Promise.all(
 		inventoryServices.map(async (s) => {
-			inventoryLinksByService[s.id] = await listLinksForService(s.id);
+			const links = await listLinksForService(s.id);
+			inventoryLinksByService[s.id] = await Promise.all(
+				links.map(async (link) => ({
+					...link,
+					items: link.itemType.trackingMode === 'specific' ? await listItemsByType(link.itemTypeId) : []
+				}))
+			);
 		})
 	);
 
@@ -81,7 +88,10 @@ export const actions: Actions = {
 					return fail(400, { error: `Not enough "${link.itemType.name}" available for those dates` });
 				}
 
-				const itemId = avail.availableItems[0]?.id ?? null;
+				const requestedItemId = form.get(`specificItem_${link.itemTypeId}`)?.toString() || null;
+				const itemId = (requestedItemId && avail.availableItems.some(i => i.id === requestedItemId))
+					? requestedItemId
+					: (avail.availableItems[0]?.id ?? null);
 				allocations.push({
 					bookingId: '',
 					itemTypeId: link.itemTypeId,
