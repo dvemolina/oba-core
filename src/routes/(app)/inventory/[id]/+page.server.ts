@@ -18,7 +18,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
 	const itemType = await getInventoryItemTypeWithItems(params.id);
 	if (!itemType) error(404, 'Item type not found');
-	return { itemType, canEdit: canEditServices(locals) };
+	const role = locals.user?.role ?? '';
+	return {
+		itemType,
+		canEdit: canEditServices(locals),
+		canManageItems: ['admin', 'owner', 'manager'].includes(role)
+	};
 };
 
 export const actions: Actions = {
@@ -66,7 +71,7 @@ export const actions: Actions = {
 	},
 
 	bulkAddItems: async ({ request, params, locals }) => {
-		requireRole(locals, 'admin', 'owner');
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const baseName = form.get('baseName')?.toString().trim() ?? '';
 		const countRaw = parseInt(form.get('count')?.toString() ?? '1');
@@ -100,7 +105,7 @@ export const actions: Actions = {
 	},
 
 	updateItemStatus: async ({ request, locals }) => {
-		requireRole(locals, 'admin', 'owner');
+		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const itemId = form.get('itemId')?.toString() ?? '';
 		const status = (form.get('status')?.toString() ?? 'available') as ItemStatus;
