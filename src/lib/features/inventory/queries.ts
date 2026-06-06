@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, lt, gt, ne, notInArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lt, gt, ne, notInArray, sql, type SQL } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	inventoryItemTypes,
@@ -69,11 +69,9 @@ export async function updateInventoryItemType(
 }
 
 export async function toggleInventoryItemTypeActive(id: string): Promise<void> {
-	const type = await getInventoryItemType(id);
-	if (!type) return;
 	await db
 		.update(inventoryItemTypes)
-		.set({ active: !type.active, updatedAt: new Date() })
+		.set({ active: sql`NOT ${inventoryItemTypes.active}`, updatedAt: new Date() })
 		.where(eq(inventoryItemTypes.id, id));
 }
 
@@ -139,26 +137,26 @@ export async function checkAvailability(
 	if (!type) return { availableCount: 0, availableItems: [] };
 
 	if (type.trackingMode === 'pool') {
-		const conditions: ReturnType<typeof eq>[] = [
+		const conditions: SQL[] = [
 			eq(inventoryAllocations.itemTypeId, itemTypeId),
 			ne(inventoryAllocations.status, 'returned'),
 			ne(inventoryAllocations.status, 'lost')
 		];
 
 		if (endDate) {
-			conditions.push(lt(inventoryAllocations.startDate, endDate) as any);
+			conditions.push(lt(inventoryAllocations.startDate, endDate));
 			conditions.push(
 				gt(
 					sql`COALESCE(${inventoryAllocations.endDate}, ${inventoryAllocations.startDate})`,
 					startDate
-				) as any
+				)
 			);
 		} else {
-			conditions.push(eq(inventoryAllocations.startDate, startDate) as any);
+			conditions.push(eq(inventoryAllocations.startDate, startDate));
 		}
 
 		if (excludeBookingId) {
-			conditions.push(ne(inventoryAllocations.bookingId, excludeBookingId) as any);
+			conditions.push(ne(inventoryAllocations.bookingId, excludeBookingId));
 		}
 
 		const [row] = await db
@@ -172,26 +170,26 @@ export async function checkAvailability(
 	}
 
 	// Specific mode
-	const overlapConditions: ReturnType<typeof eq>[] = [
+	const overlapConditions: SQL[] = [
 		isNotNull(inventoryAllocations.itemId),
 		ne(inventoryAllocations.status, 'returned'),
 		ne(inventoryAllocations.status, 'lost')
 	];
 
 	if (endDate) {
-		overlapConditions.push(lt(inventoryAllocations.startDate, endDate) as any);
+		overlapConditions.push(lt(inventoryAllocations.startDate, endDate));
 		overlapConditions.push(
 			gt(
 				sql`COALESCE(${inventoryAllocations.endDate}, ${inventoryAllocations.startDate})`,
 				startDate
-			) as any
+			)
 		);
 	} else {
-		overlapConditions.push(eq(inventoryAllocations.startDate, startDate) as any);
+		overlapConditions.push(eq(inventoryAllocations.startDate, startDate));
 	}
 
 	if (excludeBookingId) {
-		overlapConditions.push(ne(inventoryAllocations.bookingId, excludeBookingId) as any);
+		overlapConditions.push(ne(inventoryAllocations.bookingId, excludeBookingId));
 	}
 
 	const bookedItemIds = db
@@ -199,7 +197,7 @@ export async function checkAvailability(
 		.from(inventoryAllocations)
 		.where(and(...overlapConditions));
 
-	const itemConditions: any[] = [
+	const itemConditions: SQL[] = [
 		eq(inventoryItems.itemTypeId, itemTypeId),
 		eq(inventoryItems.status, 'available'),
 		notInArray(inventoryItems.id, bookedItemIds)
