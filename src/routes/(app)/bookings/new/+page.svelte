@@ -251,6 +251,24 @@
 			};
 		}}
 	>
+		<!-- Always-submitted shadow inputs for lesson metadata (FormSection may be collapsed) -->
+		{#if isLesson}
+			<input type="hidden" name="sessionsIncluded" value={sessionsIncluded} />
+			{#if participantMode === 'count'}
+				<input type="hidden" name="participantCount" value={participantCount} />
+			{:else}
+				{#each participantNames as name}
+					<input type="hidden" name="participantName" value={name} />
+				{/each}
+			{/if}
+		{/if}
+
+		<!-- Always-submitted client hidden inputs (outside any FormSection) -->
+		{#each selectedClients as c}
+			<input type="hidden" name="clientId" value={c.clientId} />
+			<input type="hidden" name="amountDue" value={c.amountDue} />
+		{/each}
+
 		<!-- ── Booking basics (all types) ──────────────────────────────────────── -->
 		<FormSection title={m.booking_new_title()} open={true}>
 			<!-- Service selector (always) -->
@@ -272,11 +290,9 @@
 						</label>
 						<input
 							type="number"
-							name="sessionsIncluded"
 							bind:value={sessionsIncluded}
 							min="1"
 							max="20"
-							required
 							class="input w-full"
 						/>
 						<p class="mt-1 text-xs text-muted">{m.booking_new_sessions_hint()}</p>
@@ -311,7 +327,6 @@
 						{#if participantMode === 'count'}
 							<input
 								type="number"
-								name="participantCount"
 								bind:value={participantCount}
 								min="1"
 								class="input w-full"
@@ -322,7 +337,6 @@
 								<div class="mb-2 flex gap-2">
 									<input
 										type="text"
-										name="participantName"
 										bind:value={participantNames[i]}
 										placeholder={m.booking_new_participant_placeholder()}
 										class="input flex-1"
@@ -447,8 +461,6 @@
 							{#each selectedClients as c}
 								<div class="flex items-center gap-1 rounded-full bg-ocean/10 py-1 pl-3 pr-1">
 									<span class="text-xs font-medium text-ocean">{c.name}</span>
-									<input type="hidden" name="clientId" value={c.clientId} />
-									<input type="hidden" name="amountDue" value={c.amountDue} />
 									<button type="button" onclick={() => removeClient(c.clientId)}
 										class="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-ocean/60 hover:text-ocean">✕</button>
 								</div>
@@ -506,8 +518,6 @@
 							{#each selectedClients as c}
 								<div class="flex items-center gap-1 rounded-full bg-ocean/10 py-1 pl-3 pr-1">
 									<span class="text-xs font-medium text-ocean">{c.name}</span>
-									<input type="hidden" name="clientId" value={c.clientId} />
-									<input type="hidden" name="amountDue" value={c.amountDue} />
 									<button type="button" onclick={() => removeClient(c.clientId)}
 										class="ml-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-ocean/60 hover:text-ocean">✕</button>
 								</div>
@@ -558,12 +568,23 @@
 
 		<!-- ── Session sections (lesson only, one per session) ─────────────────── -->
 		{#if isLesson}
-			<!-- Server reads top-level date/time/isFlexible for session 0 -->
+			<!-- Top-level booking date/time — always submitted -->
 			<input type="hidden" name="date" value={sessionDates[0] ?? ''} />
 			<input type="hidden" name="time" value={sessionFlexibles[0] ? '' : (sessionTimes[0] ?? '')} />
 			<input type="hidden" name="isFlexible" value={sessionFlexibles[0] ? 'on' : ''} />
 
 			{#each Array.from({ length: sessionsIncluded }, (_, i) => i) as i (i)}
+				<!-- Shadow inputs for collapsed sessions (FormSection uses {#if open} so closed = no DOM).
+				     Rendered only when closed to avoid duplicate field names with SessionSection inputs. -->
+				{#if !sessionOpen[i]}
+					<input type="hidden" name="sessionDate[{i}]" value={sessionDates[i] ?? ''} />
+					<input type="hidden" name="sessionTime[{i}]" value={!sessionFlexibles[i] ? (sessionTimes[i] ?? '') : ''} />
+					<input type="hidden" name="sessionFlexible[{i}]" value={sessionFlexibles[i] ? 'on' : ''} />
+					<input type="hidden" name="sessionLevel[{i}]" value={sessionLevels[i] ?? ''} />
+					{#each sessionInstructorIds[i] ?? [] as id}
+						<input type="hidden" name="sessionInstructor[{i}][]" value={id} />
+					{/each}
+				{/if}
 				<FormSection
 					title="{m.booking_new_session_n({ n: i + 1 })} {m.booking_new_session_of({ total: sessionsIncluded })}"
 					badge={sessionBadge(i)}
