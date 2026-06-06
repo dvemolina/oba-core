@@ -70,3 +70,33 @@ export async function updateAllocationStatus(
 		.set({ status, updatedAt: new Date() })
 		.where(eq(inventoryAllocations.id, id));
 }
+
+export async function updateAllocation(
+	id: string,
+	patch: { itemId?: string | null; status?: AllocationStatus; quantity?: number }
+): Promise<void> {
+	await db
+		.update(inventoryAllocations)
+		.set({ ...patch, updatedAt: new Date() })
+		.where(eq(inventoryAllocations.id, id));
+}
+
+export async function deleteAllocation(id: string): Promise<void> {
+	await db.delete(inventoryAllocations).where(eq(inventoryAllocations.id, id));
+}
+
+export async function createAllocation(input: CreateAllocationInput): Promise<InventoryAllocation> {
+	const [row] = await db
+		.insert(inventoryAllocations)
+		.values({
+			bookingId: input.bookingId,
+			itemTypeId: input.itemTypeId,
+			itemId: input.itemId ?? null,
+			quantity: input.quantity ?? 1,
+			attributeFilter: input.attributeFilter ?? null,
+			startDate: input.startDate,
+			endDate: input.endDate ?? null
+		})
+		.returning();
+	return row as InventoryAllocation;
+}

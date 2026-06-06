@@ -154,6 +154,31 @@
 		} finally { creatingClient = false; }
 	}
 
+	// ── Inventory allocations ─────────────────────────────────────────────────
+	let addingAlloc = $state(false);
+	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
+	let addAllocSpecificItemId = $state('');
+	let addAllocQty = $state(1);
+	let reassigningAllocId = $state<string | null>(null);
+
+	const ALLOC_STATUS_OPTIONS: { value: string; label: string }[] = [
+		{ value: 'allocated', label: 'Allocated' },
+		{ value: 'returned',  label: 'Returned' },
+		{ value: 'damaged',   label: 'Damaged' },
+		{ value: 'lost',      label: 'Lost' }
+	];
+	const ALLOC_STATUS_COLORS: Record<string, string> = {
+		allocated: 'bg-emerald-50 text-emerald-700',
+		returned:  'bg-blue-50 text-blue-700',
+		damaged:   'bg-amber-50 text-amber-700',
+		lost:      'bg-red-50 text-red-700'
+	};
+
+	// Items for the currently-selected add type (filtered for add-alloc form)
+	const addAllocItems = $derived(
+		addAllocTypeId ? (data.itemsByAllocType[addAllocTypeId] ?? []) : []
+	);
+
 	// ── Post-creation confirmation banner ─────────────────────────────────────
 	const isNewBooking        = $derived($page.url.searchParams.get('new') === '1');
 	let confirmationDismissed = $state(false);
@@ -346,39 +371,145 @@
 	{/if}
 
 	<!-- ── Inventory Allocations ────────────────────────────────────────────── -->
-	{#if data.booking.allocations.length > 0}
+	{#if data.booking.allocations.length > 0 || data.serviceInventoryLinks.length > 0}
 	<div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-		<div class="border-b border-gray-100 p-4">
+		<div class="flex items-center justify-between border-b border-gray-100 p-4">
 			<h2 class="font-semibold text-gray-900">{m.booking_detail_inventory_section()}</h2>
+			{#if data.serviceInventoryLinks.length > 0 && data.booking.status !== 'cancelled'}
+			<button
+				type="button"
+				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocSpecificItemId = ''; addAllocQty = 1; }}
+				class="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+			>+ Add</button>
+			{/if}
 		</div>
+
+		<!-- Add allocation form -->
+		{#if addingAlloc}
+		<form method="POST" action="?/addAlloc" use:enhance={withToast(() => { addingAlloc = false; })}
+			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
+			<div class="flex flex-wrap gap-3">
+				<div>
+					<label class="mb-1 block text-xs font-medium text-gray-600">Type</label>
+					<select name="itemTypeId" bind:value={addAllocTypeId}
+						class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+						{#each data.serviceInventoryLinks as link}
+							<option value={link.itemTypeId}>{link.itemType.name}</option>
+						{/each}
+					</select>
+				</div>
+				<div>
+					<label class="mb-1 block text-xs font-medium text-gray-600">Qty</label>
+					<input name="quantity" type="number" min="1" bind:value={addAllocQty}
+						class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+				</div>
+			</div>
+			{#if addAllocItems.length > 0}
+			<div>
+				<label class="mb-1.5 block text-xs font-medium text-gray-600">Assign unit</label>
+				<div class="flex flex-wrap gap-1.5">
+					<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs {!addAllocSpecificItemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
+						<input type="radio" name="specificItemId" value="" class="sr-only" bind:group={addAllocSpecificItemId} /> Auto
+					</label>
+					{#each addAllocItems as item}
+					{@const avail = item.status === 'available'}
+					<label class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs {!avail ? 'cursor-not-allowed opacity-40' : addAllocSpecificItemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-600'}">
+						<input type="radio" name="specificItemId" value={item.id} class="sr-only" disabled={!avail} bind:group={addAllocSpecificItemId} />
+						{item.name.replace(/#/g, '').trim()}
+					</label>
+					{/each}
+				</div>
+			</div>
+			{/if}
+			<div class="flex gap-2">
+				<button type="submit" class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90">Add</button>
+				<button type="button" onclick={() => (addingAlloc = false)} class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+			</div>
+		</form>
+		{/if}
+
+		<!-- Existing allocations -->
+		{#if data.booking.allocations.length > 0}
 		<ul class="divide-y divide-gray-100">
 			{#each data.booking.allocations as alloc}
-			{@const allocStatusLabel = alloc.status === 'allocated' ? m.booking_detail_alloc_status_allocated()
-				: alloc.status === 'returned' ? m.booking_detail_alloc_status_returned()
-				: alloc.status === 'damaged' ? m.booking_detail_alloc_status_damaged()
-				: m.booking_detail_alloc_status_lost()}
-			<li class="flex items-center justify-between px-4 py-3">
-				<div>
-					<p class="text-sm font-medium text-gray-900">
-						{alloc.itemName ?? `${alloc.quantity}× ${alloc.itemTypeName}`}
-					</p>
-					{#if alloc.itemName && alloc.quantity > 1}
-						<p class="text-xs text-gray-500">{m.booking_detail_alloc_units({ count: alloc.quantity })}</p>
-					{/if}
-					{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
-						<div class="mt-0.5 flex flex-wrap gap-1">
-							{#each Object.entries(alloc.attributeFilter) as [k, v]}
-								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{k}: {v}</span>
-							{/each}
-						</div>
-					{/if}
+			{@const typeItems = data.itemsByAllocType[alloc.itemTypeId] ?? []}
+			{@const isSpecific = data.allocTypeTracking[alloc.itemTypeId] === 'specific'}
+			<li class="space-y-2 px-4 py-3">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<p class="text-sm font-medium text-gray-900">
+							{alloc.itemName ?? `${alloc.quantity}× ${alloc.itemTypeName}`}
+						</p>
+						{#if alloc.itemName && alloc.quantity > 1}
+							<p class="text-xs text-gray-500">{m.booking_detail_alloc_units({ count: alloc.quantity })}</p>
+						{/if}
+						{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
+							<div class="mt-0.5 flex flex-wrap gap-1">
+								{#each Object.entries(alloc.attributeFilter) as [k, v]}
+									<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{k}: {v}</span>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<div class="flex shrink-0 items-center gap-2">
+						<!-- Status selector -->
+						<form method="POST" action="?/updateAllocStatus" use:enhance={withToast()}>
+							<input type="hidden" name="allocId" value={alloc.id} />
+							<select name="status"
+								onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+								class="rounded-lg border border-gray-300 px-2 py-1 text-xs {ALLOC_STATUS_COLORS[alloc.status] ?? ''}">
+								{#each ALLOC_STATUS_OPTIONS as opt}
+									<option value={opt.value} selected={alloc.status === opt.value}>{opt.label}</option>
+								{/each}
+							</select>
+						</form>
+						<!-- Reassign toggle -->
+						{#if isSpecific && typeItems.length > 0}
+						<button type="button"
+							onclick={() => { reassigningAllocId = reassigningAllocId === alloc.id ? null : alloc.id; }}
+							class="rounded px-1.5 py-1 text-xs text-gray-400 hover:text-ocean"
+							title="Reassign item">⇄</button>
+						{/if}
+						<!-- Remove -->
+						<form method="POST" action="?/removeAlloc" use:enhance={withToast()}>
+							<input type="hidden" name="allocId" value={alloc.id} />
+							<button type="submit"
+								onclick={(e) => { if (!confirm('Remove this allocation?')) e.preventDefault(); }}
+								class="rounded p-1 text-gray-400 hover:text-red-500" title="Remove">✕</button>
+						</form>
+					</div>
 				</div>
-				<span class="rounded-full px-2 py-0.5 text-xs {alloc.status === 'allocated' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
-					{allocStatusLabel}
-				</span>
+
+				<!-- Item reassignment picker -->
+				{#if reassigningAllocId === alloc.id && isSpecific}
+				<form method="POST" action="?/reassignAllocItem" use:enhance={withToast(() => { reassigningAllocId = null; })}
+					class="rounded-lg border border-gray-100 bg-gray-50 p-2">
+					<input type="hidden" name="allocId" value={alloc.id} />
+					<div class="flex flex-wrap gap-1.5">
+						<label class="flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-xs {!alloc.itemId ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
+							<input type="radio" name="itemId" value="" class="sr-only" checked={!alloc.itemId} /> Auto
+						</label>
+						{#each typeItems as item}
+						{@const avail = item.status === 'available' || item.id === alloc.itemId}
+						<label class="flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-xs {!avail ? 'cursor-not-allowed opacity-40' : alloc.itemId === item.id ? 'border-ocean bg-ocean/5 text-ocean font-medium' : 'border-gray-200 bg-white text-gray-500'}">
+							<input type="radio" name="itemId" value={item.id} class="sr-only" disabled={!avail} checked={alloc.itemId === item.id} />
+							{item.name.replace(/#/g, '').trim()}
+							{#if item.status !== 'available'}<span class="ml-1 text-gray-400">({item.status})</span>{/if}
+						</label>
+						{/each}
+					</div>
+					<div class="mt-2 flex gap-2">
+						<button type="submit" class="rounded bg-ocean px-2 py-1 text-xs font-medium text-white hover:bg-ocean/90">Save</button>
+						<button type="button" onclick={() => (reassigningAllocId = null)} class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Cancel</button>
+					</div>
+				</form>
+				{/if}
 			</li>
 			{/each}
 		</ul>
+		{:else if !addingAlloc}
+		<p class="px-4 py-4 text-sm text-gray-400">No items allocated yet.</p>
+		{/if}
 	</div>
 	{/if}
 

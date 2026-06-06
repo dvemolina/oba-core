@@ -31,6 +31,10 @@ import { listClients } from '$lib/features/clients/queries';
 import type { BookingStatus } from '$lib/features/bookings/types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canSeeFinancials } from '$lib/server/permissions';
+import { listLinksForService } from '$lib/features/inventory/serviceLinks.queries';
+import { listItemsByType, getInventoryItemType, checkAvailability } from '$lib/features/inventory/queries';
+import { updateAllocation, deleteAllocation, createAllocation } from '$lib/features/inventory/allocations.queries';
+import type { AllocationStatus } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
@@ -52,7 +56,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
 	);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '' };
+	// Inventory: load items per unique allocation type + service links for "add" capability
+	const allocItemTypeIds = [...new Set(booking.allocations.map(a => a.itemTypeId))];
+	const itemsByAllocType: Record<string, Awaited<ReturnType<typeof listItemsByType>>> = {};
+	const allocTypeTracking: Record<string, 'pool' | 'specific'> = {};
+	await Promise.all(
+		allocItemTypeIds.map(async (typeId) => {
+			const type = await getInventoryItemType(typeId);
+			allocTypeTracking[typeId] = type?.trackingMode ?? 'specific';
+			itemsByAllocType[typeId] = type?.trackingMode === 'specific' ? await listItemsByType(typeId) : [];
+		})
+	);
+	const serviceInventoryLinks = service?.hasInventoryUnits ? await listLinksForService(service.id) : [];
+
+	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks };
 };
 
 export const actions: Actions = {
@@ -308,5 +325,61 @@ export const actions: Actions = {
 		if (!id) return fail(400, { error: 'Missing participant id' });
 		await removeBookingParticipant(id);
 		return { error: null, message: 'Participant removed' };
+	},
+
+	updateAllocStatus: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const allocId = form.get('allocId')?.toString() ?? '';
+		const status = form.get('status')?.toString() as AllocationStatus;
+		if (!allocId) return fail(400, { error: 'Missing allocation id' });
+		await updateAllocation(allocId, { status });
+		return { error: null, message: 'Status updated' };
+	},
+
+	reassignAllocItem: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const allocId = form.get('allocId')?.toString() ?? '';
+		const itemId = form.get('itemId')?.toString() || null;
+		if (!allocId) return fail(400, { error: 'Missing allocation id' });
+		await updateAllocation(allocId, { itemId });
+		return { error: null, message: 'Item reassigned' };
+	},
+
+	removeAlloc: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const allocId = form.get('allocId')?.toString() ?? '';
+		if (!allocId) return fail(400, { error: 'Missing allocation id' });
+		await deleteAllocation(allocId);
+		return { error: null, message: 'Allocation removed' };
+	},
+
+	addAlloc: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+		const itemTypeId = form.get('itemTypeId')?.toString() ?? '';
+		if (!itemTypeId) return fail(400, { error: 'Item type required' });
+		const qty = parseInt(form.get('quantity')?.toString() ?? '1');
+		const specificItemId = form.get('specificItemId')?.toString() || null;
+
+		const type = await getInventoryItemType(itemTypeId);
+		if (!type) return fail(400, { error: 'Item type not found' });
+
+		const startDate = booking.date;
+		const endDate = booking.dateEnd ?? null;
+		const avail = await checkAvailability(itemTypeId, startDate, endDate, qty, undefined, params.id);
+		if (avail.availableCount < qty) {
+			return fail(400, { error: `Not enough "${type.name}" available` });
+		}
+		const itemId = (specificItemId && avail.availableItems.some(i => i.id === specificItemId))
+			? specificItemId
+			: (avail.availableItems[0]?.id ?? null);
+
+		await createAllocation({ bookingId: params.id, itemTypeId, itemId, quantity: qty, startDate, endDate });
+		return { error: null, message: `${type.name} added` };
 	}
 };
