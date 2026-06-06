@@ -9,7 +9,8 @@ import {
 	date,
 	time,
 	jsonb,
-	index
+	index,
+	uniqueIndex
 } from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
 
@@ -24,6 +25,10 @@ export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'partial',
 export const pricingUnitEnum = pgEnum('pricing_unit', [
 	'per_hour', 'per_half_day', 'per_day', 'per_night', 'per_session', 'flat'
 ]);
+
+export const trackingModeEnum = pgEnum('tracking_mode', ['pool', 'specific']);
+export const itemStatusEnum = pgEnum('item_status', ['available', 'maintenance', 'retired']);
+export const allocationStatusEnum = pgEnum('allocation_status', ['allocated', 'returned', 'damaged', 'lost']);
 
 // ── Tables ────────────────────────────────────────────────────────────────────
 
@@ -312,7 +317,7 @@ export const inventoryItemTypes = pgTable('inventory_item_types', {
 		.$defaultFn(() => crypto.randomUUID()),
 	name: text('name').notNull(),
 	description: text('description'),
-	trackingMode: text('tracking_mode').notNull().default('pool'), // 'pool' | 'specific'
+	trackingMode: trackingModeEnum('tracking_mode').notNull().default('pool'),
 	totalPoolSize: integer('total_pool_size'),
 	attributeSchema: jsonb('attribute_schema')
 		.$type<Record<string, string[]>>()
@@ -338,7 +343,7 @@ export const inventoryItems = pgTable('inventory_items', {
 		.$type<Record<string, string>>()
 		.notNull()
 		.default({}),
-	status: text('status').notNull().default('available'), // 'available' | 'maintenance' | 'retired'
+	status: itemStatusEnum('status').notNull().default('available'),
 	notes: text('notes'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow()
@@ -362,7 +367,8 @@ export const serviceInventoryLinks = pgTable('service_inventory_links', {
 	createdAt: timestamp('created_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_service_inventory_links_service').on(t.serviceId),
-	index('idx_service_inventory_links_item_type').on(t.itemTypeId)
+	index('idx_service_inventory_links_item_type').on(t.itemTypeId),
+	uniqueIndex('uq_service_inventory_links').on(t.serviceId, t.itemTypeId)
 ]);
 
 export const inventoryAllocations = pgTable('inventory_allocations', {
@@ -374,14 +380,14 @@ export const inventoryAllocations = pgTable('inventory_allocations', {
 		.references(() => bookings.id, { onDelete: 'cascade' }),
 	itemTypeId: text('item_type_id')
 		.notNull()
-		.references(() => inventoryItemTypes.id),
+		.references(() => inventoryItemTypes.id, { onDelete: 'restrict' }),
 	itemId: text('item_id')
 		.references(() => inventoryItems.id, { onDelete: 'set null' }),
 	quantity: integer('quantity').notNull().default(1),
 	attributeFilter: jsonb('attribute_filter').$type<Record<string, string> | null>(),
 	startDate: date('start_date').notNull(),
 	endDate: date('end_date'),
-	status: text('status').notNull().default('allocated'), // 'allocated' | 'returned' | 'damaged' | 'lost'
+	status: allocationStatusEnum('status').notNull().default('allocated'),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [

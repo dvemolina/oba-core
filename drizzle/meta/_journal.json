@@ -162,6 +162,13 @@
       "when": 1749168000000,
       "tag": "0028_inventory_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1749254400000,
+      "tag": "0029_inventory_enums",
+      "breakpoints": true
     }
   ]
 }
