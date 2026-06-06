@@ -71,8 +71,6 @@
 	// ── Accordion open states ─────────────────────────────────────────────────
 	let notesOpen = $state(false);
 
-	// TODO: Task 10/11 — accommodation/inventory booking state goes here
-
 	// ── Shared client state (accommodation, camp, regular) ─────────────────────
 	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
 	let clientSearch = $state('');
@@ -304,10 +302,56 @@
 					</div>
 				</div>
 			{:else if isAccommodation}
-				<!-- TODO: Task 10/11 — Inventory booking UI replaces old accommodation booking -->
-				<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
-					Inventory booking not yet implemented. Please check back after Task 10/11.
-				</div>
+				{#if selectedService?.hasInventoryUnits}
+					{@const links = data.inventoryLinksByService[selectedService.id] ?? []}
+					<div class="space-y-3">
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-date">Check-in *</label>
+								<input id="inv-date" name="date" type="date" required value={data.defaultDate}
+									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-medium text-gray-700" for="inv-dateEnd">Check-out *</label>
+								<input id="inv-dateEnd" name="dateEnd" type="date" required
+									class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean" />
+							</div>
+						</div>
+
+						{#if links.length === 0}
+							<p class="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+								No inventory linked to this service. <a href="/services/{selectedService.id}" class="underline">Configure in service settings</a>.
+							</p>
+						{:else}
+							{#each links as link}
+								<div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+									<div class="mb-2 flex items-center justify-between">
+										<p class="text-sm font-medium text-gray-900">{link.itemType.name}</p>
+										<span class="text-xs text-gray-500">{link.isIncluded ? 'Included' : 'Add-on'}</span>
+									</div>
+									<div class="flex flex-wrap gap-3">
+										<div>
+											<label class="mb-1 block text-xs text-gray-600" for="qty_{link.itemTypeId}">Quantity</label>
+											<input id="qty_{link.itemTypeId}" name="qty_{link.itemTypeId}" type="number" min="1"
+												value={link.quantityPerBooking}
+												class="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+										</div>
+										{#each Object.entries(link.itemType.attributeSchema) as [key, values]}
+										<div>
+											<label class="mb-1 block text-xs text-gray-600 capitalize" for="attr_{link.itemTypeId}_{key}">{key}</label>
+											<select id="attr_{link.itemTypeId}_{key}" name="attr_{link.itemTypeId}_{key}"
+												class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
+												<option value="">Any</option>
+												{#each values as v}<option value={v}>{v}</option>{/each}
+											</select>
+										</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						{/if}
+					</div>
+				{/if}
 			{:else if isCamp}
 				<!-- Camp: run picker + date display -->
 				<div class="space-y-3">

@@ -9,6 +9,9 @@ import { listRunsForService, countEnrolledClientsForRun, getServiceRun } from '$
 import type { ServiceRun } from '$lib/features/services/runs.types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole } from '$lib/server/permissions';
+import { listLinksForService } from '$lib/features/inventory/serviceLinks.queries';
+import { checkAvailability } from '$lib/features/inventory/queries';
+import type { CreateAllocationInput } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
@@ -20,8 +23,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const defaultDate = url.searchParams.get('date') ?? '';
 	const defaultTime = url.searchParams.get('time') ?? '';
 
-	// TODO: Task 10 — populate unitTypesByService via inventory links when inventory UI is implemented
-	const unitTypesByService: Record<string, never[]> = {};
+	const inventoryServices = services.filter((s) => s.hasInventoryUnits);
+	const inventoryLinksByService: Record<string, Awaited<ReturnType<typeof listLinksForService>>> = {};
+	await Promise.all(
+		inventoryServices.map(async (s) => {
+			inventoryLinksByService[s.id] = await listLinksForService(s.id);
+		})
+	);
 
 	const runsByService: Record<string, ServiceRun[]> = {};
 	await Promise.all(
@@ -30,7 +38,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			.map(async s => { runsByService[s.id] = await listRunsForService(s.id); })
 	);
 
-	return { services, instructors, clients, defaultDate, defaultTime, unitTypesByService, runsByService };
+	return { services, instructors, clients, defaultDate, defaultTime, inventoryLinksByService, runsByService };
 };
 
 export const actions: Actions = {
@@ -44,9 +52,57 @@ export const actions: Actions = {
 		const service = await getService(serviceId);
 		if (!service) return fail(400, { error: 'Service not found' });
 
-		// TODO: Task 10/11 — inventory booking UI will replace this block
 		if (service.hasInventoryUnits) {
-			return fail(400, { error: 'Inventory booking not yet implemented' });
+			const checkIn = form.get('date')?.toString() ?? '';
+			const checkOut = form.get('dateEnd')?.toString() || null;
+			const clientIds = form.getAll('clientId').map(String).filter(Boolean);
+			const amounts = form.getAll('amountDue').map(String);
+
+			if (!checkIn) return fail(400, { error: 'Start date is required' });
+			if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
+
+			const links = await listLinksForService(serviceId);
+			const allocations: CreateAllocationInput[] = [];
+
+			for (const link of links) {
+				const qtyRaw = form.get(`qty_${link.itemTypeId}`)?.toString();
+				const qty = qtyRaw ? parseInt(qtyRaw) : link.quantityPerBooking;
+
+				// Build attribute filter from per-attribute select fields
+				const attributeFilter: Record<string, string> = {};
+				for (const key of Object.keys(link.itemType.attributeSchema)) {
+					const val = form.get(`attr_${link.itemTypeId}_${key}`)?.toString();
+					if (val) attributeFilter[key] = val;
+				}
+				const filter = Object.keys(attributeFilter).length > 0 ? attributeFilter : null;
+
+				const avail = await checkAvailability(link.itemTypeId, checkIn, checkOut, qty, filter ?? undefined);
+				if (avail.availableCount < qty) {
+					return fail(400, { error: `Not enough "${link.itemType.name}" available for those dates` });
+				}
+
+				const itemId = avail.availableItems[0]?.id ?? null;
+				allocations.push({
+					bookingId: '',
+					itemTypeId: link.itemTypeId,
+					itemId,
+					quantity: qty,
+					attributeFilter: filter,
+					startDate: checkIn,
+					endDate: checkOut
+				});
+			}
+
+			const booking = await createBooking({
+				serviceId,
+				date: checkIn,
+				dateEnd: checkOut ?? undefined,
+				isFlexible: false,
+				status: 'confirmed',
+				allocations,
+				clients: clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' }))
+			});
+			return { bookingId: booking.id, message: 'Booking created' };
 		}
 
 		// ── All non-accommodation services (lessons, camps, products, rentals) ──
