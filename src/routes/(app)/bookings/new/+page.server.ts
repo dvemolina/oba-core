@@ -5,7 +5,6 @@ import { bulkAddBookingParticipants } from '$lib/features/bookings/participants.
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
-import { listUnitTypesByService, getAvailableUnits } from '$lib/features/accommodation/queries';
 import { listRunsForService, countEnrolledClientsForRun, getServiceRun } from '$lib/features/services/runs.queries';
 import type { ServiceRun } from '$lib/features/services/runs.types';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,14 +20,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const defaultDate = url.searchParams.get('date') ?? '';
 	const defaultTime = url.searchParams.get('time') ?? '';
 
-	// Pre-load unit types for any accommodation services
-	const accommodationServices = services.filter((s) => s.hasInventoryUnits);
-	const unitTypesByService: Record<string, Awaited<ReturnType<typeof listUnitTypesByService>>> = {};
-	await Promise.all(
-		accommodationServices.map(async (s) => {
-			unitTypesByService[s.id] = await listUnitTypesByService(s.id);
-		})
-	);
+	// TODO: Task 10 — populate unitTypesByService via inventory links when inventory UI is implemented
+	const unitTypesByService: Record<string, never[]> = {};
 
 	const runsByService: Record<string, ServiceRun[]> = {};
 	await Promise.all(
@@ -51,43 +44,9 @@ export const actions: Actions = {
 		const service = await getService(serviceId);
 		if (!service) return fail(400, { error: 'Service not found' });
 
-		// ── Accommodation ─────────────────────────────────────────────────────
+		// TODO: Task 10/11 — inventory booking UI will replace this block
 		if (service.hasInventoryUnits) {
-			const unitTypeId = form.get('accommodationUnitTypeId')?.toString() ?? '';
-			const checkIn = form.get('date')?.toString() ?? '';
-			const checkOut = form.get('dateEnd')?.toString() ?? '';
-			const guestsCount = parseInt(form.get('guestsCount')?.toString() ?? '1');
-
-			if (!unitTypeId) return fail(400, { error: 'Select a unit type' });
-			if (!checkIn || !checkOut || checkIn >= checkOut)
-				return fail(400, { error: 'Valid check-in and check-out dates required' });
-
-			const available = await getAvailableUnits(unitTypeId, checkIn, checkOut);
-			if (available.length === 0)
-				return fail(400, { error: 'No units available for those dates' });
-
-			const unit = available[0];
-			const clientIds = form.getAll('clientId').map(String).filter(Boolean);
-			const amounts = form.getAll('amountDue').map(String);
-			if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
-
-			const booking = await createBooking({
-				serviceId,
-				date: checkIn,
-				dateEnd: checkOut,
-				isFlexible: false,
-				status: 'confirmed',
-				clients: clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' })),
-				allocations: [{
-					bookingId: '',
-					itemTypeId: unitTypeId,
-					itemId: unit.id,
-					quantity: guestsCount,
-					startDate: checkIn,
-					endDate: checkOut
-				}]
-			});
-			return { bookingId: booking.id, message: `Booked — ${unit.name}` };
+			return fail(400, { error: 'Inventory booking not yet implemented' });
 		}
 
 		// ── All non-accommodation services (lessons, camps, products, rentals) ──

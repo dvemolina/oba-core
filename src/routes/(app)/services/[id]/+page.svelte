@@ -23,15 +23,6 @@
 	let editHasInventoryUnits = $state(data.service.hasInventoryUnits);
 	let editRequiresInstructor = $state(data.service.requiresInstructor);
 
-	// Inventory unit management state
-	let showAddUnitType = $state(false);
-	let addingUnitToTypeId = $state<string | null>(null);
-	const OCCUPANCY_LABELS = $derived<Record<string, string>>({
-		shared: m.service_detail_occupancy_shared(),
-		private: m.service_detail_occupancy_private(),
-		entire: m.service_detail_occupancy_entire()
-	});
-
 	const TEMPLATE_LABELS: Record<string, string> = {
 		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
 		rental: 'Rental', accommodation: 'Accommodation', other: 'Other'
@@ -131,104 +122,10 @@
 			{/if}
 		</div>
 
-		<!-- Accommodation unit management -->
+		<!-- TODO: Task 10 — Inventory link management UI goes here (replaces old accommodation unit management) -->
 		{#if data.service.hasInventoryUnits}
-			<div class="mb-4">
-				<div class="mb-2 flex items-center justify-between">
-					<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_unit_types()}</h2>
-					{#if canEditServices}
-					<button type="button" onclick={() => (showAddUnitType = !showAddUnitType)}
-						class="text-xs font-medium text-ocean hover:underline">
-						{showAddUnitType ? m.common_cancel() : m.service_detail_add_unit_type()}
-					</button>
-					{/if}
-				</div>
-
-				{#if canEditServices && showAddUnitType}
-					<form method="post" action="?/addUnitType" use:enhance={serviceEnhance()} class="mb-3 space-y-2 rounded-lg border border-ocean/30 bg-ocean/5 p-3">
-						<p class="text-xs font-semibold text-ocean">{m.service_detail_new_unit_type()}</p>
-						<input name="utName" required placeholder={m.service_detail_unit_type_name_placeholder()}
-							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<div class="grid grid-cols-2 gap-2">
-							<select name="occupancyType" class="rounded-md border border-border bg-white px-2.5 py-2 text-sm focus:border-ocean focus:outline-none">
-								<option value="shared">{m.service_detail_occupancy_shared()}</option>
-								<option value="private">{m.service_detail_occupancy_private()}</option>
-								<option value="entire">{m.service_detail_occupancy_entire()}</option>
-							</select>
-							<input name="maxOccupancy" type="number" min="1" required placeholder={m.service_detail_max_guests()}
-								class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						</div>
-						<input name="pricePerNight" type="number" step="0.01" min="0" required placeholder={m.service_detail_price_per_night()}
-							class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<button type="submit" class="w-full rounded-md bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.service_detail_add_unit_type_btn()}</button>
-					</form>
-				{/if}
-
-				{#if data.unitTypes.length === 0 && !showAddUnitType}
-					<p class="py-4 text-center text-xs text-muted">{m.service_detail_no_unit_types()}</p>
-				{/if}
-
-				<div class="space-y-3">
-					{#each data.unitTypes as ut}
-						<div class="rounded-lg border border-border bg-surface">
-							<!-- Unit type header -->
-							<div class="flex items-center justify-between px-3 py-2.5">
-								<div>
-									<p class="text-sm font-semibold text-gray-800">{ut.name}</p>
-									<p class="text-xs text-muted">
-										{OCCUPANCY_LABELS[ut.occupancyType] ?? ut.occupancyType} · max {ut.maxOccupancy} guests
-										{#if canEditServices} · €{ut.pricePerNight}/night{/if}
-									</p>
-								</div>
-								{#if canEditServices}
-								<form method="post" action="?/deleteUnitType" use:enhance={serviceEnhance()}
-									onsubmit={(e) => { if (!confirm(`Delete "${ut.name}" and all its units?`)) e.preventDefault(); }}>
-									<input type="hidden" name="unitTypeId" value={ut.id} />
-									<button type="submit" class="text-xs text-flexible hover:underline">{m.common_delete()}</button>
-								</form>
-								{/if}
-							</div>
-
-							<!-- Physical units list -->
-							<div class="border-t border-border/50 px-3 py-2">
-								{#if ut.units.length === 0}
-									<p class="text-xs text-muted italic">{m.service_detail_no_units()}</p>
-								{/if}
-								<div class="flex flex-wrap gap-1.5">
-									{#each ut.units as unit}
-										<div class="flex items-center gap-1 rounded-full bg-sand px-2.5 py-0.5 ring-1 ring-border">
-											<span class="text-xs text-gray-700">{unit.name}</span>
-											{#if canEditServices}
-											<form method="post" action="?/deleteUnit" use:enhance={serviceEnhance()}>
-												<input type="hidden" name="unitId" value={unit.id} />
-												<button type="submit" class="ml-0.5 text-[10px] text-muted hover:text-flexible">✕</button>
-											</form>
-											{/if}
-										</div>
-									{/each}
-									{#if canEditServices}
-										{#if addingUnitToTypeId === ut.id}
-											<form method="post" action="?/addUnit" use:enhance={serviceEnhance()}
-												onsubmit={() => (addingUnitToTypeId = null)}
-												class="flex items-center gap-1">
-												<input type="hidden" name="unitTypeId" value={ut.id} />
-												<input name="unitName" required autofocus placeholder={m.service_detail_unit_name()}
-													class="w-28 rounded-full border border-ocean px-2.5 py-0.5 text-xs focus:outline-none" />
-												<button type="submit" class="text-xs font-medium text-ocean">{m.service_detail_add_unit()}</button>
-												<button type="button" onclick={() => (addingUnitToTypeId = null)} class="text-xs text-muted">✕</button>
-											</form>
-										{:else}
-											<button type="button" onclick={() => (addingUnitToTypeId = ut.id)}
-												class="rounded-full border border-dashed border-ocean/40 px-2.5 py-0.5 text-xs text-ocean hover:border-ocean">
-												+ {m.service_detail_add_unit()}
-											</button>
-										{/if}
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
+			<div class="mb-4 rounded-lg border border-dashed border-border p-4">
+				<p class="text-center text-xs text-muted">Inventory management coming soon (Task 10)</p>
 			</div>
 		{/if}
 

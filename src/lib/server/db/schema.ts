@@ -119,9 +119,6 @@ export const bookings = pgTable('bookings', {
 	dateEnd: date('date_end'),
 	serviceRunId: text('service_run_id')
 		.references(() => serviceRuns.id, { onDelete: 'set null' }),
-	accommodationUnitId: text('accommodation_unit_id')
-		.references(() => accommodationUnits.id, { onDelete: 'set null' }),
-	guestsCount: integer('guests_count'),
 	participantCount: integer('participant_count'),
 	time: time('time'),
 	sessionsIncluded: integer('sessions_included'),
@@ -173,36 +170,6 @@ export const bookingParticipants = pgTable('booking_participants', {
 }, (t) => [
 	index('idx_booking_participants_booking').on(t.bookingId)
 ]);
-
-export const accommodationUnitTypes = pgTable('accommodation_unit_types', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	serviceId: text('service_id')
-		.notNull()
-		.references(() => services.id, { onDelete: 'cascade' }),
-	name: text('name').notNull(),
-	occupancyType: text('occupancy_type').notNull().default('private'),
-	maxOccupancy: integer('max_occupancy').notNull().default(1),
-	pricePerNight: numeric('price_per_night', { precision: 10, scale: 2 }).notNull(),
-	description: text('description'),
-	active: boolean('active').notNull().default(true),
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
-
-export const accommodationUnits = pgTable('accommodation_units', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	unitTypeId: text('unit_type_id')
-		.notNull()
-		.references(() => accommodationUnitTypes.id, { onDelete: 'cascade' }),
-	name: text('name').notNull(),
-	status: text('status').notNull().default('available'),
-	sortOrder: integer('sort_order').notNull().default(0),
-	createdAt: timestamp('created_at').notNull().defaultNow()
-});
 
 export const events = pgTable('events', {
 	id: text('id')

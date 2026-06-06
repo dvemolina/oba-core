@@ -1,16 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
-import {
-	listUnitTypesByService,
-	createUnitType,
-	deleteUnitType,
-	createUnit,
-	deleteUnit
-} from '$lib/features/accommodation/queries';
 import { listRunsForService, createServiceRun, deleteServiceRun } from '$lib/features/services/runs.queries';
 import type { ServiceType } from '$lib/features/services/types';
-import type { OccupancyType } from '$lib/features/accommodation/types';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
@@ -23,10 +15,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 	if (!service) error(404, 'Service not found');
 
-	const [unitTypes, runs] = await Promise.all([
-		service.hasInventoryUnits ? listUnitTypesByService(params.id) : Promise.resolve([]),
-		listRunsForService(params.id)
-	]);
+	const runs = await listRunsForService(params.id);
+	// TODO: Task 10 — replace with listLinksForService when inventory UI is implemented
+	const unitTypes: never[] = [];
 
 	return { service, instructors, unitTypes, runs, canEditServices: canEditServices(locals) };
 };
@@ -89,49 +80,11 @@ export const actions: Actions = {
 		return { deleted: true, message: 'Service deleted' };
 	},
 
-	addUnitType: async ({ request, params, locals }) => {
-		requireRole(locals, 'admin', 'owner');
-		const form = await request.formData();
-		const name = form.get('utName')?.toString().trim() ?? '';
-		const occupancyType = (form.get('occupancyType')?.toString() ?? 'private') as OccupancyType;
-		const maxOccupancy = parseInt(form.get('maxOccupancy')?.toString() ?? '1');
-		const pricePerNight = form.get('pricePerNight')?.toString() ?? '';
-
-		if (!name || !pricePerNight || isNaN(maxOccupancy)) {
-			return fail(400, { utError: 'Name, occupancy, and price required' });
-		}
-
-		await createUnitType(params.id, { name, occupancyType, maxOccupancy, pricePerNight });
-		return { message: 'Unit type added' };
-	},
-
-	deleteUnitType: async ({ request, locals }) => {
-		requireRole(locals, 'admin', 'owner');
-		const form = await request.formData();
-		const id = form.get('unitTypeId')?.toString() ?? '';
-		if (!id) return fail(400, { error: 'Missing unit type ID' });
-		await deleteUnitType(id);
-		return { message: 'Unit type deleted' };
-	},
-
-	addUnit: async ({ request, locals }) => {
-		requireRole(locals, 'admin', 'owner');
-		const form = await request.formData();
-		const unitTypeId = form.get('unitTypeId')?.toString() ?? '';
-		const name = form.get('unitName')?.toString().trim() ?? '';
-		if (!unitTypeId || !name) return fail(400, { error: 'Unit type and name required' });
-		await createUnit(unitTypeId, { name });
-		return { message: 'Unit added' };
-	},
-
-	deleteUnit: async ({ request, locals }) => {
-		requireRole(locals, 'admin', 'owner');
-		const form = await request.formData();
-		const id = form.get('unitId')?.toString() ?? '';
-		if (!id) return fail(400, { error: 'Missing unit ID' });
-		await deleteUnit(id);
-		return { message: 'Unit deleted' };
-	},
+	// TODO: Task 10 — these actions will be replaced by inventory link management UI
+	addUnitType: async () => fail(400, { error: 'Not implemented' }),
+	deleteUnitType: async () => fail(400, { error: 'Not implemented' }),
+	addUnit: async () => fail(400, { error: 'Not implemented' }),
+	deleteUnit: async () => fail(400, { error: 'Not implemented' }),
 
 	addRun: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner');

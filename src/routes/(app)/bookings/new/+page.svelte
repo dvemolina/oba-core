@@ -71,20 +71,7 @@
 	// ── Accordion open states ─────────────────────────────────────────────────
 	let notesOpen = $state(false);
 
-	// ── Accommodation state ────────────────────────────────────────────────────
-	let selectedUnitTypeId = $state('');
-	let guestsCount = $state(1);
-	const unitTypes = $derived(isAccommodation ? (data.unitTypesByService[selectedServiceId] ?? []) : []);
-	const selectedUnitType = $derived(unitTypes.find((ut) => ut.id === selectedUnitTypeId));
-	// Read selectedUnitTypeId via untrack so it's not a dependency of this effect
-	$effect(() => {
-		const accom = isAccommodation;
-		const types = unitTypes;
-		untrack(() => {
-			if (accom && types.length > 0 && !selectedUnitTypeId) selectedUnitTypeId = types[0].id;
-			if (!accom) selectedUnitTypeId = '';
-		});
-	});
+	// TODO: Task 10/11 — accommodation/inventory booking state goes here
 
 	// ── Shared client state (accommodation, camp, regular) ─────────────────────
 	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
@@ -100,9 +87,7 @@
 	);
 
 	function addClient(client: (typeof data.clients)[0]) {
-		const price = isAccommodation
-			? (selectedUnitType?.pricePerNight ?? selectedService?.basePrice ?? '0')
-			: (selectedService?.basePrice ?? '0');
+		const price = selectedService?.basePrice ?? '0';
 		selectedClients = [
 			...selectedClients,
 			{ clientId: client.id, name: `${client.firstName} ${client.lastName}`, amountDue: price }
@@ -319,43 +304,10 @@
 					</div>
 				</div>
 			{:else if isAccommodation}
-				<!-- Accommodation: unit type + dates + guests -->
-				{#if unitTypes.length === 0}
-					<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
-						{m.booking_new_no_unit_types()}
-					</div>
-				{:else}
-					<div class="space-y-3">
-						<div>
-							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_unit_type()}</label>
-							<div class="space-y-2">
-								{#each unitTypes as ut}
-									<label class="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors {selectedUnitTypeId === ut.id ? 'border-ocean bg-ocean/5' : 'border-border bg-surface hover:bg-sand'}">
-										<input type="radio" name="accommodationUnitTypeId" value={ut.id} bind:group={selectedUnitTypeId} class="accent-ocean" />
-										<div class="flex-1">
-											<p class="text-sm font-medium text-gray-800">{ut.name}</p>
-											<p class="text-xs text-muted">max {ut.maxOccupancy} · €{ut.pricePerNight}/night</p>
-										</div>
-									</label>
-								{/each}
-							</div>
-						</div>
-						<div class="grid grid-cols-2 gap-3">
-							<div>
-								<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_checkin()}</label>
-								<input type="date" name="date" required value={data.defaultDate} class="input w-full" />
-							</div>
-							<div>
-								<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_checkout()}</label>
-								<input type="date" name="dateEnd" required class="input w-full" />
-							</div>
-						</div>
-						<div>
-							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">{m.booking_new_guests()}</label>
-							<input type="number" name="guestsCount" bind:value={guestsCount} min="1" max={selectedUnitType?.maxOccupancy ?? 99} class="input w-full" />
-						</div>
-					</div>
-				{/if}
+				<!-- TODO: Task 10/11 — Inventory booking UI replaces old accommodation booking -->
+				<div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 ring-1 ring-amber-200">
+					Inventory booking not yet implemented. Please check back after Task 10/11.
+				</div>
 			{:else if isCamp}
 				<!-- Camp: run picker + date display -->
 				<div class="space-y-3">
