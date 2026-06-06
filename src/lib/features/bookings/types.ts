@@ -1,3 +1,5 @@
+import type { InventoryAllocationWithDetails, CreateAllocationInput } from '$lib/features/inventory/types';
+
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'partial' | 'paid';
 
@@ -40,11 +42,8 @@ export interface Booking {
 	// Instructor for non-session services (rentals, products, accommodation) only
 	instructorId: string | null;
 	instructorName: string | null;
-	accommodationUnitId: string | null;
-	accommodationUnitName: string | null;
-	accommodationUnitTypeName: string | null;
-	guestsCount: number | null;
 	participantCount: number | null;
+	allocations: InventoryAllocationWithDetails[];
 	date: string;
 	dateEnd: string | null;
 	serviceRunId: string | null;
@@ -77,9 +76,7 @@ export interface BookingSummary {
 	// Instructor for non-session services only
 	instructorId: string | null;
 	instructorName: string | null;
-	accommodationUnitName: string | null;
-	accommodationUnitTypeName: string | null;
-	guestsCount: number | null;
+	allocationSummary: string | null;
 	date: string;
 	dateEnd: string | null;
 	serviceRunId: string | null;
@@ -111,8 +108,7 @@ export interface CreateBookingInput {
 	serviceId: string;
 	/** For non-session services (rentals, products, accommodation) only */
 	instructorId?: string;
-	accommodationUnitId?: string;
-	guestsCount?: number;
+	allocations?: CreateAllocationInput[];
 	participantCount?: number;
 	date: string;
 	dateEnd?: string;

@@ -10,8 +10,9 @@ import {
 	services,
 	serviceRuns,
 	sessions,
-	accommodationUnits,
-	accommodationUnitTypes
+	inventoryAllocations,
+	inventoryItemTypes,
+	inventoryItems
 } from '$lib/server/db/schema';
 import { user as userTable } from '$lib/server/db/auth.schema';
 import type { Service } from '$lib/features/services/types';
@@ -25,6 +26,41 @@ import type {
 	UpdateBookingInput
 } from './types';
 import { listParticipantsForBooking } from './participants.queries';
+import { listAllocationsForBooking } from '$lib/features/inventory/allocations.queries';
+
+function formatAllocationSummary(
+	itemName: string | null,
+	typeName: string | null,
+	quantity: number | null
+): string | null {
+	if (!typeName) return null;
+	if (itemName) return itemName;
+	if (quantity && quantity > 1) return `${quantity}× ${typeName}`;
+	return typeName;
+}
+
+async function fetchAllocationSummaries(ids: string[]): Promise<Record<string, string | null>> {
+	if (ids.length === 0) return {};
+	const rows = await db
+		.select({
+			bookingId: inventoryAllocations.bookingId,
+			itemTypeName: inventoryItemTypes.name,
+			itemName: inventoryItems.name,
+			quantity: inventoryAllocations.quantity
+		})
+		.from(inventoryAllocations)
+		.leftJoin(inventoryItemTypes, eq(inventoryAllocations.itemTypeId, inventoryItemTypes.id))
+		.leftJoin(inventoryItems, eq(inventoryAllocations.itemId, inventoryItems.id))
+		.where(inArray(inventoryAllocations.bookingId, ids));
+
+	const result: Record<string, string | null> = {};
+	for (const r of rows) {
+		if (!result[r.bookingId]) {
+			result[r.bookingId] = formatAllocationSummary(r.itemName ?? null, r.itemTypeName ?? null, r.quantity);
+		}
+	}
+	return result;
+}
 
 async function attachInstructorsToBookings<T extends { id: string }>(
 	rows: T[]
@@ -72,9 +108,7 @@ export async function listBookingsForDateRange(
 			serviceHasInventoryUnits: services.hasInventoryUnits,
 			serviceRequiresInstructor: services.requiresInstructor,
 			serviceMaxCapacity: services.maxCapacity,
-			accommodationUnitName: accommodationUnits.name,
-			accommodationUnitTypeName: accommodationUnitTypes.name,
-			guestsCount: bookings.guestsCount,
+			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			serviceRunId: bookings.serviceRunId,
@@ -87,8 +121,6 @@ export async function listBookingsForDateRange(
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
-		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
 		// Overlap: booking starts before range ends AND booking ends (or is same-day) after range starts
 		.where(and(
@@ -100,6 +132,7 @@ export async function listBookingsForDateRange(
 	const withInstructors = await attachInstructorsToBookings(rows);
 
 	const ids = withInstructors.map(r => r.id);
+	const allocationSummaries = await fetchAllocationSummaries(ids);
 	const counts: Record<string, number> = {};
 	const firstClientNames: Record<string, string> = {};
 	if (ids.length > 0) {
@@ -116,6 +149,7 @@ export async function listBookingsForDateRange(
 
 	return withInstructors.map(r => ({
 		...r,
+		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
 	})) as BookingSummary[];
@@ -134,9 +168,7 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 			serviceHasInventoryUnits: services.hasInventoryUnits,
 			serviceRequiresInstructor: services.requiresInstructor,
 			serviceMaxCapacity: services.maxCapacity,
-			accommodationUnitName: accommodationUnits.name,
-			accommodationUnitTypeName: accommodationUnitTypes.name,
-			guestsCount: bookings.guestsCount,
+			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			serviceRunId: bookings.serviceRunId,
@@ -149,14 +181,13 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
-		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
 		.where(eq(bookings.serviceRunId, runId))
 		.orderBy(bookings.date, bookings.createdAt);
 
 	const withInstructors = await attachInstructorsToBookings(rows);
 	const ids = withInstructors.map(r => r.id);
+	const allocationSummaries = await fetchAllocationSummaries(ids);
 	const counts: Record<string, number> = {};
 	const firstClientNames: Record<string, string> = {};
 	if (ids.length > 0) {
@@ -172,6 +203,7 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 	}
 	return withInstructors.map(r => ({
 		...r,
+		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
 	})) as BookingSummary[];
@@ -190,9 +222,7 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 			serviceHasInventoryUnits: services.hasInventoryUnits,
 			serviceRequiresInstructor: services.requiresInstructor,
 			serviceMaxCapacity: services.maxCapacity,
-			accommodationUnitName: accommodationUnits.name,
-			accommodationUnitTypeName: accommodationUnitTypes.name,
-			guestsCount: bookings.guestsCount,
+			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			time: bookings.time,
@@ -202,13 +232,13 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
-		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.orderBy(desc(bookings.date));
 
 	const withInstructors = await attachInstructorsToBookings(rows);
 	const ids = withInstructors.map(r => r.id);
 	if (ids.length === 0) return [];
+
+	const allocationSummaries = await fetchAllocationSummaries(ids);
 
 	const [clientRows, sessionRows] = await Promise.all([
 		db.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName })
@@ -241,6 +271,7 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 
 	return withInstructors.map(r => ({
 		...r,
+		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null,
 		sessionCount: sessionCounts[r.id] ?? 0,
@@ -260,10 +291,6 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceHasRoster: services.hasRoster,
 			serviceHasDateRange: services.hasDateRange,
 			serviceMaxCapacity: services.maxCapacity,
-			accommodationUnitId: bookings.accommodationUnitId,
-			accommodationUnitName: accommodationUnits.name,
-			accommodationUnitTypeName: accommodationUnitTypes.name,
-			guestsCount: bookings.guestsCount,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
 			serviceRunId: bookings.serviceRunId,
@@ -282,8 +309,6 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(accommodationUnits, eq(bookings.accommodationUnitId, accommodationUnits.id))
-		.leftJoin(accommodationUnitTypes, eq(accommodationUnits.unitTypeId, accommodationUnitTypes.id))
 		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
 		.where(eq(bookings.id, id));
 
@@ -316,12 +341,14 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 		.where(eq(bookingClients.bookingId, id));
 
 	const participants = await listParticipantsForBooking(booking.id);
+	const allocations = await listAllocationsForBooking(booking.id);
 	return {
 		...booking,
 		instructorId: instrRow?.instructorId ?? null,
 		instructorName: instrRow?.instructorName ?? null,
 		clients: bookingClientRows,
-		participants
+		participants,
+		allocations
 	} as Booking;
 }
 
@@ -348,8 +375,6 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.values({
 			serviceId: input.serviceId,
 			serviceRunId: input.serviceRunId,
-			accommodationUnitId: input.accommodationUnitId,
-			guestsCount: input.guestsCount,
 			date: input.date,
 			dateEnd: input.dateEnd,
 			time: input.time,
@@ -380,6 +405,11 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 				paymentStatus: 'pending' as const
 			}))
 		);
+	}
+
+	if (input.allocations && input.allocations.length > 0) {
+		const { createAllocations } = await import('$lib/features/inventory/allocations.queries');
+		await createAllocations(input.allocations.map((a) => ({ ...a, bookingId: booking.id })));
 	}
 
 	return (await getBooking(booking.id))!;

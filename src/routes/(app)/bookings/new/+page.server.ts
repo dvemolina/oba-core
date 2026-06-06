@@ -73,13 +73,19 @@ export const actions: Actions = {
 
 			const booking = await createBooking({
 				serviceId,
-				accommodationUnitId: unit.id,
-				guestsCount,
 				date: checkIn,
 				dateEnd: checkOut,
 				isFlexible: false,
 				status: 'confirmed',
-				clients: clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' }))
+				clients: clientIds.map((clientId, i) => ({ clientId, amountDue: amounts[i] ?? '0' })),
+				allocations: [{
+					bookingId: '',
+					itemTypeId: unitTypeId,
+					itemId: unit.id,
+					quantity: guestsCount,
+					startDate: checkIn,
+					endDate: checkOut
+				}]
 			});
 			return { bookingId: booking.id, message: `Booked — ${unit.name}` };
 		}

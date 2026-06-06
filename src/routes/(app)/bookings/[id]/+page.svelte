@@ -257,19 +257,15 @@
 				<button type="button" onclick={openEdit} class="text-xs text-ocean hover:underline">{m.common_edit()}</button>
 			</div>
 			<div class="space-y-2.5">
-				{#if data.booking.accommodationUnitName}
-					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">{m.booking_detail_unit()}</span>
-						<span class="text-sm text-gray-800">
-							{data.booking.accommodationUnitTypeName ? data.booking.accommodationUnitTypeName + ' · ' : ''}{data.booking.accommodationUnitName}
-						</span>
-					</div>
-				{/if}
-				{#if data.booking.guestsCount}
-					<div class="flex items-center justify-between">
-						<span class="text-xs text-muted">{m.booking_new_guests()}</span>
-						<span class="text-sm text-gray-800">{data.booking.guestsCount}</span>
-					</div>
+				{#if data.booking.allocations.length > 0}
+					{#each data.booking.allocations as allocation}
+						<div class="flex items-center justify-between">
+							<span class="text-xs text-muted">{allocation.itemTypeName}</span>
+							<span class="text-sm text-gray-800">
+								{allocation.itemName ?? (allocation.quantity > 1 ? `${allocation.quantity}× ${allocation.itemTypeName}` : allocation.itemTypeName)}
+							</span>
+						</div>
+					{/each}
 				{/if}
 				{#if data.booking.participantCount}
 					<div class="flex items-center justify-between">

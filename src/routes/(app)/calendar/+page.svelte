@@ -334,7 +334,7 @@
 				: `${booking.clientCount} enrolled`;
 		}
 		if (booking.serviceHasInventoryUnits) {
-			return booking.accommodationUnitName ?? 'Accommodation';
+			return booking.allocationSummary ?? 'Accommodation';
 		}
 		return booking.instructorName ?? 'No instructor';
 	}
