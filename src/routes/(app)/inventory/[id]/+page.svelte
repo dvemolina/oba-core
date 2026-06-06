@@ -58,7 +58,7 @@
 		}
 		const map = new Map<string, ItemGroup>();
 		for (const item of items) {
-			const label = attrEntries.map(([k]) => item.attributes[k] ?? '—').join(' / ');
+			const label = attrEntries.map(([k]) => item.attributes[k]).filter(v => v && v.trim()).join(' · ');
 			if (!map.has(label)) map.set(label, { label, available: 0, maintenance: 0, retired: 0, total: 0, items: [] });
 			const g = map.get(label)!;
 			g.total++;
@@ -299,9 +299,12 @@
 				</button>
 				{#if managingItems}
 				<ul class="divide-y divide-gray-100">
-				{#each data.itemType.items as item}
+				{#each data.itemType.items as item, i}
 					<li class="flex items-center justify-between gap-3 px-4 py-2">
-						<p class="min-w-0 flex-1 truncate text-sm text-gray-800">{item.name}</p>
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							<span class="w-5 shrink-0 text-right text-xs text-gray-400">{i + 1}</span>
+							<p class="min-w-0 flex-1 truncate text-sm text-gray-800">{item.name.replace(/#/g, '').trim()}</p>
+						</div>
 						<div class="flex shrink-0 items-center gap-2">
 							<form method="POST" action="?/updateItemStatus" use:enhance>
 								<input type="hidden" name="itemId" value={item.id} />
