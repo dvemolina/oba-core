@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { toast } from '$lib/stores/toast.svelte';
-	import { fmtPricingFormula } from '$lib/utils/pricing';
+	import { fmtPricingFormula, defaultPricingMode } from '$lib/utils/pricing';
 	import { withToast } from '$lib/utils/enhance';
 	import ClientSearchInput from '$lib/components/ClientSearchInput.svelte';
 	import { DOT_COLORS } from '$lib/features/services/colors';
@@ -643,7 +643,7 @@
 	{#if data.booking.serviceHasSessions || data.booking.serviceHasRoster}
 		{@const participantCount = data.booking.participants.length}
 		{@const sessions = data.booking.sessionsIncluded ?? 1}
-		{@const serviceMode = data.service?.pricingMode ?? null}
+		{@const serviceMode = data.service?.pricingMode ?? (data.service ? defaultPricingMode({ hasSessions: !!data.booking.serviceHasSessions, hasRoster: !!data.booking.serviceHasRoster, hasDateRange: !!data.booking.serviceHasDateRange, hasInventoryUnits: false }) : null)}
 		{@const basePrice = data.service?.basePrice ?? '0'}
 		<section class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
 			<div class="px-4 pt-4 pb-2">
@@ -713,10 +713,11 @@
 			{@const totalPaid = data.booking.clients.filter(c => c.status !== 'cancelled').reduce((s, c) => s + parseFloat(c.amountPaid), 0)}
 			<div class="border-t border-border/50 px-4 py-3 bg-gray-50/60 space-y-1.5">
 				{#if serviceMode && participantCount > 0}
+					{@const pFormula = activeClients.length === 1 ? participantCount : 1}
 					<div class="flex items-center justify-between">
 						<p class="text-xs text-muted">Formula</p>
 						<p class="text-sm font-medium text-gray-800">
-							{fmtPricingFormula(basePrice, serviceMode, { participants: participantCount, sessions })}
+							{fmtPricingFormula(basePrice, serviceMode, { participants: pFormula, sessions })}
 						</p>
 					</div>
 				{/if}

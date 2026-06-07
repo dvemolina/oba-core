@@ -1,6 +1,6 @@
 // src/lib/features/bookings/queries.ts
 import { and, count, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
-import { calculateAmount } from '$lib/utils/pricing';
+import { calculateAmount, defaultPricingMode } from '$lib/utils/pricing';
 import { db } from '$lib/server/db';
 import {
 	bookings,
@@ -622,14 +622,19 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 	}
 
 	const basePrice = parseFloat(service.basePrice);
-	const mode = service.pricingMode;
-	// For roster services each enrolled client is 1 participant (they each pay for themselves).
-	// For session-based services the primary client pays for all participants.
-	const isRoster = booking.serviceHasRoster;
+	// Fall back to smart default when pricingMode not set (e.g. legacy services).
+	const mode = service.pricingMode ?? defaultPricingMode({
+		hasSessions: !!service.hasSessions,
+		hasRoster: !!service.hasRoster,
+		hasDateRange: !!service.hasDateRange,
+		hasInventoryUnits: !!service.hasInventoryUnits,
+	});
 
 	const activeClients = booking.clients.filter(c => c.status !== 'cancelled');
 	for (const bc of activeClients) {
-		const p = isRoster ? 1 : participantCount;
+		// 1 enrolled client = organizer paying for the whole group → charge for all named participants.
+		// Multiple enrolled clients = each pays for themselves (1 participant each).
+		const p = activeClients.length === 1 ? participantCount : 1;
 		const amount = calculateAmount(basePrice, mode, { participants: p, sessions, days });
 		const amountDue = amount.toFixed(2);
 		const paid = parseFloat(bc.amountPaid);
