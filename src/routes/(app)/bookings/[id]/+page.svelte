@@ -4,6 +4,8 @@
 	import { page } from '$app/stores';
 	import { toast } from '$lib/stores/toast.svelte';
 	import { fmtPricingFormula } from '$lib/utils/pricing';
+	import { withToast } from '$lib/utils/enhance';
+	import ClientSearchInput from '$lib/components/ClientSearchInput.svelte';
 	import { DOT_COLORS } from '$lib/features/services/colors';
 	import { fmtTimeRange, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
 	import type { InstructorConflict } from '$lib/features/calendar/utils';
@@ -116,44 +118,8 @@
 	}
 
 	// ── Roster client enrollment ───────────────────────────────────────────────
-	let enrollSearch  = $state('');
-	let enrollPanel   = $state(false);
-	let newFirstName  = $state('');
-	let newLastName   = $state('');
-	let newPhone      = $state('');
-	let newEmail      = $state('');
-	let creatingClient = $state(false);
-	const enrolledIds     = $derived(new Set(data.booking.clients.map(c => c.clientId)));
-	const filteredClients = $derived(
-		enrollSearch.length > 1
-			? data.clients.filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(enrollSearch.toLowerCase()) && !enrolledIds.has(c.id))
-			: []
-	);
-	const showCreateNew  = $derived(enrollSearch.length > 1 && filteredClients.length === 0 && !enrollPanel);
-	let selectedEnroll   = $state<{ clientId: string; name: string } | null>(null);
-	function selectEnrollClient(c: { id: string; firstName: string; lastName: string }) {
-		selectedEnroll = { clientId: c.id, name: `${c.firstName} ${c.lastName}` };
-		enrollSearch = '';
-	}
-	function openNewClientPanel() {
-		const parts = enrollSearch.trim().split(/\s+/);
-		newFirstName = parts[0] ?? ''; newLastName = parts.slice(1).join(' ');
-		newPhone = ''; newEmail = '';
-		enrollPanel = true; enrollSearch = '';
-	}
-	async function saveNewEnrollClient() {
-		if (!newFirstName) return;
-		creatingClient = true;
-		try {
-			const res = await fetch('/api/v1/clients', {
-				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ firstName: newFirstName, lastName: newLastName || '—', phone: newPhone || undefined, email: newEmail || undefined })
-			});
-			const { data: client } = await res.json();
-			selectedEnroll = { clientId: client.id, name: `${client.firstName} ${client.lastName !== '—' ? ' ' + client.lastName : ''}`.trim() };
-			enrollPanel = false;
-		} finally { creatingClient = false; }
-	}
+	const enrolledIds   = $derived(new Set(data.booking.clients.map(c => c.clientId)));
+	let selectedEnroll  = $state<{ clientId: string; name: string } | null>(null);
 
 	// ── Inventory allocations ─────────────────────────────────────────────────
 	function groupInventoryItems(
@@ -226,21 +192,6 @@
 		return `https://wa.me/${phone.replace(/[\s\-\(\)\+]/g, '')}?text=${encodeURIComponent(message)}`;
 	}
 
-	// ── Generic enhance handler ───────────────────────────────────────────────
-	function withToast(onSuccess?: () => void) {
-		return () => async ({ result, update }: { result: any; update: () => Promise<void> }) => {
-			if (result.type === 'success') {
-				if (result.data?.message) toast(result.data.message);
-				if (result.data?.cancelled) { await goto('/calendar'); return; }
-				if (result.data?.deleted) { await goto('/bookings'); return; }
-				onSuccess?.();
-				await update();
-			} else if (result.type === 'failure') {
-				if (result.data?.error) toast(result.data.error, 'error');
-				await update();
-			}
-		};
-	}
 
 	function fmtDate(d: string) {
 		return new Date(d + 'T00:00:00').toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
@@ -588,7 +539,7 @@
 		{/if}
 
 		{#if hasRoster && data.booking.status !== 'cancelled'}
-			<!-- Enroll client inline search -->
+			<!-- Enroll client -->
 			<div class="mx-4 mb-3">
 				{#if selectedEnroll}
 					<form method="post" action="?/addClient" use:enhance={withToast(() => { selectedEnroll = null; })}
@@ -599,46 +550,13 @@
 						<button type="submit" class="btn-primary btn-sm">{m.booking_detail_enroll()}</button>
 						<button type="button" onclick={() => selectedEnroll = null} class="text-xs text-muted hover:text-gray-700">✕</button>
 					</form>
-				{:else if !enrollPanel}
-					<div class="relative">
-						<input type="text" placeholder={m.booking_detail_search_student()} bind:value={enrollSearch}
-							class="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:border-ocean focus:outline-none" />
-						{#if filteredClients.length > 0 || showCreateNew}
-							<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
-								{#each filteredClients.slice(0, 6) as client}
-									<button type="button" onclick={() => selectEnrollClient(client)}
-										class="w-full px-4 py-2.5 text-left text-sm hover:bg-sand">
-										{client.firstName} {client.lastName}
-										{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
-									</button>
-								{/each}
-								{#if showCreateNew}
-									<button type="button" onclick={openNewClientPanel}
-										class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean hover:bg-sand">
-										{m.booking_new_create_client()} "<span class="font-medium">{enrollSearch}</span>"
-									</button>
-								{/if}
-							</div>
-						{/if}
-					</div>
 				{:else}
-					<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-						<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
-						<div class="grid grid-cols-2 gap-2">
-							<input bind:value={newFirstName} placeholder={m.client_new_first_name()} class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-							<input bind:value={newLastName} placeholder={m.common_name()} class="rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						</div>
-						<input bind:value={newPhone} type="tel" placeholder={m.common_phone()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<input bind:value={newEmail} type="email" placeholder={m.common_email()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm focus:border-ocean focus:outline-none" />
-						<div class="flex gap-2 pt-1">
-							<button type="button" onclick={saveNewEnrollClient} disabled={!newFirstName || creatingClient}
-								class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-								{creatingClient ? m.booking_new_saving() : m.booking_detail_add_select()}
-							</button>
-							<button type="button" onclick={() => { enrollPanel = false; enrollSearch = ''; }}
-								class="rounded-md px-3 py-2 text-xs text-muted ring-1 ring-border">{m.common_cancel()}</button>
-						</div>
-					</div>
+					<ClientSearchInput
+						clients={data.clients}
+						excludeIds={[...enrolledIds]}
+						placeholder={m.booking_detail_search_student()}
+						onSelect={(c) => { selectedEnroll = { clientId: c.id, name: `${c.firstName} ${c.lastName}`.trim() }; }}
+					/>
 				{/if}
 			</div>
 		{/if}
@@ -995,10 +913,40 @@
 											</div>
 										</div>
 
-										<!-- Participants -->
+										<!-- Attendance (booking participants as checklist, free-text fallback) -->
 										<div class="mt-2 border-t border-border/40 pt-2">
-											<p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">{m.booking_detail_session_attending()}</p>
-											{#if session.participants.length > 0}
+											<p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">{m.booking_detail_session_attending()}</p>
+											{#if data.booking.participants.length > 0}
+												<!-- Checklist: tick booking-level participants in/out of this session -->
+												<div class="space-y-1">
+													{#each data.booking.participants as bp}
+														{@const inSession = session.participants.find(sp => sp.name === bp.name)}
+														{#if inSession}
+															<div class="flex items-center justify-between rounded-md bg-ocean/5 px-2 py-1">
+																<div class="flex items-center gap-2">
+																	<span class="h-3.5 w-3.5 rounded-full bg-ocean/20 flex items-center justify-center text-[9px] text-ocean">✓</span>
+																	<span class="text-xs font-medium text-gray-800">{bp.name}</span>
+																</div>
+																<form method="post" action="?/removeParticipant" use:enhance={withToast()}>
+																	<input type="hidden" name="participantId" value={inSession.id} />
+																	<button type="submit" class="text-[10px] text-muted hover:text-red-500">Remove</button>
+																</form>
+															</div>
+														{:else}
+															<form method="post" action="?/addParticipant" use:enhance={withToast()} class="flex items-center justify-between rounded-md px-2 py-1 hover:bg-gray-50">
+																<input type="hidden" name="sessionId" value={session.id} />
+																<input type="hidden" name="participantName" value={bp.name} />
+																<div class="flex items-center gap-2">
+																	<span class="h-3.5 w-3.5 rounded-full border border-border bg-white"></span>
+																	<span class="text-xs text-muted">{bp.name}</span>
+																</div>
+																<button type="submit" class="text-[10px] text-ocean hover:underline">Add</button>
+															</form>
+														{/if}
+													{/each}
+												</div>
+											{:else if session.participants.length > 0}
+												<!-- No booking participants — show session participants directly -->
 												<div class="flex flex-wrap gap-1.5">
 													{#each session.participants as p}
 														<div class="flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 ring-1 ring-border">
@@ -1013,11 +961,14 @@
 											{:else}
 												<p class="text-xs italic text-muted">{m.booking_detail_session_defaults_to_client()}</p>
 											{/if}
+											<!-- Free-text add for sessions without booking participants -->
+											{#if data.booking.participants.length === 0}
 											<form method="post" action="?/addParticipant" use:enhance={withToast()} class="mt-1.5 flex gap-2">
 												<input type="hidden" name="sessionId" value={session.id} />
 												<input name="participantName" placeholder={m.booking_detail_add_session_participant()} class="input input-sm flex-1 text-xs" />
 												<button type="submit" class="btn-ghost btn-sm text-xs">{m.booking_detail_session_add()}</button>
 											</form>
+											{/if}
 										</div>
 
 										<!-- Inline edit form -->

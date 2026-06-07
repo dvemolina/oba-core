@@ -197,6 +197,13 @@
       "when": 1749600000000,
       "tag": "0033_booking_price_override",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780816171472,
+      "tag": "0034_quiet_lizard",
+      "breakpoints": true
     }
   ]
 }

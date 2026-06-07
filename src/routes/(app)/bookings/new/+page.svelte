@@ -7,6 +7,7 @@
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 	import NotesSection from '$lib/components/bookings/sections/NotesSection.svelte';
+	import ClientSearchInput from '$lib/components/ClientSearchInput.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
@@ -68,73 +69,16 @@
 
 	// ── Clients ────────────────────────────────────────────────────────────────
 	let selectedClients = $state<Array<{ clientId: string; name: string; amountDue: string }>>([]);
-	let clientSearch    = $state('');
 
-	const filteredClients = $derived(
-		clientSearch.length > 1
-			? data.clients.filter(c =>
-					`${c.firstName} ${c.lastName}`.toLowerCase().includes(clientSearch.toLowerCase()) &&
-					!selectedClients.some(sc => sc.clientId === c.id)
-				)
-			: []
-	);
-	const showCreateNew = $derived(
-		clientSearch.length > 1 && filteredClients.length === 0 && !newClientPanel
-	);
-
-	function addClient(client: (typeof data.clients)[0]) {
+	function addClient(client: { id: string; firstName: string; lastName: string }) {
 		const price = isAccommodation ? invCalculatedAmount : (selectedService?.basePrice ?? '0');
 		selectedClients = [
 			...selectedClients,
-			{ clientId: client.id, name: `${client.firstName} ${client.lastName}`, amountDue: price }
+			{ clientId: client.id, name: `${client.firstName} ${client.lastName}`.trim(), amountDue: price }
 		];
-		clientSearch = '';
 	}
 	function removeClient(clientId: string) {
 		selectedClients = selectedClients.filter(c => c.clientId !== clientId);
-	}
-
-	// ── Inline new-client mini-form ────────────────────────────────────────────
-	let newClientPanel = $state(false);
-	let newFirstName   = $state('');
-	let newLastName    = $state('');
-	let newPhone       = $state('');
-	let newEmail       = $state('');
-	let creatingClient = $state(false);
-
-	function openNewClientPanel() {
-		const parts = clientSearch.trim().split(/\s+/);
-		newFirstName = parts[0] ?? '';
-		newLastName  = parts.slice(1).join(' ');
-		newPhone = ''; newEmail = '';
-		newClientPanel = true; clientSearch = '';
-	}
-
-	async function saveNewClient() {
-		if (!newFirstName) return;
-		creatingClient = true;
-		try {
-			const res = await fetch('/api/v1/clients', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					firstName: newFirstName,
-					lastName: newLastName || '—',
-					phone: newPhone || undefined,
-					email: newEmail || undefined
-				})
-			});
-			const { data: client } = await res.json();
-			selectedClients = [
-				...selectedClients,
-				{
-					clientId: client.id,
-					name: `${client.firstName}${client.lastName !== '—' ? ' ' + client.lastName : ''}`.trim(),
-					amountDue: selectedService?.basePrice ?? '0'
-				}
-			];
-			newClientPanel = false;
-		} finally { creatingClient = false; }
 	}
 </script>
 
@@ -292,47 +236,12 @@
 				</div>
 			{/if}
 
-			{#if !newClientPanel}
-				<div class="relative">
-					<input type="text" placeholder={m.booking_new_client_search()} bind:value={clientSearch}
-						autocomplete="off" class="input w-full" />
-					{#if filteredClients.length > 0 || showCreateNew}
-						<div class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-surface shadow-lg ring-1 ring-border">
-							{#each filteredClients.slice(0, 6) as client}
-								<button type="button" onclick={() => addClient(client)}
-									class="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-sand">
-									{client.firstName} {client.lastName}
-									{#if client.phone}<span class="ml-2 text-xs text-muted">{client.phone}</span>{/if}
-								</button>
-							{/each}
-							{#if showCreateNew}
-								<button type="button" onclick={openNewClientPanel}
-									class="w-full border-t border-border px-4 py-2.5 text-left text-sm text-ocean transition-colors hover:bg-sand">
-									{m.booking_new_create_client()} "<span class="font-medium">{clientSearch}</span>"
-								</button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<div class="rounded-lg border border-ocean/30 bg-ocean/5 p-3 space-y-2">
-					<p class="text-xs font-semibold text-ocean">{m.booking_new_add_client()}</p>
-					<div class="grid grid-cols-2 gap-2">
-						<input bind:value={newFirstName} placeholder={m.client_new_first_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
-						<input bind:value={newLastName} placeholder={m.common_name()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
-					</div>
-					<input bind:value={newPhone} type="tel" placeholder={m.common_phone()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
-					<input bind:value={newEmail} type="email" placeholder={m.common_email()} class="w-full rounded-md border border-border px-2.5 py-2 text-sm" />
-					<div class="flex gap-2 pt-1">
-						<button type="button" onclick={saveNewClient} disabled={!newFirstName || creatingClient}
-							class="flex-1 rounded-md bg-ocean py-2 text-xs font-semibold text-white disabled:opacity-50">
-							{creatingClient ? m.booking_new_saving() : m.common_add()}
-						</button>
-						<button type="button" onclick={() => { newClientPanel = false; clientSearch = ''; }}
-							class="btn-ghost btn-sm">{m.common_cancel()}</button>
-					</div>
-				</div>
-			{/if}
+			<ClientSearchInput
+				clients={data.clients}
+				excludeIds={selectedClients.map(c => c.clientId)}
+				placeholder={m.booking_new_client_search()}
+				onSelect={(c) => addClient({ id: c.id, firstName: c.firstName, lastName: c.lastName, phone: null, email: null })}
+			/>
 		</div>
 
 		<!-- ── Notes (collapsed) ──────────────────────────────────────────────── -->
