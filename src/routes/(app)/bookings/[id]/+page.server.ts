@@ -321,15 +321,17 @@ export const actions: Actions = {
 			const sessions = await listSessionsForBooking(params.id);
 			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name })));
 		}
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Participant added' };
 	},
 
-	removeBookingParticipant: async ({ request, locals }) => {
+	removeBookingParticipant: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const id = form.get('participantId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'Missing participant id' });
 		await removeBookingParticipant(id);
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Participant removed' };
 	},
 
