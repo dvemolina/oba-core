@@ -443,7 +443,7 @@
 		{@const addSelectedGroup = addGroups.find(g => g.label === addAllocSelectedGroup) ?? null}
 		{@const availCount = (addSelectedGroup ? addSelectedGroup.items : addAllocItems).filter(i => i.status === 'available').length}
 		<form method="POST" action="?/addAlloc"
-			use:enhance={withToast(() => { addAllocSelectedGroup = null; addAllocQty = 1; })}
+			use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; })}
 			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
 			<!-- Type selector -->
 			{#if data.serviceInventoryLinks.length > 1}
@@ -728,13 +728,8 @@
 		{@const serviceMode = data.service?.pricingMode ?? null}
 		{@const basePrice = data.service?.basePrice ?? '0'}
 		<section class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
-			<div class="flex items-center justify-between px-4 pt-4 pb-2">
+			<div class="px-4 pt-4 pb-2">
 				<h2 class="text-xs font-semibold uppercase tracking-wider text-muted">{m.booking_detail_participants()}</h2>
-				{#if data.booking.status !== 'cancelled' && canSeeFinancials}
-					<form method="POST" action="?/recalcPrice" use:enhance={withToast()}>
-						<button type="submit" class="text-xs text-ocean hover:underline">Recalc price</button>
-					</form>
-				{/if}
 			</div>
 
 			<!-- Count stepper -->
@@ -794,15 +789,35 @@
 			</form>
 			{/if}
 
-			<!-- Price formula -->
-			{#if canSeeFinancials && serviceMode && participantCount > 0}
-			<div class="border-t border-border/50 px-4 py-3 bg-gray-50/60">
-				<p class="text-xs text-muted mb-0.5">Price formula</p>
-				<p class="text-sm font-medium text-gray-800">
-					{fmtPricingFormula(basePrice, serviceMode, { participants: participantCount, sessions })}
-				</p>
+			<!-- Price breakdown -->
+			{#if canSeeFinancials}
+			{@const totalDue = data.booking.clients.filter(c => c.status !== 'cancelled').reduce((s, c) => s + parseFloat(c.amountDue), 0)}
+			{@const totalPaid = data.booking.clients.filter(c => c.status !== 'cancelled').reduce((s, c) => s + parseFloat(c.amountPaid), 0)}
+			<div class="border-t border-border/50 px-4 py-3 bg-gray-50/60 space-y-1.5">
+				{#if serviceMode && participantCount > 0}
+					<div class="flex items-center justify-between">
+						<p class="text-xs text-muted">Formula</p>
+						<p class="text-sm font-medium text-gray-800">
+							{fmtPricingFormula(basePrice, serviceMode, { participants: participantCount, sessions })}
+						</p>
+					</div>
+				{/if}
+				<div class="flex items-center justify-between">
+					<p class="text-xs text-muted">Total due</p>
+					<p class="text-sm font-semibold text-gray-900">€{totalDue.toFixed(2)}</p>
+				</div>
+				<div class="flex items-center justify-between">
+					<p class="text-xs text-muted">Paid</p>
+					<p class="text-sm {totalPaid >= totalDue ? 'text-green-600 font-medium' : 'text-gray-700'}">€{totalPaid.toFixed(2)}</p>
+				</div>
+				{#if totalDue > totalPaid}
+					<div class="flex items-center justify-between border-t border-border/40 pt-1">
+						<p class="text-xs font-medium text-muted">Remaining</p>
+						<p class="text-sm font-semibold text-amber-600">€{(totalDue - totalPaid).toFixed(2)}</p>
+					</div>
+				{/if}
 				{#if data.booking.priceOverride}
-					<p class="text-xs text-amber-600 mt-0.5">Override active: €{data.booking.priceOverride}</p>
+					<p class="text-xs text-amber-600">⚠ Manual override active</p>
 				{/if}
 			</div>
 			{/if}
