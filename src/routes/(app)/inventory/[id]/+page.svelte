@@ -376,4 +376,43 @@
 	</div>
 	{/if}
 
+	{#if data.timeline.length > 0}
+	<section class="mt-6 rounded-xl border border-border bg-surface p-4">
+		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+			Disponibilidad — próximos 14 días
+		</h2>
+		<div class="overflow-x-auto">
+			<table class="w-full text-xs">
+				<thead>
+					<tr class="border-b border-border text-left text-muted">
+						<th class="pb-1.5 font-medium">Fecha</th>
+						<th class="pb-1.5 font-medium text-right">Confirmado</th>
+						<th class="pb-1.5 font-medium text-right">Pendiente</th>
+						<th class="pb-1.5 font-medium text-right">Disponible</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each data.timeline as row}
+						{@const isShortage = row.available < 0}
+						{@const hasPending = row.pending > 0}
+						<tr class="border-b border-border/40 last:border-b-0 {isShortage ? 'bg-red-50' : hasPending ? 'bg-amber-50/40' : ''}">
+							<td class="py-1.5 font-medium text-gray-700">
+								{new Date(row.date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
+							</td>
+							<td class="py-1.5 text-right text-gray-600">{row.confirmed}</td>
+							<td class="py-1.5 text-right {hasPending ? 'font-semibold text-amber-600' : 'text-gray-600'}">{row.pending}</td>
+							<td class="py-1.5 text-right font-semibold {isShortage ? 'text-red-600' : row.available === 0 ? 'text-amber-600' : 'text-emerald-600'}">
+								{row.available}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+		<p class="mt-2 text-[10px] text-muted">
+			Confirmado = item específico asignado · Pendiente = reservado sin variante · Verde = disponible · Rojo = déficit
+		</p>
+	</section>
+	{/if}
+
 </div>

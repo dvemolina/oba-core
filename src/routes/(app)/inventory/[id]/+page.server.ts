@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { requireRole, canEditServices } from '$lib/server/permissions';
+import { getAvailabilityTimeline } from '$lib/features/inventory/availability';
 import {
 	getInventoryItemTypeWithItems,
 	getInventoryItemType,
@@ -19,10 +20,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const itemType = await getInventoryItemTypeWithItems(params.id);
 	if (!itemType) error(404, 'Item type not found');
 	const role = locals.user?.role ?? '';
+	const today = new Date().toISOString().slice(0, 10);
+	const twoWeeksLater = new Date(Date.now() + 13 * 86400000).toISOString().slice(0, 10);
+	const timeline = itemType.trackingMode === 'pool' && (itemType.totalPoolSize ?? 0) > 0
+		? await getAvailabilityTimeline(params.id, today, twoWeeksLater)
+		: [];
 	return {
 		itemType,
 		canEdit: canEditServices(locals),
-		canManageItems: ['admin', 'owner', 'manager'].includes(role)
+		canManageItems: ['admin', 'owner', 'manager'].includes(role),
+		timeline
 	};
 };
 
