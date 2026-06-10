@@ -561,6 +561,18 @@
 					</div>
 				{/if}
 
+				{#if data.inventoryShortages.length > 0}
+					<a
+						href="/inventory"
+						class="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 hover:bg-amber-100"
+					>
+						<span class="font-semibold">⚠ Inventario insuficiente</span>
+						<span class="text-amber-600">·</span>
+						<span>{data.inventoryShortages.length} tipo{data.inventoryShortages.length > 1 ? 's' : ''} con déficit hoy</span>
+						<span class="ml-auto text-amber-500">→ Ver inventario</span>
+					</a>
+				{/if}
+
 				<!-- Events covering this day -->
 				{#each data.events as event}
 					<a href="/events/{event.id}" class="flex items-center gap-2 border-b border-confirmed/20 bg-confirmed/10 px-4 py-2.5">

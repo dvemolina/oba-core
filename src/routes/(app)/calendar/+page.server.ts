@@ -5,6 +5,7 @@ import { listEventsForDateRange } from '$lib/features/events/queries';
 import { listSessionsForDate, listSessionsForDateRange, updateSession } from '$lib/features/sessions/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
+import { getInventoryShortagesForDate } from '$lib/features/inventory/availability';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
@@ -43,6 +44,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const prevWeek = formatDate(new Date(weekStartDate.getTime() - 7 * 86400000));
 	const nextWeek = formatDate(new Date(weekStartDate.getTime() + 7 * 86400000));
 
+	const inventoryShortages = view === 'day'
+		? await getInventoryShortagesForDate(dayDate)
+		: [];
+
 	// Day view helpers
 	const prevDay = formatDate(new Date(new Date(dayDate + 'T00:00:00').getTime() - 86400000));
 	const nextDay = formatDate(new Date(new Date(dayDate + 'T00:00:00').getTime() + 86400000));
@@ -56,7 +61,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		bookings, events, daySessions, rangedSessions, instructors: instructorList, view, year, month,
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
-		today: todayStr
+		today: todayStr,
+		inventoryShortages
 	};
 };
 
