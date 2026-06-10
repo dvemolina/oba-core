@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
-	import { groupBookingsByDate, getDaysInMonth, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
+	import { getDaysInMonth, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
 	import { Tent } from 'lucide-svelte';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
