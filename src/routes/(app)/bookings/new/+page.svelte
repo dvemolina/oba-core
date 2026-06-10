@@ -265,7 +265,7 @@
 
 		<button type="submit" disabled={loading || selectedClients.length === 0}
 			class="btn-primary btn-block mt-2">
-			{loading ? m.booking_new_saving() : (isAccommodation ? m.booking_new_accommodation() : m.booking_new_submit())}
+			{loading ? m.booking_new_saving() : m.booking_new_accommodation()}
 		</button>
 	</form>
 </div>
