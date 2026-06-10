@@ -118,6 +118,7 @@ export async function getInventoryShortagesForDate(date: string): Promise<string
 	const poolTypes = types.filter((t) => t.totalPoolSize != null && t.totalPoolSize > 0);
 	const shortages: string[] = [];
 
+	// N+1 by design: acceptable for small inventory type counts in day view
 	for (const type of poolTypes) {
 		const breakdown = await getAvailabilityBreakdown(type.id, date);
 		if (breakdown.available < 0) shortages.push(type.id);

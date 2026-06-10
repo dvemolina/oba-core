@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
-	import { groupBookingsByDate, getDaysInMonth, fmtTimeRange, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
-	import { Zap, Tent } from 'lucide-svelte';
+	import { groupBookingsByDate, getDaysInMonth, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
+	import { Tent } from 'lucide-svelte';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import type { PageData } from './$types';
 	import type { BookingSummary } from '$lib/features/bookings/types';
@@ -40,7 +40,6 @@
 			: {} as Record<string, import('$lib/features/calendar/utils').InstructorConflict[]>
 	);
 
-	const grouped = $derived(groupBookingsByDate(data.bookings));
 	const today = $derived(data.today);
 
 	function setView(v: 'month' | 'week' | 'day') {
@@ -188,11 +187,6 @@
 		return 'rounded-none';
 	}
 
-	function chipClasses(booking: BookingSummary): string {
-		const c = getServiceColor(booking.serviceColor ?? '');
-		const opacity = booking.status === 'pending' ? 'opacity-60' : '';
-		return `${c.bg} ${c.text} ${opacity}`;
-	}
 	function pillClasses(booking: BookingSummary): string {
 		const c = getServiceColor(booking.serviceColor ?? '');
 		const opacity = booking.status === 'pending' ? 'opacity-60' : '';
@@ -200,10 +194,6 @@
 	}
 	function statusDot(status: string): string {
 		return status === 'confirmed' ? '●' : '○';
-	}
-
-	function weekChipClasses(booking: BookingSummary): string {
-		return chipClasses(booking);
 	}
 
 	// ── Day view ──────────────────────────────────────────────────────────────
