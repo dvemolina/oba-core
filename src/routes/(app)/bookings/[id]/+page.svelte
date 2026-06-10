@@ -12,6 +12,7 @@
 	import type { ServiceColorKey } from '$lib/features/services/colors';
 	import type { BookingClient } from '$lib/features/bookings/types';
 	import ContactButtons from '$lib/components/ContactButtons.svelte';
+	import AllocationBadge from '$lib/components/inventory/AllocationBadge.svelte';
 	import { Zap, Waves, Bell, Tent, Shuffle } from 'lucide-svelte';
 	import type { ActionData, PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
@@ -470,42 +471,41 @@
 
 		<!-- Existing allocations -->
 		{#if data.booking.allocations.length > 0}
-		<ul class="divide-y divide-gray-100">
+		<div class="flex flex-col gap-2 px-4 py-3">
 			{#each data.booking.allocations as alloc}
-			<li class="flex items-center justify-between gap-3 px-4 py-3">
-				<div class="min-w-0">
-					<p class="text-sm font-medium text-gray-900">
-						{alloc.quantity}× {alloc.itemTypeName}
-					</p>
-					{#if alloc.attributeFilter && Object.keys(alloc.attributeFilter).length > 0}
-						<div class="mt-0.5 flex flex-wrap gap-1">
-							{#each Object.values(alloc.attributeFilter) as v}
-								<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{v}</span>
-							{/each}
-						</div>
-					{/if}
-				</div>
-				<div class="flex shrink-0 items-center gap-2">
-					<form method="POST" action="?/updateAllocStatus" use:enhance={withToast()}>
-						<input type="hidden" name="allocId" value={alloc.id} />
-						<select name="status"
-							onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-							class="rounded-lg border border-gray-300 px-2 py-1 text-xs {ALLOC_STATUS_COLORS[alloc.status] ?? ''}">
-							{#each ALLOC_STATUS_OPTIONS as opt}
-								<option value={opt.value} selected={alloc.status === opt.value}>{opt.label}</option>
-							{/each}
-						</select>
-					</form>
+				<div class="flex items-start gap-2">
+					<div class="min-w-0 flex-1">
+						<AllocationBadge
+							allocation={alloc}
+							onAssign={(id) => { reassigningAllocId = reassigningAllocId === id ? null : id; }}
+						/>
+						{#if reassigningAllocId === alloc.id}
+							<form method="POST" action="?/reassignAllocItem" use:enhance={withToast()}
+								class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50/40 p-2"
+								onsubmit={() => { reassigningAllocId = null; }}>
+								<input type="hidden" name="allocId" value={alloc.id} />
+								<select name="itemId" class="flex-1 rounded-lg border border-border px-2 py-1.5 text-sm">
+									<option value="">— sin asignar —</option>
+									{#each (data.itemsByAllocType[alloc.itemTypeId] ?? []) as item}
+										<option value={item.id} selected={alloc.itemId === item.id}>{item.name}</option>
+									{/each}
+								</select>
+								<button type="submit"
+									class="shrink-0 rounded-lg bg-ocean px-3 py-1.5 text-xs font-semibold text-white hover:bg-ocean/90">
+									Guardar
+								</button>
+							</form>
+						{/if}
+					</div>
 					<form method="POST" action="?/removeAlloc" use:enhance={withToast()}>
 						<input type="hidden" name="allocId" value={alloc.id} />
 						<button type="submit"
 							onclick={(e) => { if (!confirm('Remove this allocation?')) e.preventDefault(); }}
-							class="rounded p-1 text-gray-400 hover:text-red-500">✕</button>
+							class="mt-2.5 shrink-0 rounded p-1 text-gray-400 hover:text-red-500">✕</button>
 					</form>
 				</div>
-			</li>
 			{/each}
-		</ul>
+		</div>
 		{:else if !addingAlloc}
 		<p class="px-4 py-4 text-sm text-gray-400">No items allocated yet.</p>
 		{/if}
