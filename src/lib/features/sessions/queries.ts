@@ -518,7 +518,9 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 				bookingId: bookingClients.bookingId,
 				firstName: clients.firstName,
 				lastName: clients.lastName,
-				phone: clients.phone
+				phone: clients.phone,
+				amountDue: bookingClients.amountDue,
+				amountPaid: bookingClients.amountPaid
 			})
 			.from(bookingClients)
 			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
@@ -565,7 +567,9 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 				isFlexible: first.isFlexible ?? false,
 				participantNames,
 				enrolledCount: bClients.length,
-				maxCapacity: first.serviceMaxCapacity
+				maxCapacity: first.serviceMaxCapacity,
+				totalAmountDue: bClients.reduce((sum, c) => sum + parseFloat(c.amountDue ?? '0'), 0),
+				totalAmountPaid: bClients.reduce((sum, c) => sum + parseFloat(c.amountPaid ?? '0'), 0)
 			} satisfies AgendaSession;
 		});
 }

@@ -72,10 +72,12 @@
 		{#if session.time}
 			<p class="text-[10px] font-semibold {color.text}">{session.time.slice(0, 5)}</p>
 		{/if}
-		<p class="truncate text-[11px] font-medium text-gray-800">{session.serviceName ?? 'Session'}</p>
+		<p class="truncate text-[11px] font-medium text-gray-800">
+			{session.serviceName ?? 'Session'}{session.participantNames[0] ? ` · ${session.participantNames[0]}` : ''}
+		</p>
 		{#if session.participantNames.length > 0}
-			<p class="truncate text-[10px] text-muted">
-				{session.participantNames[0]}{session.participantNames.length > 1 ? ` +${session.participantNames.length - 1}` : ''}
+			<p class="text-[10px] text-muted">
+				{session.participantNames.length} participante{session.participantNames.length !== 1 ? 's' : ''}
 			</p>
 		{/if}
 	</button>
@@ -90,6 +92,8 @@
 			participantNames={session.participantNames}
 			bookingStatus={session.bookingStatus}
 			date={session.date}
+			totalAmountDue={session.totalAmountDue}
+			totalAmountPaid={session.totalAmountPaid}
 		/>
 		<div class="mt-3 flex gap-2">
 			<a

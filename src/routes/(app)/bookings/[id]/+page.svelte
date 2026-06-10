@@ -153,6 +153,7 @@
 	let addAllocTypeId = $state(data.serviceInventoryLinks[0]?.itemTypeId ?? '');
 	let addAllocQty = $state(1);
 	let addAllocSelectedGroup = $state<string | null>(null);
+	let addFuzzy = $state(false);
 	let reassigningAllocId = $state<string | null>(null);
 	let reassignGroupSelections = $state<Record<string, string | null>>({});
 
@@ -381,7 +382,7 @@
 			{#if data.serviceInventoryLinks.length > 0 && data.booking.status !== 'cancelled'}
 			<button
 				type="button"
-				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocQty = 1; addAllocSelectedGroup = null; }}
+				onclick={() => { addingAlloc = !addingAlloc; addAllocTypeId = data.serviceInventoryLinks[0]?.itemTypeId ?? ''; addAllocQty = 1; addAllocSelectedGroup = null; addFuzzy = false; }}
 				class="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
 			>+ Add</button>
 			{/if}
@@ -395,14 +396,14 @@
 		{@const addSelectedGroup = addGroups.find(g => g.label === addAllocSelectedGroup) ?? null}
 		{@const availCount = (addSelectedGroup ? addSelectedGroup.items : addAllocItems).filter(i => i.status === 'available').length}
 		<form method="POST" action="?/addAlloc"
-			use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; })}
+			use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; addFuzzy = false; })}
 			class="border-b border-gray-100 bg-gray-50 p-4 space-y-3">
 			<!-- Type selector -->
 			{#if data.serviceInventoryLinks.length > 1}
 			<div>
 				<label class="mb-1 block text-xs font-medium text-gray-600">Tipo</label>
 				<select name="itemTypeId" bind:value={addAllocTypeId}
-					onchange={() => { addAllocSelectedGroup = null; addAllocQty = 1; }}
+					onchange={() => { addAllocSelectedGroup = null; addAllocQty = 1; addFuzzy = false; }}
 					class="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-ocean focus:outline-none focus:ring-1 focus:ring-ocean">
 					{#each data.serviceInventoryLinks as link}
 						<option value={link.itemTypeId}>{link.itemType.name}</option>
@@ -420,9 +421,9 @@
 				<p class="mb-1.5 text-xs font-medium text-gray-600">Variante</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each addGroups as group}
-					{@const isSelected = addAllocSelectedGroup === group.label}
+					{@const isSelected = addAllocSelectedGroup === group.label && !addFuzzy}
 					<button type="button"
-						onclick={() => { addAllocSelectedGroup = isSelected ? null : group.label; addAllocQty = 1; }}
+						onclick={() => { addAllocSelectedGroup = isSelected ? null : group.label; addAllocQty = 1; addFuzzy = false; }}
 						class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
 							{group.available === 0 ? 'opacity-50' : ''}
 							{isSelected ? 'border-ocean bg-ocean/5 text-ocean' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'}">
@@ -430,17 +431,26 @@
 						<span class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700 font-normal">{group.available}</span>
 					</button>
 					{/each}
+					<button type="button"
+						onclick={() => { addFuzzy = !addFuzzy; addAllocSelectedGroup = null; addAllocQty = 1; }}
+						class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors
+							{addFuzzy ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-dashed border-gray-300 bg-white text-gray-500 hover:border-gray-400'}">
+						Sin variante específica
+					</button>
 				</div>
-				{#if addSelectedGroup}
+				{#if addSelectedGroup && !addFuzzy}
 					{#each Object.entries(addSelectedGroup.attrs) as [key, val]}
 						{#if val}<input type="hidden" name="attrKey" value={key} /><input type="hidden" name="attrVal" value={val} />{/if}
 					{/each}
 				{/if}
+				{#if addFuzzy}
+					<input type="hidden" name="fuzzy" value="true" />
+				{/if}
 			</div>
 			{/if}
 
-			<!-- Quantity stepper — always shown once variant selected (or if no variants) -->
-			{#if !addAttrEntries.length || addSelectedGroup}
+			<!-- Quantity stepper — shown once variant selected, fuzzy chosen, or no variants -->
+			{#if !addAttrEntries.length || addSelectedGroup || addFuzzy}
 			<div class="flex items-center gap-3">
 				<label class="text-xs font-medium text-gray-600">Cantidad</label>
 				<div class="flex items-center gap-2">
@@ -450,19 +460,21 @@
 					<button type="button" onclick={() => addAllocQty = Math.min(availCount, addAllocQty + 1)}
 						class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-sm text-gray-600 hover:bg-gray-100">+</button>
 				</div>
-				{#if availCount === 0}
+				{#if availCount === 0 && !addFuzzy}
 					<span class="text-xs text-red-500">Sin stock</span>
+				{:else if addFuzzy}
+					<span class="text-xs text-amber-600">⚠ Pendiente de asignar</span>
 				{:else}
 					<span class="text-xs text-muted">{availCount} disponibles</span>
 				{/if}
 			</div>
 			<input type="hidden" name="quantity" value={addAllocQty} />
 			<div class="flex gap-2">
-				<button type="submit" disabled={addAllocQty < 1 || availCount === 0}
+				<button type="submit" disabled={addAllocQty < 1 || (availCount === 0 && !addFuzzy)}
 					class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-medium text-white hover:bg-ocean/90 disabled:opacity-40">
 					Añadir {addAllocQty}
 				</button>
-				<button type="button" onclick={() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; }}
+				<button type="button" onclick={() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; addFuzzy = false; }}
 					class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
 			</div>
 			{/if}

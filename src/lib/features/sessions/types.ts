@@ -68,6 +68,9 @@ export interface AgendaSession extends Session {
 	// For camps (roster): enrollment aggregate
 	enrolledCount: number;
 	maxCapacity: number | null;
+	// Payment totals across all enrolled clients
+	totalAmountDue: number;
+	totalAmountPaid: number;
 }
 
 export interface CreateSessionInput {

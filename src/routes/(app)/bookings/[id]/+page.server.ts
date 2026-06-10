@@ -377,6 +377,7 @@ export const actions: Actions = {
 		const type = await getInventoryItemType(itemTypeId);
 		if (!type) return fail(400, { error: 'Item type not found' });
 
+		const fuzzy = form.get('fuzzy') === 'true';
 		const attrKeys = form.getAll('attrKey').map(String);
 		const attrVals = form.getAll('attrVal').map(String);
 		const attributeFilter = attrKeys.length > 0
@@ -385,14 +386,14 @@ export const actions: Actions = {
 
 		const startDate = booking.date;
 		const endDate = booking.dateEnd ?? null;
-		const avail = await checkAvailability(itemTypeId, startDate, endDate, qty, undefined, params.id);
-		if (avail.availableCount < qty) {
-			return fail(400, { error: `Not enough "${type.name}" available` });
-		}
 
-		// For specific-tracked types: create one allocation per unit (auto-assigned)
-		// For pool-tracked types: single allocation with quantity
-		if (type.trackingMode === 'specific') {
+		// For specific-tracked types with variant selected: auto-assign items and check availability
+		// For fuzzy (no variant chosen) or pool mode: create pending allocation with itemId=null
+		if (type.trackingMode === 'specific' && !fuzzy) {
+			const avail = await checkAvailability(itemTypeId, startDate, endDate, qty, undefined, params.id);
+			if (avail.availableCount < qty) {
+				return fail(400, { error: `Not enough "${type.name}" available` });
+			}
 			const itemIds = avail.availableItems.slice(0, qty).map(i => i.id);
 			await createAllocations(itemIds.map(itemId => ({
 				bookingId: params.id, itemTypeId, itemId, quantity: 1, attributeFilter, startDate, endDate
