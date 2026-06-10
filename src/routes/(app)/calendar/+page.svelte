@@ -8,6 +8,7 @@
 	import type { BookingSummary } from '$lib/features/bookings/types';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import SessionCard from '$lib/components/calendar/SessionCard.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -412,8 +413,6 @@
 									<div class="border-r border-border/40 bg-sand/40 last:border-r-0"></div>
 								{:else}
 									{@const isToday = dateStr === today}
-									{@const daySessionCount = data.rangedSessions.filter(s => s.date === dateStr).length}
-
 									<div class="group relative flex flex-col overflow-hidden border-r border-border/40 last:border-r-0
 										{isToday ? 'bg-ocean/5' : 'bg-surface'}">
 
@@ -439,13 +438,13 @@
 													<span class="sm:hidden">🏕️</span>
 												</a>
 											{/each}
-											<!-- session count dot -->
-											{#if daySessionCount > 0}
-												<span class="mt-0.5 flex items-center justify-center gap-0.5">
-													<span class="inline-block h-1.5 w-1.5 rounded-full bg-ocean/70"></span>
-													{#if daySessionCount > 1}
-														<span class="text-[9px] text-muted leading-none">{daySessionCount}</span>
-													{/if}
+											<!-- session compact cards -->
+											{#each data.rangedSessions.filter(s => s.date === dateStr).slice(0, 3) as session}
+												<SessionCard {session} size="compact" />
+											{/each}
+											{#if data.rangedSessions.filter(s => s.date === dateStr).length > 3}
+												<span class="text-[9px] text-muted leading-none px-1">
+													+{data.rangedSessions.filter(s => s.date === dateStr).length - 3}
 												</span>
 											{/if}
 										</div>
