@@ -515,11 +515,7 @@
 								</div>
 							{:else}
 								{#each daySessions as s}
-									{@const c = getServiceColor(s.serviceColor ?? '')}
-									<a href="/bookings/{s.bookingId}"
-										class="block truncate rounded px-1.5 py-0.5 text-[10px] leading-tight {c.bg} {c.text} ring-1 {c.border} mb-0.5">
-										{s.time ? s.time.slice(0, 5) + ' ' : ''}{s.serviceName ?? 'Session'}
-									</a>
+									<SessionCard session={s} size="medium" />
 								{/each}
 							{/if}
 						</div>
