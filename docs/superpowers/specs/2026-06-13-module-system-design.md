@@ -346,9 +346,51 @@ No `if/else` chains based on service type anywhere.
 
 ---
 
+## CRUD — Re-assigning Service on Existing Booking
+
+Changing a booking's service is allowed but potentially destructive (module set changes).
+
+**Flow:**
+1. `validateServiceReassignment(bookingId, newServiceId)` returns a `MigrationPlan` describing what will be deleted, kept, or added.
+2. UI presents the diff explicitly: "Changing to Clase privada will delete 2 enrollments (Juan, Pedro) and 3 sessions."
+3. Manager must confirm each destructive action explicitly. Never silent deletion.
+4. All changes execute in a single atomic transaction — full rollback on any failure.
+
+**Per-module cascade rules on service change:**
+- `roster` removed → CASCADE DELETE extra enrollments (keep only 1) after confirmation
+- `sessions` removed → CASCADE DELETE `bookingSessions` + orphaned `sessions`
+- `editions` removed → set `serviceEditionId = null`
+- `inventory` removed → DELETE `inventoryAllocations`
+- `instructor` removed → DELETE `bookingInstructors`
+
+---
+
+## Price Override
+
+`priceOverride` lives at enrollment level (`bookingClients`), not booking level.
+
+```sql
+-- bookings: remove
+price_override NUMERIC
+
+-- booking_clients: add
+price_override NUMERIC    -- if set, overrides calculated amountDue
+override_reason TEXT      -- optional manager note
+```
+
+Pricing engine respects override:
+```typescript
+const amountDue = enrollment.priceOverride ?? calculateAmountDue(service, enrollment, context)
+```
+
+Participants don't pay individually — the client pays for all their participants. Per-enrollment granularity is the correct and sufficient level.
+
+---
+
 ## Out of Scope (this iteration)
 
 - `bundle` module — package deals combining multiple services
+- `recurring` module — auto-generate sessions from recurrence rule (RRULE). Data model already supports it; future module adds automated session creation. Relevant for ski clubs, sailing clubs, weekly recurring activities.
 - Instructor login / instructor-facing views
 - Client portal
 - WhatsApp/email reminders
