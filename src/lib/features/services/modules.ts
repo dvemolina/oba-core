@@ -41,8 +41,10 @@ export function activeModuleKeys(modules: ServiceModules): ModuleKey[] {
 	return ORDER.filter(k => k in modules)
 }
 
+import type { PricingMode } from './types'
+
 /** Suggest a default pricing mode based on active modules. */
-export function defaultPricingModeForModules(modules: ServiceModules): import('./types').PricingMode {
+export function defaultPricingModeForModules(modules: ServiceModules): PricingMode {
 	if (modules.credits) return 'flat'
 	if (modules.inventory && modules.editions) return 'per_person'
 	if (modules.inventory && !modules.sessions) return 'per_unit'
