@@ -163,8 +163,8 @@
 					>
 						<div class="min-w-0">
 							<p class="font-medium text-gray-800">{camp.serviceName ?? 'Camp'}</p>
-							{#if camp.serviceRunStartDate}
-								<p class="text-xs text-muted">{camp.serviceRunStartDate} → {camp.serviceRunEndDate}</p>
+							{#if camp.serviceEditionStartDate}
+								<p class="text-xs text-muted">{camp.serviceEditionStartDate} → {camp.serviceEditionEndDate}</p>
 							{:else}
 								<p class="text-xs text-muted">{camp.date}{camp.dateEnd ? ` → ${camp.dateEnd}` : ''}</p>
 							{/if}

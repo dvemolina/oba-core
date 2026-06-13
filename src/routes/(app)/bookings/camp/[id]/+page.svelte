@@ -3,9 +3,9 @@
 	import * as m from '$lib/paraglide/messages';
 	let { data }: { data: PageData } = $props();
 
-	let activeRunId = $state(data.focusRunId ?? data.runs[0]?.id ?? '');
-	const activeRun = $derived(data.runs.find(r => r.id === activeRunId));
-	const activeBookings = $derived(data.bookingsByRun[activeRunId] ?? []);
+	let activeEditionId = $state(data.focusEditionId ?? data.editions[0]?.id ?? '');
+	const activeEdition = $derived(data.editions.find(e => e.id === activeEditionId));
+	const activeBookings = $derived(data.bookingsByEdition[activeEditionId] ?? []);
 	const totalEnrolled = $derived(activeBookings.reduce((s, b) => s + (b.clientCount ?? 0), 0));
 </script>
 
@@ -15,23 +15,23 @@
 		<h1 class="text-xl font-bold text-navy">{m.camp_roster_title()}</h1>
 	</div>
 
-	{#if data.runs.length === 0}
+	{#if data.editions.length === 0}
 		<div class="rounded-lg bg-sand p-6 text-center">
 			<p class="text-sm text-muted">{m.camp_roster_no_runs()}</p>
 			<a href="/services/{data.service.id}" class="mt-2 block text-sm text-ocean hover:underline">{m.camp_roster_add_run()}</a>
 		</div>
 	{:else}
-		<!-- Run tabs -->
+		<!-- Edition tabs -->
 		<div class="mb-4 flex flex-wrap gap-2">
-			{#each data.runs as run}
+			{#each data.editions as edition}
 				<button
-					onclick={() => activeRunId = run.id}
-					class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors {activeRunId === run.id ? 'bg-ocean text-white' : 'bg-surface ring-1 ring-border hover:ring-ocean/50'}"
+					onclick={() => activeEditionId = edition.id}
+					class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors {activeEditionId === edition.id ? 'bg-ocean text-white' : 'bg-surface ring-1 ring-border hover:ring-ocean/50'}"
 				>
-					{run.startDate} → {run.endDate}
-					{#if run.maxCapacity}
+					{edition.startDate} → {edition.endDate}
+					{#if edition.maxCapacity}
 						<span class="ml-1 text-xs opacity-75">
-							{(data.bookingsByRun[run.id] ?? []).reduce((s, b) => s + (b.clientCount ?? 0), 0)}/{run.maxCapacity}
+							{(data.bookingsByEdition[edition.id] ?? []).reduce((s, b) => s + (b.clientCount ?? 0), 0)}/{edition.maxCapacity}
 						</span>
 					{/if}
 				</button>
@@ -41,19 +41,19 @@
 			</a>
 		</div>
 
-		{#if activeRun}
-			<!-- Run summary -->
+		{#if activeEdition}
+			<!-- Edition summary -->
 			<div class="mb-4 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
 				<div class="flex items-center justify-between">
 					<div>
-						<p class="font-semibold text-gray-800">{activeRun.startDate} → {activeRun.endDate}</p>
-						{#if activeRun.maxCapacity}
-							<p class="text-xs text-muted">{totalEnrolled} / {activeRun.maxCapacity} {m.camp_roster_spots_filled()}</p>
+						<p class="font-semibold text-gray-800">{activeEdition.startDate} → {activeEdition.endDate}</p>
+						{#if activeEdition.maxCapacity}
+							<p class="text-xs text-muted">{totalEnrolled} / {activeEdition.maxCapacity} {m.camp_roster_spots_filled()}</p>
 						{:else}
 							<p class="text-xs text-muted">{totalEnrolled} {m.camp_roster_enrolled()}</p>
 						{/if}
-						{#if activeRun.notes}
-							<p class="mt-0.5 text-xs text-muted">{activeRun.notes}</p>
+						{#if activeEdition.notes}
+							<p class="mt-0.5 text-xs text-muted">{activeEdition.notes}</p>
 						{/if}
 					</div>
 					<a
