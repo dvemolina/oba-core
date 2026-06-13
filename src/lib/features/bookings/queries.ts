@@ -103,11 +103,7 @@ export async function listBookingsForDateRange(
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions,
-			serviceHasRoster: services.hasRoster,
-			serviceHasDateRange: services.hasDateRange,
-			serviceHasInventoryUnits: services.hasInventoryUnits,
-			serviceRequiresInstructor: services.requiresInstructor,
+			serviceModules: services.modules,
 			serviceMaxCapacity: services.maxCapacity,
 			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
@@ -150,6 +146,11 @@ export async function listBookingsForDateRange(
 
 	return withInstructors.map(r => ({
 		...r,
+		serviceHasSessions: 'sessions' in (r.serviceModules ?? {}),
+		serviceHasRoster: 'roster' in (r.serviceModules ?? {}),
+		serviceHasDateRange: 'editions' in (r.serviceModules ?? {}),
+		serviceHasInventoryUnits: 'inventory' in (r.serviceModules ?? {}),
+		serviceRequiresInstructor: (r.serviceModules as { instructor?: { required?: boolean } } | null)?.instructor?.required ?? false,
 		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
@@ -163,11 +164,7 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions,
-			serviceHasRoster: services.hasRoster,
-			serviceHasDateRange: services.hasDateRange,
-			serviceHasInventoryUnits: services.hasInventoryUnits,
-			serviceRequiresInstructor: services.requiresInstructor,
+			serviceModules: services.modules,
 			serviceMaxCapacity: services.maxCapacity,
 			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
@@ -204,6 +201,11 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 	}
 	return withInstructors.map(r => ({
 		...r,
+		serviceHasSessions: 'sessions' in (r.serviceModules ?? {}),
+		serviceHasRoster: 'roster' in (r.serviceModules ?? {}),
+		serviceHasDateRange: 'editions' in (r.serviceModules ?? {}),
+		serviceHasInventoryUnits: 'inventory' in (r.serviceModules ?? {}),
+		serviceRequiresInstructor: (r.serviceModules as { instructor?: { required?: boolean } } | null)?.instructor?.required ?? false,
 		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
@@ -217,15 +219,14 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions,
-			serviceHasRoster: services.hasRoster,
-			serviceHasDateRange: services.hasDateRange,
-			serviceHasInventoryUnits: services.hasInventoryUnits,
-			serviceRequiresInstructor: services.requiresInstructor,
+			serviceModules: services.modules,
 			serviceMaxCapacity: services.maxCapacity,
 			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
+			serviceEditionId: bookings.serviceEditionId,
+			serviceEditionStartDate: serviceEditions.startDate,
+			serviceEditionEndDate: serviceEditions.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -233,6 +234,7 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
+		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
 		.orderBy(desc(bookings.date));
 
 	const withInstructors = await attachInstructorsToBookings(rows);
@@ -272,6 +274,11 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 
 	return withInstructors.map(r => ({
 		...r,
+		serviceHasSessions: 'sessions' in (r.serviceModules ?? {}),
+		serviceHasRoster: 'roster' in (r.serviceModules ?? {}),
+		serviceHasDateRange: 'editions' in (r.serviceModules ?? {}),
+		serviceHasInventoryUnits: 'inventory' in (r.serviceModules ?? {}),
+		serviceRequiresInstructor: (r.serviceModules as { instructor?: { required?: boolean } } | null)?.instructor?.required ?? false,
 		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null,
@@ -288,9 +295,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions,
-			serviceHasRoster: services.hasRoster,
-			serviceHasDateRange: services.hasDateRange,
+			serviceModules: services.modules,
 			serviceMaxCapacity: services.maxCapacity,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
@@ -349,6 +354,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 	const allocations = await listAllocationsForBooking(booking.id);
 	return {
 		...booking,
+		serviceHasSessions: 'sessions' in (booking.serviceModules ?? {}),
+		serviceHasRoster: 'roster' in (booking.serviceModules ?? {}),
+		serviceHasDateRange: 'editions' in (booking.serviceModules ?? {}),
 		instructorId: instrRow?.instructorId ?? null,
 		instructorName: instrRow?.instructorName ?? null,
 		clients: bookingClientRows,
@@ -624,12 +632,7 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 
 	const basePrice = parseFloat(service.basePrice);
 	// Fall back to smart default when pricingMode not set (e.g. legacy services).
-	const mode = service.pricingMode ?? defaultPricingMode({
-		hasSessions: !!service.hasSessions,
-		hasRoster: !!service.hasRoster,
-		hasDateRange: !!service.hasDateRange,
-		hasInventoryUnits: !!service.hasInventoryUnits,
-	});
+	const mode = service.pricingMode ?? defaultPricingMode(service.modules ?? {});
 
 	for (const bc of activeClients) {
 		// Each booking client carries their own participantCount (defaults to 1).
