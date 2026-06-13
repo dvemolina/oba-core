@@ -17,7 +17,8 @@
 
     const hasSessions = $derived('sessions' in modules);
     let editingInstructor = $state(false);
-    let selectedInstructorId = $state($derived(booking.instructorId ?? ''));
+    let selectedInstructorId = $state(booking.instructorId ?? '');
+    $effect(() => { selectedInstructorId = booking.instructorId ?? ''; });
 </script>
 
 <div class="rounded-(--radius-card) overflow-hidden border border-green-100 bg-white">
