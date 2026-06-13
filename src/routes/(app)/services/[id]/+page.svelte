@@ -10,6 +10,19 @@
 	import { Trash2 } from 'lucide-svelte';
 	import { PRICING_MODE_OPTIONS, defaultPricingMode } from '$lib/utils/pricing';
 	import type { ServiceModules } from '$lib/utils/pricing';
+	import { MODULE_DEFINITIONS } from '$lib/modules/index';
+
+	function getDefaultConfig(key: string): Record<string, unknown> {
+		switch (key) {
+			case 'roster':     return { maxCapacity: 8 }
+			case 'sessions':   return { durationMinutes: 90 }
+			case 'instructor': return { required: true }
+			case 'editions':   return {}
+			case 'inventory':  return { perParticipant: true as const }
+			case 'credits':    return { creditsIncluded: 5, validityMode: 'season', compatibleServiceIds: [] }
+			default:           return {}
+		}
+	}
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -430,38 +443,26 @@
 					{m.service_detail_edit_flags()}
 				</summary>
 				<div class="space-y-2 border-t border-border px-4 py-3">
-					{#each [
-						{ key: 'sessions',   label: m.service_new_flag_has_sessions(),        desc: m.service_new_flag_has_sessions_desc() },
-						{ key: 'roster',     label: m.service_new_flag_has_roster(),           desc: m.service_new_flag_has_roster_desc() },
-						{ key: 'editions',   label: m.service_new_flag_has_date_range(),       desc: m.service_new_flag_has_date_range_desc() },
-						{ key: 'inventory',  label: m.service_new_flag_has_inventory(),        desc: m.service_new_flag_has_inventory_desc() },
-						{ key: 'instructor', label: m.service_new_flag_requires_instructor(), desc: m.service_new_flag_requires_instructor_desc() },
-					] as flag}
+					{#each MODULE_DEFINITIONS as mod}
+						{@const isActive = mod.key === 'instructor' ? !!(editModules as any).instructor?.required : mod.key in (editModules as Record<string, unknown>)}
 						<label class="flex cursor-pointer items-start gap-3">
 							<input type="checkbox"
-								checked={flag.key === 'instructor' ? !!editModules.instructor?.required : flag.key in editModules}
+								checked={isActive}
 								onchange={(e) => {
 									const v = (e.target as HTMLInputElement).checked;
-									if (flag.key === 'sessions') {
-										if (v) editModules = { ...editModules, sessions: {} };
-										else { const { sessions: _, ...rest } = editModules; editModules = rest; }
-									} else if (flag.key === 'roster') {
-										if (v) editModules = { ...editModules, roster: { maxCapacity: 0 } };
-										else { const { roster: _, ...rest } = editModules; editModules = rest; }
-									} else if (flag.key === 'editions') {
-										if (v) editModules = { ...editModules, editions: {} };
-										else { const { editions: _, ...rest } = editModules; editModules = rest; }
-									} else if (flag.key === 'inventory') {
-										if (v) editModules = { ...editModules, inventory: { perParticipant: true } };
-										else { const { inventory: _, ...rest } = editModules; editModules = rest; }
+									if (mod.key === 'instructor') {
+										editModules = { ...editModules, instructor: { required: v } } as any;
+									} else if (v) {
+										editModules = { ...editModules, [mod.key]: getDefaultConfig(mod.key) } as any;
 									} else {
-										editModules = { ...editModules, instructor: { required: v } };
+										const { [mod.key]: _, ...rest } = editModules as Record<string, unknown>;
+										editModules = rest as any;
 									}
 								}}
 								class="mt-0.5 h-4 w-4 accent-ocean" />
 							<div>
-								<p class="text-sm font-medium text-gray-800">{flag.label}</p>
-								<p class="text-xs text-muted">{flag.desc}</p>
+								<p class="text-sm font-medium text-gray-800">{mod.icon} {mod.label}</p>
+								<p class="text-xs text-muted">{mod.description}</p>
 							</div>
 						</label>
 					{/each}
