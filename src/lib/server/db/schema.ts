@@ -174,7 +174,7 @@ export const bookingParticipants = pgTable('booking_participants', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
-	bookingIdTemp: text('booking_id'),  // kept temporarily for migration script
+	bookingIdTemp: text('booking_id_temp'),  // kept temporarily for migration script
 	bookingClientId: text('booking_client_id').references(() => bookingClients.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
 	notes: text('notes'),
