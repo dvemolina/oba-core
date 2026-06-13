@@ -44,6 +44,8 @@ export const actions: Actions = {
 		const clientIds = form.getAll('clientId').map(String).filter(Boolean);
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
+		const participantCounts = form.getAll('participantCount').map((v) => parseInt(v as string) || 1);
+
 		// Calculate initial amountDue from pricingMode.
 		// 1 participant assumed at creation — recalculated when participants are set from detail page.
 		const _svc = service!;
@@ -53,7 +55,11 @@ export const actions: Actions = {
 			return calculateAmount(base, _svc.pricingMode, { participants: 1, sessions, days }).toFixed(2);
 		}
 
-		const bookingClients = clientIds.map((clientId) => ({ clientId, amountDue: initialAmountDue() }));
+		const bookingClients = clientIds.map((clientId, i) => ({
+			clientId,
+			amountDue: initialAmountDue(),
+			participantCount: participantCounts[i] ?? 1
+		}));
 
 		const spotNotes = form.get('spotNotes')?.toString().trim() || undefined;
 		const notes     = form.get('notes')?.toString().trim() || undefined;
@@ -69,7 +75,11 @@ export const actions: Actions = {
 				const d = Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000);
 				days = Math.max(1, d);
 			}
-			const invClients = clientIds.map(clientId => ({ clientId, amountDue: initialAmountDue(days) }));
+			const invClients = clientIds.map((clientId, i) => ({
+				clientId,
+				amountDue: initialAmountDue(days),
+				participantCount: participantCounts[i] ?? 1
+			}));
 
 			const booking = await createBooking({
 				serviceId,
