@@ -9,6 +9,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import { Trash2 } from 'lucide-svelte';
 	import { PRICING_MODE_OPTIONS, defaultPricingMode } from '$lib/utils/pricing';
+	import type { ServiceModules } from '$lib/utils/pricing';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -26,12 +27,8 @@
 	let editing = $state(false);
 	let loading = $state(false);
 
-	// Edit-mode capability flags (initialised from service, user can modify)
-	let editHasSessions       = $state(data.service.hasSessions);
-	let editHasRoster         = $state(data.service.hasRoster);
-	let editHasDateRange      = $state(data.service.hasDateRange);
-	let editHasInventoryUnits = $state(data.service.hasInventoryUnits);
-	let editRequiresInstructor = $state(data.service.requiresInstructor);
+	// Edit-mode modules (initialised from service, user can modify)
+	let editModules = $state<ServiceModules>({ ...data.service.modules });
 
 	const TEMPLATE_LABELS: Record<string, string> = {
 		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
@@ -41,11 +38,11 @@
 
 	// Capability badge labels for view mode
 	const capabilityBadges = $derived([
-		data.service.hasSessions       && 'Sessions',
-		data.service.hasRoster         && 'Roster',
-		data.service.hasDateRange      && 'Date range',
-		data.service.hasInventoryUnits && 'Inventory units',
-		data.service.requiresInstructor && 'Instructor',
+		data.service.modules?.sessions                    && 'Sessions',
+		data.service.modules?.roster                      && 'Roster',
+		data.service.modules?.editions                    && 'Date range',
+		data.service.modules?.inventory                   && 'Inventory units',
+		data.service.modules?.instructor?.required        && 'Instructor',
 	].filter(Boolean) as string[]);
 
 	function serviceEnhance() {
@@ -134,7 +131,7 @@
 			{/if}
 		</div>
 
-		{#if data.service.hasInventoryUnits}
+		{#if data.service.modules?.inventory}
 		<section class="mb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
 			<div class="flex items-center justify-between border-b border-gray-100 p-4">
 				<h2 class="font-semibold text-gray-900">{m.service_detail_linked_inventory()}</h2>
@@ -287,7 +284,7 @@
 		{/if}
 
 		<!-- Runs (for date-range services) -->
-		{#if data.service.hasDateRange && canEditServices}
+		{#if data.service.modules?.editions && canEditServices}
 			<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
 				<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.service_detail_runs()}</h2>
 				<p class="mb-3 text-xs text-muted">{m.service_detail_runs_desc()}</p>
@@ -362,7 +359,7 @@
 
 		<!-- Actions -->
 		<div class="flex flex-col gap-2">
-			{#if data.service.hasRoster && data.runs?.length > 0}
+			{#if data.service.modules?.roster && data.runs?.length > 0}
 				<a href="/bookings/camp/{data.service.id}" class="btn-primary btn-block text-center">
 					{m.service_detail_open_roster()}
 				</a>
@@ -372,11 +369,7 @@
 				<button
 					type="button"
 					onclick={() => {
-					editHasSessions = data.service.hasSessions;
-					editHasRoster = data.service.hasRoster;
-					editHasDateRange = data.service.hasDateRange;
-					editHasInventoryUnits = data.service.hasInventoryUnits;
-					editRequiresInstructor = data.service.requiresInstructor;
+					editModules = { ...data.service.modules };
 					editing = true;
 				}}
 					class="btn-secondary flex-1"
@@ -403,12 +396,8 @@
 			class="space-y-4"
 			use:enhance={serviceEnhance()}
 		>
-			<!-- Hidden capability flags (kept in sync with toggle UI below) -->
-			<input type="hidden" name="hasSessions"        value={String(editHasSessions)} />
-			<input type="hidden" name="hasRoster"          value={String(editHasRoster)} />
-			<input type="hidden" name="hasDateRange"       value={String(editHasDateRange)} />
-			<input type="hidden" name="hasInventoryUnits"  value={String(editHasInventoryUnits)} />
-			<input type="hidden" name="requiresInstructor" value={String(editRequiresInstructor)} />
+			<!-- Hidden modules JSON (kept in sync with toggle UI below) -->
+			<input type="hidden" name="modules" value={JSON.stringify(editModules)} />
 
 			<div>
 				<label class="label">Name *</label>
@@ -442,22 +431,32 @@
 				</summary>
 				<div class="space-y-2 border-t border-border px-4 py-3">
 					{#each [
-						{ key: 'hasSessions',        label: m.service_new_flag_has_sessions(),         desc: m.service_new_flag_has_sessions_desc(),        value: editHasSessions },
-						{ key: 'hasRoster',          label: m.service_new_flag_has_roster(),            desc: m.service_new_flag_has_roster_desc(),          value: editHasRoster },
-						{ key: 'hasDateRange',       label: m.service_new_flag_has_date_range(),        desc: m.service_new_flag_has_date_range_desc(),      value: editHasDateRange },
-						{ key: 'hasInventoryUnits',  label: m.service_new_flag_has_inventory(),         desc: m.service_new_flag_has_inventory_desc(),       value: editHasInventoryUnits },
-						{ key: 'requiresInstructor', label: m.service_new_flag_requires_instructor(),   desc: m.service_new_flag_requires_instructor_desc(), value: editRequiresInstructor },
+						{ key: 'sessions',   label: m.service_new_flag_has_sessions(),        desc: m.service_new_flag_has_sessions_desc() },
+						{ key: 'roster',     label: m.service_new_flag_has_roster(),           desc: m.service_new_flag_has_roster_desc() },
+						{ key: 'editions',   label: m.service_new_flag_has_date_range(),       desc: m.service_new_flag_has_date_range_desc() },
+						{ key: 'inventory',  label: m.service_new_flag_has_inventory(),        desc: m.service_new_flag_has_inventory_desc() },
+						{ key: 'instructor', label: m.service_new_flag_requires_instructor(), desc: m.service_new_flag_requires_instructor_desc() },
 					] as flag}
 						<label class="flex cursor-pointer items-start gap-3">
 							<input type="checkbox"
-								checked={flag.value}
+								checked={flag.key === 'instructor' ? !!editModules.instructor?.required : flag.key in editModules}
 								onchange={(e) => {
 									const v = (e.target as HTMLInputElement).checked;
-									if (flag.key === 'hasSessions') editHasSessions = v;
-									else if (flag.key === 'hasRoster') editHasRoster = v;
-									else if (flag.key === 'hasDateRange') editHasDateRange = v;
-									else if (flag.key === 'hasInventoryUnits') editHasInventoryUnits = v;
-									else editRequiresInstructor = v;
+									if (flag.key === 'sessions') {
+										if (v) editModules = { ...editModules, sessions: {} };
+										else { const { sessions: _, ...rest } = editModules; editModules = rest; }
+									} else if (flag.key === 'roster') {
+										if (v) editModules = { ...editModules, roster: { maxCapacity: 0 } };
+										else { const { roster: _, ...rest } = editModules; editModules = rest; }
+									} else if (flag.key === 'editions') {
+										if (v) editModules = { ...editModules, editions: {} };
+										else { const { editions: _, ...rest } = editModules; editModules = rest; }
+									} else if (flag.key === 'inventory') {
+										if (v) editModules = { ...editModules, inventory: { perParticipant: true } };
+										else { const { inventory: _, ...rest } = editModules; editModules = rest; }
+									} else {
+										editModules = { ...editModules, instructor: { required: v } };
+									}
 								}}
 								class="mt-0.5 h-4 w-4 accent-ocean" />
 							<div>
@@ -469,7 +468,7 @@
 				</div>
 			</details>
 
-			{#if editHasSessions && !editHasRoster}
+			{#if editModules.sessions && !editModules.roster}
 				<div class="grid grid-cols-2 gap-3">
 					<div>
 						<label class="label">{m.service_new_duration()}</label>
@@ -487,13 +486,13 @@
 
 			<!-- Date range editing is now handled via service runs, not service fields -->
 
-			{#if editHasRoster}
+			{#if editModules.roster}
 				<div>
 					<label class="label">{m.service_new_max_participants()}</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
 						value={data.service.maxCapacity ?? ''} class="input" />
 				</div>
-			{:else if editHasInventoryUnits}
+			{:else if editModules.inventory}
 				<div>
 					<label class="label">{m.service_new_available_units()}</label>
 					<input name="maxCapacity" type="number" min="1" step="1" required
@@ -515,7 +514,7 @@
 				<p class="mt-1 text-xs text-muted">Determines how the price is auto-calculated from participants, sessions, or duration.</p>
 			</div>
 
-			{#if editRequiresInstructor && data.instructors.length > 0}
+			{#if editModules.instructor?.required && data.instructors.length > 0}
 				<div>
 					<label class="label mb-2">{m.service_new_default_instructors()}</label>
 					<div class="space-y-2 rounded-lg border border-border p-3">

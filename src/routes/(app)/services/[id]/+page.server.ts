@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
-import { listRunsForService, createServiceRun, deleteServiceRun } from '$lib/features/services/runs.queries';
+import { listEditionsForService, createServiceEdition, deleteServiceEdition } from '$lib/features/services/editions.queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
@@ -22,8 +22,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const [inventoryLinks, allItemTypes, runs] = await Promise.all([
 		listLinksForService(params.id),
-		service.hasInventoryUnits ? listInventoryItemTypes() : Promise.resolve([]),
-		listRunsForService(params.id)
+		('inventory' in (service.modules ?? {})) ? listInventoryItemTypes() : Promise.resolve([]),
+		listEditionsForService(params.id)
 	]);
 
 	return { service, instructors, inventoryLinks, allItemTypes, runs, canEditServices: canEditServices(locals) };
@@ -47,20 +47,17 @@ export const actions: Actions = {
 		const colorRaw = form.get('color')?.toString() ?? '';
 		const color = isValidColorKey(colorRaw) ? colorRaw : DEFAULT_COLOR;
 
-		const hasSessions        = form.get('hasSessions') === 'true';
-		const hasRoster          = form.get('hasRoster') === 'true';
-		const hasDateRange       = form.get('hasDateRange') === 'true';
-		const hasInventoryUnits  = form.get('hasInventoryUnits') === 'true';
-		const requiresInstructor = form.get('requiresInstructor') !== 'false';
+		const modulesRaw         = form.get('modules');
+		const modules            = modulesRaw ? JSON.parse(modulesRaw as string) : {};
 		const pricingMode        = parsePricingMode(form.get('pricingMode')?.toString() ?? null);
 
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
-		if ((hasRoster || hasInventoryUnits) && !maxCapacity)
+		if (('roster' in modules || 'inventory' in modules) && !maxCapacity)
 			return fail(400, { error: 'Specify max participants / available units' });
 
 		await updateService(params.id, {
 			name, type, basePrice, pricingMode, description, durationMinutes, defaultSessionsIncluded,
-			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor, maxCapacity, color
+			modules, maxCapacity, color
 		});
 		await setServiceInstructors(params.id, defaultInstructorIds);
 		return { message: 'Service updated' };
@@ -137,7 +134,7 @@ export const actions: Actions = {
 		const notes = form.get('notes')?.toString().trim() || null;
 		if (!startDate || !endDate || startDate >= endDate)
 			return fail(400, { runError: 'Valid start and end dates required (end must be after start)' });
-		await createServiceRun(params.id, { startDate, endDate, maxCapacity, notes });
+		await createServiceEdition(params.id, { startDate, endDate, maxCapacity, notes });
 		return { message: 'Run added' };
 	},
 
@@ -146,7 +143,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const runId = form.get('runId')?.toString() ?? '';
 		if (!runId) return fail(400, { error: 'Missing run ID' });
-		await deleteServiceRun(runId);
+		await deleteServiceEdition(runId);
 		return { message: 'Run deleted' };
 	}
 };

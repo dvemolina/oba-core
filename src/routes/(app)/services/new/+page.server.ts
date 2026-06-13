@@ -36,24 +36,21 @@ export const actions: Actions = {
 		const colorRaw = form.get('color')?.toString() ?? '';
 		const color = isValidColorKey(colorRaw) ? colorRaw : DEFAULT_COLOR;
 
-		const hasSessions        = form.get('hasSessions') === 'true';
-		const hasRoster          = form.get('hasRoster') === 'true';
-		const hasDateRange       = form.get('hasDateRange') === 'true';
-		const hasInventoryUnits  = form.get('hasInventoryUnits') === 'true';
-		const requiresInstructor = form.get('requiresInstructor') !== 'false';
+		const modulesRaw         = form.get('modules');
+		const modules            = modulesRaw ? JSON.parse(modulesRaw as string) : {};
 		const pricingMode        = parsePricingMode(form.get('pricingMode')?.toString() ?? null);
 
 		const values = { name, basePrice, description: description ?? '', color };
 
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required', values });
 		if (isNaN(parseFloat(basePrice))) return fail(400, { error: 'Price must be a number', values });
-		if ((hasRoster || hasInventoryUnits) && !maxCapacity) {
+		if (('roster' in modules || 'inventory' in modules) && !maxCapacity) {
 			return fail(400, { error: 'Specify max participants / available units', values });
 		}
 
 		const newService = await createService({
 			name, type, basePrice, pricingMode, description, durationMinutes, defaultSessionsIncluded,
-			hasSessions, hasRoster, hasDateRange, hasInventoryUnits, requiresInstructor, maxCapacity, color
+			modules, maxCapacity, color
 		});
 		if (defaultInstructorIds.length > 0) {
 			await setServiceInstructors(newService.id, defaultInstructorIds);

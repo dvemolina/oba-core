@@ -1,18 +1,18 @@
 import { listServices } from '$lib/features/services/queries';
-import { listRunsForService } from '$lib/features/services/runs.queries';
-import type { ServiceRun } from '$lib/features/services/runs.types';
+import { listEditionsForService } from '$lib/features/services/editions.queries';
+import type { ServiceEdition } from '$lib/features/services/editions.types';
 import type { PageServerLoad } from './$types';
 import { requireRole } from '$lib/server/permissions';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
 	const services = await listServices(true); // include inactive for management
-	const runsByService: Record<string, ServiceRun[]> = {};
+	const runsByService: Record<string, ServiceEdition[]> = {};
 	await Promise.all(
 		services
-			.filter(s => s.hasDateRange)
+			.filter(s => 'editions' in (s.modules ?? {}))
 			.map(async s => {
-				runsByService[s.id] = await listRunsForService(s.id);
+				runsByService[s.id] = await listEditionsForService(s.id);
 			})
 	);
 	return { services, runsByService };
