@@ -1,4 +1,6 @@
 import type { PricingMode } from '$lib/features/services/types';
+import { defaultPricingModeForModules } from '$lib/features/services/modules';
+export type { ServiceModules } from '$lib/features/services/modules';
 
 export type { PricingMode };
 
@@ -67,18 +69,13 @@ export function fmtPricingFormula(
 	return `${parts.join(' × ')} = €${total.toFixed(2)}`;
 }
 
-/** Smart default pricingMode based on service capability flags. */
-export function defaultPricingMode(flags: {
-	hasSessions: boolean;
-	hasRoster: boolean;
-	hasDateRange: boolean;
-	hasInventoryUnits: boolean;
-}): PricingMode {
-	if (flags.hasInventoryUnits) return flags.hasDateRange ? 'per_night' : 'per_unit';
-	if (flags.hasSessions && !flags.hasRoster) return 'per_person_per_session';
-	if (flags.hasRoster) return 'per_person';
-	return 'flat';
+/** Returns billable participant count after subtracting credited participants. */
+export function billableParticipants(enrollment: { participantCount: number; creditCount: number }): number {
+	return Math.max(0, enrollment.participantCount - enrollment.creditCount)
 }
+
+// Replace old defaultPricingMode — callers now pass ServiceModules instead of boolean flags
+export { defaultPricingModeForModules as defaultPricingMode };
 
 /** All pricing modes with display labels for UI selects. */
 export const PRICING_MODE_OPTIONS: { value: PricingMode; label: string; hint: string }[] = [

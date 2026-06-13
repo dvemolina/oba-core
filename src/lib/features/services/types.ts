@@ -1,3 +1,5 @@
+import type { ServiceModules } from './modules';
+
 // Cosmetic label only — any string is valid. These are suggested presets shown in the UI.
 export type ServiceLabel = 'lesson' | 'camp' | 'product' | 'rental' | 'accommodation' | 'other' | (string & {});
 
@@ -23,12 +25,7 @@ export interface Service {
 	name: string;
 	description: string | null;
 	type: string;
-	// ── Capability flags ──────────────────────────────────────────────────────
-	hasSessions: boolean;        // needs session scheduling
-	hasRoster: boolean;          // multi-client enrollment
-	hasDateRange: boolean;       // spans multiple days
-	hasInventoryUnits: boolean;  // limited physical units
-	requiresInstructor: boolean; // needs guide/instructor
+	modules: ServiceModules;
 	// ── Config ────────────────────────────────────────────────────────────────
 	durationMinutes: number | null;
 	defaultSessionsIncluded: number | null;
@@ -46,11 +43,7 @@ export interface CreateServiceInput {
 	name: string;
 	description?: string;
 	type: string;
-	hasSessions?: boolean;
-	hasRoster?: boolean;
-	hasDateRange?: boolean;
-	hasInventoryUnits?: boolean;
-	requiresInstructor?: boolean;
+	modules?: ServiceModules;
 	durationMinutes?: number;
 	defaultSessionsIncluded?: number;
 	basePrice: string;

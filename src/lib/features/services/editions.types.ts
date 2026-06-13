@@ -1,4 +1,4 @@
-export interface ServiceRun {
+export interface ServiceEdition {
 	id: string;
 	serviceId: string;
 	startDate: string;
@@ -11,13 +11,13 @@ export interface ServiceRun {
 	enrolledCount: number;
 }
 
-export interface CreateServiceRunInput {
+export interface CreateServiceEditionInput {
 	startDate: string;
 	endDate: string;
 	maxCapacity?: number | null;
 	notes?: string | null;
 }
 
-export interface UpdateServiceRunInput extends Partial<CreateServiceRunInput> {
+export interface UpdateServiceEditionInput extends Partial<CreateServiceEditionInput> {
 	active?: boolean;
 }

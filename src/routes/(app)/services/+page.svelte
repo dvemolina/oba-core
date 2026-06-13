@@ -65,7 +65,7 @@
 								{/if}
 							</div>
 						</a>
-						{#if service.hasRoster && data.runsByService[service.id]?.length}
+						{#if service.modules?.roster && data.runsByService[service.id]?.length}
 							<div class="border-t border-border/50 px-4 py-2">
 								<a
 									href="/bookings/camp/{service.id}"

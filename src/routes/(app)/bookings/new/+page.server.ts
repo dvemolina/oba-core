@@ -5,8 +5,8 @@ import { calculateAmount } from '$lib/utils/pricing';
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
-import { listRunsForService, countEnrolledClientsForRun, getServiceRun } from '$lib/features/services/runs.queries';
-import type { ServiceRun } from '$lib/features/services/runs.types';
+import { listEditionsForService, countEnrolledClientsForEdition, getServiceEdition } from '$lib/features/services/editions.queries';
+import type { ServiceEdition } from '$lib/features/services/editions.types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole } from '$lib/server/permissions';
 
@@ -20,14 +20,14 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const defaultDate = url.searchParams.get('date') ?? '';
 	const defaultTime = url.searchParams.get('time') ?? '';
 
-	const runsByService: Record<string, ServiceRun[]> = {};
+	const editionsByService: Record<string, ServiceEdition[]> = {};
 	await Promise.all(
 		services
-			.filter(s => s.hasDateRange)
-			.map(async s => { runsByService[s.id] = await listRunsForService(s.id); })
+			.filter(s => 'editions' in (s.modules ?? {}))
+			.map(async s => { editionsByService[s.id] = await listEditionsForService(s.id); })
 	);
 
-	return { services, instructors, clients, defaultDate, defaultTime, runsByService };
+	return { services, instructors, clients, defaultDate, defaultTime, editionsByService };
 };
 
 export const actions: Actions = {
@@ -59,7 +59,7 @@ export const actions: Actions = {
 		const notes     = form.get('notes')?.toString().trim() || undefined;
 
 		// ── Accommodation ──────────────────────────────────────────────────────
-		if (service.hasInventoryUnits) {
+		if ('inventory' in (service.modules ?? {})) {
 			const checkIn  = form.get('date')?.toString() ?? '';
 			const checkOut = form.get('dateEnd')?.toString() || null;
 			if (!checkIn) return fail(400, { error: 'Start date is required' });
@@ -83,39 +83,39 @@ export const actions: Actions = {
 		}
 
 		// ── Shared date resolution ─────────────────────────────────────────────
-		const serviceRunId = form.get('serviceRunId')?.toString() || undefined;
+		const serviceEditionId = form.get('serviceEditionId')?.toString() || undefined;
 		let date    = form.get('date')?.toString() ?? '';
 		let dateEnd = form.get('dateEnd')?.toString() || undefined;
-		if (service.hasDateRange && serviceRunId) {
-			const run = await getServiceRun(serviceRunId);
-			if (run) { date = run.startDate; dateEnd = run.endDate; }
+		if ('editions' in (service.modules ?? {}) && serviceEditionId) {
+			const edition = await getServiceEdition(serviceEditionId);
+			if (edition) { date = edition.startDate; dateEnd = edition.endDate; }
 		}
 		if (!date) return fail(400, { error: 'Date is required' });
 
 		// ── Capacity check ─────────────────────────────────────────────────────
-		if (service.hasRoster && serviceRunId) {
-			const run = await getServiceRun(serviceRunId);
-			if (run?.maxCapacity) {
-				const enrolled  = await countEnrolledClientsForRun(serviceRunId);
-				const available = run.maxCapacity - enrolled;
+		if ('roster' in (service.modules ?? {}) && serviceEditionId) {
+			const edition = await getServiceEdition(serviceEditionId);
+			if (edition?.maxCapacity) {
+				const enrolled  = await countEnrolledClientsForEdition(serviceEditionId);
+				const available = edition.maxCapacity - enrolled;
 				if (clientIds.length > available)
-					return fail(400, { error: `Only ${available} spot${available !== 1 ? 's' : ''} remaining in this run` });
+					return fail(400, { error: `Only ${available} spot${available !== 1 ? 's' : ''} remaining in this edition` });
 			}
-		} else if (service.hasRoster && service.maxCapacity) {
+		} else if ('roster' in (service.modules ?? {}) && service.maxCapacity) {
 			const enrolled  = await countEnrolledClientsForService(serviceId);
 			const available = service.maxCapacity - enrolled;
 			if (clientIds.length > available)
 				return fail(400, { error: `Only ${available} slot${available !== 1 ? 's' : ''} remaining` });
 		}
 
-		// ── Lessons (hasSessions) ──────────────────────────────────────────────
+		// ── Lessons (sessions module) ──────────────────────────────────────────
 		// Auto-create N unscheduled sessions from service default.
 		// Sessions are scheduled from the booking detail page.
-		if (service.hasSessions) {
+		if ('sessions' in (service.modules ?? {})) {
 			const sessionsIncluded = service.defaultSessionsIncluded ?? 1;
 
 			const booking = await createBooking({
-				serviceId, serviceRunId, date,
+				serviceId, serviceEditionId, date,
 				isFlexible: true,
 				status: 'confirmed',
 				sessionsIncluded,
@@ -143,7 +143,7 @@ export const actions: Actions = {
 		const status       = isFlexible ? 'pending' : 'confirmed';
 
 		const booking = await createBooking({
-			serviceId, instructorId, serviceRunId, date, dateEnd, time,
+			serviceId, instructorId, serviceEditionId, date, dateEnd, time,
 			isFlexible, status, spotNotes, notes,
 			clients: bookingClients
 		});

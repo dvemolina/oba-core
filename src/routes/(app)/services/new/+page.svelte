@@ -8,45 +8,47 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
 
+	import type { ServiceModules } from '$lib/utils/pricing';
+
 	// ── Template definitions ──────────────────────────────────────────────────
 	const TEMPLATES = $derived([
 		{
 			id: 'lesson',
 			label: m.service_new_type_lesson(),
 			description: m.service_new_type_lesson_desc(),
-			flags: { hasSessions: true, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: true }
+			modules: { sessions: {}, instructor: { required: true } } satisfies ServiceModules
 		},
 		{
 			id: 'camp',
 			label: m.service_new_type_camp(),
 			description: m.service_new_type_camp_desc(),
-			flags: { hasSessions: true, hasRoster: true, hasDateRange: true, hasInventoryUnits: false, requiresInstructor: true }
+			modules: { sessions: {}, roster: { maxCapacity: 0 }, editions: {}, instructor: { required: true } } satisfies ServiceModules
 		},
 		{
 			id: 'rental',
 			label: m.service_new_type_rental(),
 			description: m.service_new_type_rental_desc(),
-			flags: { hasSessions: false, hasRoster: false, hasDateRange: true, hasInventoryUnits: true, requiresInstructor: false }
+			modules: { editions: {}, inventory: { perParticipant: true } } satisfies ServiceModules
 		},
 		{
 			id: 'accommodation',
 			label: m.service_new_type_accommodation(),
 			description: m.service_new_type_accommodation_desc(),
-			flags: { hasSessions: false, hasRoster: false, hasDateRange: true, hasInventoryUnits: true, requiresInstructor: false }
+			modules: { editions: {}, inventory: { perParticipant: true } } satisfies ServiceModules
 		},
 		{
 			id: 'product',
 			label: m.service_new_type_product(),
 			description: m.service_new_type_product_desc(),
-			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: false }
+			modules: {} satisfies ServiceModules
 		},
 		{
 			id: 'other',
 			label: m.service_new_type_other(),
 			description: m.service_new_type_other_desc(),
-			flags: { hasSessions: false, hasRoster: false, hasDateRange: false, hasInventoryUnits: false, requiresInstructor: true }
+			modules: { instructor: { required: true } } satisfies ServiceModules
 		},
-	] as const);
+	]);
 
 	type TemplateId = 'lesson' | 'camp' | 'rental' | 'accommodation' | 'product' | 'other';
 
@@ -54,27 +56,16 @@
 
 	const template = $derived(TEMPLATES.find(t => t.id === selectedTemplateId)!);
 
-	// Capability flags — start from template, user can tweak in Advanced
-	let hasSessions       = $state(true);
-	let hasRoster         = $state(false);
-	let hasDateRange      = $state(false);
-	let hasInventoryUnits = $state(false);
-	let requiresInstructor = $state(true);
+	// Active modules — start from template, user can tweak in Advanced
+	let modules = $state<ServiceModules>({ sessions: {}, instructor: { required: true } });
 
-	// When template changes, reset flags
+	// When template changes, reset modules
 	$effect(() => {
-		const f = template.flags;
-		hasSessions       = f.hasSessions;
-		hasRoster         = f.hasRoster;
-		hasDateRange      = f.hasDateRange;
-		hasInventoryUnits = f.hasInventoryUnits;
-		requiresInstructor = f.requiresInstructor;
+		modules = { ...template.modules };
 	});
 
-	// Smart default pricingMode derived from current flags
-	const smartPricingMode = $derived(
-		defaultPricingMode({ hasSessions, hasRoster, hasDateRange, hasInventoryUnits })
-	);
+	// Smart default pricingMode derived from current modules
+	const smartPricingMode = $derived(defaultPricingMode(modules));
 
 	let showAdvanced = $state(false);
 </script>
@@ -91,13 +82,9 @@
 			return async ({ update }) => { loading = false; update(); };
 		}}
 	>
-		<!-- Hidden capability flags -->
-		<input type="hidden" name="hasSessions"       value={String(hasSessions)} />
-		<input type="hidden" name="hasRoster"         value={String(hasRoster)} />
-		<input type="hidden" name="hasDateRange"      value={String(hasDateRange)} />
-		<input type="hidden" name="hasInventoryUnits" value={String(hasInventoryUnits)} />
-		<input type="hidden" name="requiresInstructor" value={String(requiresInstructor)} />
-		<input type="hidden" name="type"              value={selectedTemplateId} />
+		<!-- Hidden modules JSON -->
+		<input type="hidden" name="modules" value={JSON.stringify(modules)} />
+		<input type="hidden" name="type"    value={selectedTemplateId} />
 
 		<!-- Step 1: Template selection -->
 		<div>
@@ -133,7 +120,7 @@
 				class="input" placeholder="40.00" />
 		</div>
 
-		{#if hasSessions && !hasRoster}
+		{#if modules.sessions && !modules.roster}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
 					<label class="label">{m.service_new_duration()}</label>
@@ -149,26 +136,26 @@
 			</div>
 		{/if}
 
-		{#if hasDateRange}
+		{#if modules.editions}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label class="label">Start date {hasRoster ? '*' : ''}</label>
-					<input name="startDate" type="date" required={hasRoster} class="input" />
+					<label class="label">Start date {modules.roster ? '*' : ''}</label>
+					<input name="startDate" type="date" required={!!modules.roster} class="input" />
 				</div>
 				<div>
-					<label class="label">End date {hasRoster ? '*' : ''}</label>
-					<input name="endDate" type="date" required={hasRoster} class="input" />
+					<label class="label">End date {modules.roster ? '*' : ''}</label>
+					<input name="endDate" type="date" required={!!modules.roster} class="input" />
 				</div>
 			</div>
 		{/if}
 
-		{#if hasRoster}
+		{#if modules.roster}
 			<div>
 				<label class="label">{m.service_new_max_participants()}</label>
 				<input name="maxCapacity" type="number" min="1" step="1" required
 					class="input" placeholder="12" />
 			</div>
-		{:else if hasInventoryUnits}
+		{:else if modules.inventory}
 			<div>
 				<label class="label">{m.service_new_available_units()}</label>
 				<input name="maxCapacity" type="number" min="1" step="1" required
@@ -190,7 +177,7 @@
 			<p class="mt-1 text-xs text-muted">Auto-selected based on service type. Determines how booking price is calculated.</p>
 		</div>
 
-		{#if requiresInstructor && data.instructors.length > 0}
+		{#if modules.instructor?.required && data.instructors.length > 0}
 			<div>
 				<label class="label mb-2">{m.service_new_default_instructors()}</label>
 				<div class="space-y-2 rounded-lg border border-border p-3">
@@ -223,26 +210,32 @@
 			</summary>
 			<div class="space-y-2 border-t border-border px-4 py-3">
 				{#each [
-					{ key: 'hasSessions',       label: m.service_new_flag_has_sessions(),         desc: m.service_new_flag_has_sessions_desc(),        bind: hasSessions },
-					{ key: 'hasRoster',         label: m.service_new_flag_has_roster(),            desc: m.service_new_flag_has_roster_desc(),          bind: hasRoster },
-					{ key: 'hasDateRange',      label: m.service_new_flag_has_date_range(),        desc: m.service_new_flag_has_date_range_desc(),      bind: hasDateRange },
-					{ key: 'hasInventoryUnits', label: m.service_new_flag_has_inventory(),         desc: m.service_new_flag_has_inventory_desc(),       bind: hasInventoryUnits },
-					{ key: 'requiresInstructor', label: m.service_new_flag_requires_instructor(),  desc: m.service_new_flag_requires_instructor_desc(), bind: requiresInstructor },
+					{ key: 'sessions',    label: m.service_new_flag_has_sessions(),        desc: m.service_new_flag_has_sessions_desc() },
+					{ key: 'roster',      label: m.service_new_flag_has_roster(),           desc: m.service_new_flag_has_roster_desc() },
+					{ key: 'editions',    label: m.service_new_flag_has_date_range(),       desc: m.service_new_flag_has_date_range_desc() },
+					{ key: 'inventory',   label: m.service_new_flag_has_inventory(),        desc: m.service_new_flag_has_inventory_desc() },
+					{ key: 'instructor',  label: m.service_new_flag_requires_instructor(), desc: m.service_new_flag_requires_instructor_desc() },
 				] as flag}
 					<label class="flex cursor-pointer items-start gap-3">
 						<input type="checkbox"
-							checked={flag.key === 'hasSessions' ? hasSessions
-							       : flag.key === 'hasRoster' ? hasRoster
-							       : flag.key === 'hasDateRange' ? hasDateRange
-							       : flag.key === 'hasInventoryUnits' ? hasInventoryUnits
-							       : requiresInstructor}
+							checked={flag.key === 'instructor' ? !!modules.instructor?.required : flag.key in modules}
 							onchange={(e) => {
 								const v = (e.target as HTMLInputElement).checked;
-								if (flag.key === 'hasSessions') hasSessions = v;
-								else if (flag.key === 'hasRoster') hasRoster = v;
-								else if (flag.key === 'hasDateRange') hasDateRange = v;
-								else if (flag.key === 'hasInventoryUnits') hasInventoryUnits = v;
-								else requiresInstructor = v;
+								if (flag.key === 'sessions') {
+									if (v) modules = { ...modules, sessions: {} };
+									else { const { sessions: _, ...rest } = modules; modules = rest; }
+								} else if (flag.key === 'roster') {
+									if (v) modules = { ...modules, roster: { maxCapacity: 0 } };
+									else { const { roster: _, ...rest } = modules; modules = rest; }
+								} else if (flag.key === 'editions') {
+									if (v) modules = { ...modules, editions: {} };
+									else { const { editions: _, ...rest } = modules; modules = rest; }
+								} else if (flag.key === 'inventory') {
+									if (v) modules = { ...modules, inventory: { perParticipant: true } };
+									else { const { inventory: _, ...rest } = modules; modules = rest; }
+								} else {
+									modules = { ...modules, instructor: { required: v } };
+								}
 							}}
 							class="mt-0.5 h-4 w-4 accent-ocean" />
 						<div>

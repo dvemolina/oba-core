@@ -147,7 +147,7 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 			bookingId: bookingSessions.bookingId,
 			serviceName: services.name,
 			serviceColor: services.color,
-			serviceHasSessions: services.hasSessions,
+			serviceModules: services.modules,
 			serviceDurationMinutes: services.durationMinutes,
 			bookingStatus: bookings.status
 		})
@@ -231,7 +231,7 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 				bookingStatus: firstLink.bookingStatus ?? 'pending',
 				serviceName: firstLink.serviceName ?? null,
 				serviceColor: firstLink.serviceColor ?? null,
-				serviceHasSessions: firstLink.serviceHasSessions ?? false,
+				serviceHasSessions: 'sessions' in (firstLink.serviceModules ?? {}),
 				serviceDurationMinutes: svcDuration,
 				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
 				participantNames,
@@ -490,8 +490,7 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 			bookingId: bookingSessions.bookingId,
 			serviceName: services.name,
 			serviceColor: services.color,
-			serviceHasRoster: services.hasRoster,
-			serviceHasSessions: services.hasSessions,
+			serviceModules: services.modules,
 			serviceMaxCapacity: services.maxCapacity,
 			serviceDurationMinutes: services.durationMinutes,
 			sessionsIncluded: bookings.sessionsIncluded,
@@ -545,9 +544,10 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 			const bClients = sl.flatMap(l => clientsByBooking[l.bookingId] ?? []);
 			const svcDuration = first.serviceDurationMinutes ?? null;
 
+			const firstHasRoster = 'roster' in (first.serviceModules ?? {});
 			const participantNames = s.participants.length > 0
 				? s.participants.map(p => p.name)
-				: first.serviceHasRoster
+				: firstHasRoster
 					? []
 					: bClients.map(c => `${c.firstName} ${c.lastName}`);
 
@@ -557,7 +557,7 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 				bookingIds: sl.map(l => l.bookingId).filter(Boolean) as string[],
 				serviceName: first.serviceName,
 				serviceColor: first.serviceColor,
-				serviceHasRoster: first.serviceHasRoster ?? false,
+				serviceHasRoster: firstHasRoster,
 				serviceDurationMinutes: svcDuration,
 				effectiveDuration: s.durationMinutes ?? svcDuration ?? 60,
 				sessionsIncluded: first.sessionsIncluded,

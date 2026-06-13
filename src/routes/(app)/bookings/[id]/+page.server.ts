@@ -24,7 +24,7 @@ import {
 	addParticipant,
 	removeParticipant
 } from '$lib/features/sessions/queries';
-import { addBookingParticipant, removeBookingParticipant, renameParticipant, setParticipantCount } from '$lib/features/bookings/participants.queries';
+import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount } from '$lib/features/bookings/participants.queries';
 import { recalcBookingAmounts } from '$lib/features/bookings/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
 	);
 
-	const serviceInventoryLinks = service?.hasInventoryUnits ? await listLinksForService(service.id) : [];
+	const serviceInventoryLinks = (service && 'inventory' in (service.modules ?? {})) ? await listLinksForService(service.id) : [];
 
 	// Load items for all relevant types: existing allocations + service link types (for the add form)
 	const allocItemTypeIds = [...new Set([
@@ -86,7 +86,6 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Not found' });
 
 		const isSessionBased = booking.serviceHasSessions;
-		const priceOverrideRaw = form.get('priceOverride')?.toString().trim();
 		await updateBooking(params.id, {
 			...(isSessionBased ? {} : {
 				instructorId: form.get('instructorId')?.toString() || null,
@@ -97,7 +96,6 @@ export const actions: Actions = {
 			status: newStatus,
 			spotNotes: form.get('spotNotes')?.toString() || null,
 			notes: form.get('notes')?.toString() || null,
-			priceOverride: priceOverrideRaw ? priceOverrideRaw : null
 		});
 		const message = newStatus === 'confirmed' ? 'Booking confirmed' : 'Booking updated';
 		return { error: null, message };
@@ -315,8 +313,10 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = form.get('name')?.toString().trim() ?? '';
 		const addToSessions = form.get('addToSessions') === 'true';
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (!name) return fail(400, { error: 'Name is required' });
-		await addBookingParticipant(params.id, name);
+		if (!bookingClientId) return fail(400, { error: 'Booking client id is required' });
+		await addEnrollmentParticipant(bookingClientId, name);
 		if (addToSessions) {
 			const sessions = await listSessionsForBooking(params.id);
 			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name })));
@@ -330,7 +330,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const id = form.get('participantId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'Missing participant id' });
-		await removeBookingParticipant(id);
+		await removeEnrollmentParticipant(id);
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Participant removed' };
 	},
@@ -409,8 +409,10 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const countRaw = form.get('count')?.toString();
 		const count = countRaw ? parseInt(countRaw) : 0;
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (isNaN(count) || count < 0) return fail(400, { error: 'Invalid count' });
-		await setParticipantCount(params.id, count);
+		if (!bookingClientId) return fail(400, { error: 'Booking client id is required' });
+		await setEnrollmentParticipantCount(bookingClientId, count);
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: `${count} participant${count !== 1 ? 's' : ''} set` };
 	},
