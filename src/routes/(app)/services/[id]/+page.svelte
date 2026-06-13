@@ -43,44 +43,22 @@
 	// Edit-mode modules (initialised from service, user can modify)
 	let editModules = $state<ServiceModules>({ ...data.service.modules });
 
-	const TEMPLATE_LABELS: Record<string, string> = {
-		lesson: 'Lesson', camp: 'Camp / Course', product: 'Product',
-		rental: 'Rental', accommodation: 'Accommodation', other: 'Other'
-	};
-	const LABEL_OPTIONS = ['lesson', 'camp', 'rental', 'accommodation', 'product', 'other'] as const;
-
 	// Capability badge labels for view mode
 	const capabilityBadges = $derived(
-		MODULE_DEFINITIONS.filter(mod =>
-			mod.key === 'instructor'
-				? !!(data.service.modules as any)?.instructor?.required
-				: mod.key in ((data.service.modules as Record<string, unknown>) ?? {})
-		).map(mod => `${mod.icon} ${mod.label}`)
+		MODULE_DEFINITIONS.filter(mod => mod.key in ((data.service.modules as Record<string, unknown>) ?? {}))
+			.map(mod => `${mod.icon} ${mod.label}`)
 	);
 
 	// ── Module picker derived state (edit mode) ───────────────────────────────
-	const activeEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
-		mod.key === 'instructor' ? !!(editModules as any).instructor?.required : mod.key in (editModules as Record<string, unknown>)
-	));
-	const inactiveEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
-		mod.key === 'instructor' ? !(editModules as any).instructor?.required : !(mod.key in (editModules as Record<string, unknown>))
-	));
+	const activeEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod => mod.key in (editModules as Record<string, unknown>)));
+	const inactiveEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod => !(mod.key in (editModules as Record<string, unknown>))));
 
 	function activateEditModule(key: string) {
-		if (key === 'instructor') {
-			editModules = { ...editModules, instructor: { required: true } } as any;
-		} else {
-			editModules = { ...editModules, [key]: getDefaultConfig(key) } as any;
-		}
+		editModules = { ...editModules, [key]: getDefaultConfig(key) } as any;
 	}
 	function deactivateEditModule(key: string) {
-		if (key === 'instructor') {
-			const { instructor: _, ...rest } = editModules as any;
-			editModules = rest as any;
-		} else {
-			const { [key]: _, ...rest } = editModules as Record<string, unknown>;
-			editModules = rest as any;
-		}
+		const { [key]: _, ...rest } = editModules as Record<string, unknown>;
+		editModules = rest as any;
 	}
 
 	function serviceEnhance() {
@@ -101,7 +79,14 @@
 	<div class="mb-6 flex items-center gap-3">
 		<a href="/services" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<div class="flex-1">
-			<p class="text-xs font-semibold uppercase tracking-wider text-muted">{TEMPLATE_LABELS[data.service.type] ?? data.service.type}</p>
+			<div class="mb-0.5 flex flex-wrap gap-1">
+				{#each MODULE_DEFINITIONS.filter(mod => mod.key in ((data.service.modules as Record<string, unknown>) ?? {})) as mod}
+					<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{mod.icon} {mod.label}</span>
+				{/each}
+				{#if Object.keys(data.service.modules ?? {}).length === 0}
+					<span class="text-[10px] text-muted">Sin módulos</span>
+				{/if}
+			</div>
 			<div class="flex items-center gap-2">
 				<span class="inline-block h-3 w-3 rounded-full" style="background-color: {DOT_COLORS[data.service.color as ServiceColorKey] ?? DOT_COLORS['ocean']}"></span>
 				<h1 class="text-xl font-bold text-navy">{data.service.name}</h1>
@@ -431,89 +416,81 @@
 		<form
 			method="post"
 			action="?/update"
-			class="space-y-4"
+			class="space-y-6"
 			use:enhance={serviceEnhance()}
 		>
-			<!-- Hidden modules JSON (kept in sync with toggle UI below) -->
 			<input type="hidden" name="modules" value={JSON.stringify(editModules)} />
+			<input type="hidden" name="type" value={data.service.type} />
 
 			<div>
-				<label class="label">Name *</label>
+				<label class="label">Nombre *</label>
 				<input name="name" required value={data.service.name} class="input" />
 			</div>
 
+			<!-- ── Módulos — core identity ──────────────────────────────────────── -->
 			<div>
-				<label class="label">{m.service_detail_edit_label()}</label>
-				<select name="type" class="input">
-					{#each LABEL_OPTIONS as opt}
-						<option value={opt} selected={data.service.type === opt}>
-							{TEMPLATE_LABELS[opt] ?? opt}
-						</option>
-					{/each}
-					{#if !LABEL_OPTIONS.includes(data.service.type as any)}
-						<option value={data.service.type} selected>{data.service.type}</option>
-					{/if}
-				</select>
-				<p class="mt-1 text-xs text-muted">{m.service_detail_edit_label_hint()}</p>
-			</div>
-
-			<div>
-				<label class="label">{m.service_detail_edit_color()}</label>
-				<ColorPicker selected={data.service.color} />
-			</div>
-
-			<!-- Capabilities: active module cards + inactive chips -->
-			<div>
-				<p class="label mb-2">Capacidades</p>
+				<p class="label mb-1">Capacidades del servicio</p>
+				<p class="mb-3 text-xs text-muted">Los módulos activos definen cómo funciona este servicio.</p>
 
 				{#if activeEditModDefs.length > 0}
-					<div class="space-y-2.5">
+					<div class="space-y-3 mb-3">
 						{#each activeEditModDefs as mod (mod.key)}
-							<div class="rounded-lg border-2 border-ocean/30 bg-ocean/5 p-3 space-y-2.5">
-								<div class="flex items-center justify-between">
-									<span class="text-sm font-semibold text-gray-900">{mod.icon} {mod.label}</span>
+							<div class="rounded-xl border-2 border-ocean/40 bg-ocean/5 p-4">
+								<div class="flex items-start justify-between mb-3">
+									<div class="flex items-center gap-2">
+										<span class="text-lg leading-none">{mod.icon}</span>
+										<div>
+											<p class="text-sm font-semibold text-navy">{mod.label}</p>
+											<p class="text-[11px] text-muted leading-snug">{mod.description}</p>
+										</div>
+									</div>
 									<button type="button" onclick={() => deactivateEditModule(mod.key)}
-										class="text-[10px] text-muted hover:text-red-500">✕ Quitar</button>
+										class="shrink-0 rounded-md px-2 py-1 text-[11px] text-muted hover:bg-red-50 hover:text-red-500 transition-colors">
+										✕ Quitar
+									</button>
 								</div>
 
 								{#if mod.key === 'sessions'}
-									<div class="grid grid-cols-2 gap-2">
+									<div class="grid grid-cols-2 gap-3">
 										<div>
-											<label class="mb-0.5 block text-xs text-muted">Duración (min)</label>
+											<label class="mb-1 block text-xs font-medium text-gray-600">Duración por sesión (min)</label>
 											<input name="durationMinutes" type="number" min="15" step="15"
 												class="input" placeholder="90"
-												value={data.service.durationMinutes ?? ''} />
+												value={data.service.durationMinutes ?? 90} />
 										</div>
-										{#if !editModules.roster}
+										{#if !('roster' in editModules)}
 											<div>
-												<label class="mb-0.5 block text-xs text-muted">Sesiones incluidas</label>
+												<label class="mb-1 block text-xs font-medium text-gray-600">Sesiones incluidas</label>
 												<input name="defaultSessionsIncluded" type="number" min="1"
 													class="input" placeholder="1"
 													value={data.service.defaultSessionsIncluded ?? ''} />
 											</div>
 										{/if}
 									</div>
+
 								{:else if mod.key === 'roster'}
-									<div>
-										<label class="mb-0.5 block text-xs text-muted">Capacidad máxima</label>
+									<div class="max-w-xs">
+										<label class="mb-1 block text-xs font-medium text-gray-600">Capacidad máxima del grupo</label>
 										<input name="maxCapacity" type="number" min="1" step="1" required
 											class="input" placeholder="8"
 											value={data.service.maxCapacity ?? ''} />
 									</div>
+
 								{:else if mod.key === 'inventory'}
-									{#if !editModules.roster}
-										<div>
-											<label class="mb-0.5 block text-xs text-muted">Unidades disponibles</label>
+									{#if !('roster' in editModules)}
+										<div class="max-w-xs">
+											<label class="mb-1 block text-xs font-medium text-gray-600">Unidades disponibles</label>
 											<input name="maxCapacity" type="number" min="1" step="1"
 												class="input" placeholder="10"
 												value={data.service.maxCapacity ?? ''} />
 										</div>
 									{/if}
+
 								{:else if mod.key === 'instructor'}
 									{#if data.instructors.length > 0}
-										<div class="space-y-1">
-											<p class="text-xs text-muted">Instructores por defecto</p>
-											<div class="space-y-1.5">
+										<div>
+											<p class="mb-1.5 text-xs font-medium text-gray-600">Instructores por defecto (opcional)</p>
+											<div class="flex flex-wrap gap-3">
 												{#each data.instructors as instructor}
 													<label class="flex cursor-pointer items-center gap-2">
 														<input type="checkbox" name="defaultInstructorId" value={instructor.id}
@@ -524,11 +501,14 @@
 												{/each}
 											</div>
 										</div>
+									{:else}
+										<p class="text-xs text-muted italic">No hay instructores dados de alta aún.</p>
 									{/if}
+
 								{:else if mod.key === 'credits'}
-									<div class="grid grid-cols-2 gap-2">
+									<div class="grid grid-cols-2 gap-3">
 										<div>
-											<label class="mb-0.5 block text-xs text-muted">Créditos incluidos</label>
+											<label class="mb-1 block text-xs font-medium text-gray-600">Créditos incluidos</label>
 											<input type="number" min="1" step="1" class="input" placeholder="5"
 												value={(editModules as any).credits?.creditsIncluded ?? 5}
 												oninput={(e) => {
@@ -537,7 +517,7 @@
 												}} />
 										</div>
 										<div>
-											<label class="mb-0.5 block text-xs text-muted">Validez</label>
+											<label class="mb-1 block text-xs font-medium text-gray-600">Validez</label>
 											<select class="input"
 												onchange={(e) => {
 													editModules = { ...editModules, credits: { ...(editModules as any).credits, validityMode: (e.target as HTMLSelectElement).value, creditsIncluded: (editModules as any).credits?.creditsIncluded ?? 5, compatibleServiceIds: [] } } as any;
@@ -551,39 +531,46 @@
 							</div>
 						{/each}
 					</div>
+				{:else}
+					<div class="mb-3 rounded-xl border-2 border-dashed border-border p-6 text-center text-sm text-muted">
+						Activa al menos un módulo para definir qué puede hacer este servicio
+					</div>
 				{/if}
 
 				{#if inactiveEditModDefs.length > 0}
-					<div class="flex flex-wrap gap-2 pt-1">
-						{#each inactiveEditModDefs as mod (mod.key)}
-							<button type="button" onclick={() => activateEditModule(mod.key)}
-								class="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:border-ocean hover:text-ocean transition-colors">
-								{mod.icon} {mod.label}
-							</button>
-						{/each}
+					<div>
+						<p class="mb-2 text-xs text-muted">Añadir capacidad:</p>
+						<div class="flex flex-wrap gap-2">
+							{#each inactiveEditModDefs as mod (mod.key)}
+								<button type="button" onclick={() => activateEditModule(mod.key)}
+									class="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:border-ocean hover:bg-ocean/5 hover:text-ocean transition-colors">
+									+ {mod.icon} {mod.label}
+								</button>
+							{/each}
+						</div>
 					</div>
 				{/if}
 			</div>
 
-			<!-- Pricing mode — applies to all service types -->
-			<div>
-				<label class="label">Pricing mode</label>
-				<select name="pricingMode" class="input">
-					<option value="">— none (manual) —</option>
-					{#each PRICING_MODE_OPTIONS as opt}
-						<option value={opt.value} selected={data.service.pricingMode === opt.value}>
-							{opt.label} — {opt.hint}
-						</option>
-					{/each}
-				</select>
-				<p class="mt-1 text-xs text-muted">Determines how the price is auto-calculated from participants, sessions, or duration.</p>
-			</div>
-
+			<!-- Price + pricing mode -->
 			{#if canEditServices}
-			<div>
-				<label class="label">{m.service_new_base_price()}</label>
-				<input name="basePrice" type="number" step="0.01" min="0" required value={data.service.basePrice}
-					class="input" />
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label class="label">{m.service_new_base_price()}</label>
+					<input name="basePrice" type="number" step="0.01" min="0" required value={data.service.basePrice}
+						class="input" />
+				</div>
+				<div>
+					<label class="label">Modo de precio</label>
+					<select name="pricingMode" class="input">
+						<option value="">— manual —</option>
+						{#each PRICING_MODE_OPTIONS as opt}
+							<option value={opt.value} selected={data.service.pricingMode === opt.value}>
+								{opt.label}
+							</option>
+						{/each}
+					</select>
+				</div>
 			</div>
 			{:else}
 			<div>
@@ -594,10 +581,13 @@
 			{/if}
 
 			<div>
+				<label class="label">{m.service_detail_edit_color()}</label>
+				<ColorPicker selected={data.service.color} />
+			</div>
+
+			<div>
 				<label class="label">{m.common_description()}</label>
-				<textarea name="description" rows="3"
-					class="input"
-				>{data.service.description ?? ''}</textarea>
+				<textarea name="description" rows="3" class="input">{data.service.description ?? ''}</textarea>
 			</div>
 
 			{#if form?.error}
