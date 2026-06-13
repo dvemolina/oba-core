@@ -50,13 +50,38 @@
 	const LABEL_OPTIONS = ['lesson', 'camp', 'rental', 'accommodation', 'product', 'other'] as const;
 
 	// Capability badge labels for view mode
-	const capabilityBadges = $derived([
-		data.service.modules?.sessions                    && 'Sessions',
-		data.service.modules?.roster                      && 'Roster',
-		data.service.modules?.editions                    && 'Date range',
-		data.service.modules?.inventory                   && 'Inventory units',
-		data.service.modules?.instructor?.required        && 'Instructor',
-	].filter(Boolean) as string[]);
+	const capabilityBadges = $derived(
+		MODULE_DEFINITIONS.filter(mod =>
+			mod.key === 'instructor'
+				? !!(data.service.modules as any)?.instructor?.required
+				: mod.key in ((data.service.modules as Record<string, unknown>) ?? {})
+		).map(mod => `${mod.icon} ${mod.label}`)
+	);
+
+	// ── Module picker derived state (edit mode) ───────────────────────────────
+	const activeEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
+		mod.key === 'instructor' ? !!(editModules as any).instructor?.required : mod.key in (editModules as Record<string, unknown>)
+	));
+	const inactiveEditModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
+		mod.key === 'instructor' ? !(editModules as any).instructor?.required : !(mod.key in (editModules as Record<string, unknown>))
+	));
+
+	function activateEditModule(key: string) {
+		if (key === 'instructor') {
+			editModules = { ...editModules, instructor: { required: true } } as any;
+		} else {
+			editModules = { ...editModules, [key]: getDefaultConfig(key) } as any;
+		}
+	}
+	function deactivateEditModule(key: string) {
+		if (key === 'instructor') {
+			const { instructor: _, ...rest } = editModules as any;
+			editModules = rest as any;
+		} else {
+			const { [key]: _, ...rest } = editModules as Record<string, unknown>;
+			editModules = rest as any;
+		}
+	}
 
 	function serviceEnhance() {
 		return () => async ({ result, update }: { result: any; update: () => Promise<void> }) => {
@@ -437,69 +462,108 @@
 				<ColorPicker selected={data.service.color} />
 			</div>
 
-			<!-- Capability flags (same as new-service Advanced section) -->
-			<details class="rounded-lg border border-border">
-				<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-slate-700">
-					{m.service_detail_edit_flags()}
-				</summary>
-				<div class="space-y-2 border-t border-border px-4 py-3">
-					{#each MODULE_DEFINITIONS as mod}
-						{@const isActive = mod.key === 'instructor' ? !!(editModules as any).instructor?.required : mod.key in (editModules as Record<string, unknown>)}
-						<label class="flex cursor-pointer items-start gap-3">
-							<input type="checkbox"
-								checked={isActive}
-								onchange={(e) => {
-									const v = (e.target as HTMLInputElement).checked;
-									if (mod.key === 'instructor') {
-										editModules = { ...editModules, instructor: { required: v } } as any;
-									} else if (v) {
-										editModules = { ...editModules, [mod.key]: getDefaultConfig(mod.key) } as any;
-									} else {
-										const { [mod.key]: _, ...rest } = editModules as Record<string, unknown>;
-										editModules = rest as any;
-									}
-								}}
-								class="mt-0.5 h-4 w-4 accent-ocean" />
-							<div>
-								<p class="text-sm font-medium text-gray-800">{mod.icon} {mod.label}</p>
-								<p class="text-xs text-muted">{mod.description}</p>
+			<!-- Capabilities: active module cards + inactive chips -->
+			<div>
+				<p class="label mb-2">Capacidades</p>
+
+				{#if activeEditModDefs.length > 0}
+					<div class="space-y-2.5">
+						{#each activeEditModDefs as mod (mod.key)}
+							<div class="rounded-lg border-2 border-ocean/30 bg-ocean/5 p-3 space-y-2.5">
+								<div class="flex items-center justify-between">
+									<span class="text-sm font-semibold text-gray-900">{mod.icon} {mod.label}</span>
+									<button type="button" onclick={() => deactivateEditModule(mod.key)}
+										class="text-[10px] text-muted hover:text-red-500">✕ Quitar</button>
+								</div>
+
+								{#if mod.key === 'sessions'}
+									<div class="grid grid-cols-2 gap-2">
+										<div>
+											<label class="mb-0.5 block text-xs text-muted">Duración (min)</label>
+											<input name="durationMinutes" type="number" min="15" step="15"
+												class="input" placeholder="90"
+												value={data.service.durationMinutes ?? ''} />
+										</div>
+										{#if !editModules.roster}
+											<div>
+												<label class="mb-0.5 block text-xs text-muted">Sesiones incluidas</label>
+												<input name="defaultSessionsIncluded" type="number" min="1"
+													class="input" placeholder="1"
+													value={data.service.defaultSessionsIncluded ?? ''} />
+											</div>
+										{/if}
+									</div>
+								{:else if mod.key === 'roster'}
+									<div>
+										<label class="mb-0.5 block text-xs text-muted">Capacidad máxima</label>
+										<input name="maxCapacity" type="number" min="1" step="1" required
+											class="input" placeholder="8"
+											value={data.service.maxCapacity ?? ''} />
+									</div>
+								{:else if mod.key === 'inventory'}
+									{#if !editModules.roster}
+										<div>
+											<label class="mb-0.5 block text-xs text-muted">Unidades disponibles</label>
+											<input name="maxCapacity" type="number" min="1" step="1"
+												class="input" placeholder="10"
+												value={data.service.maxCapacity ?? ''} />
+										</div>
+									{/if}
+								{:else if mod.key === 'instructor'}
+									{#if data.instructors.length > 0}
+										<div class="space-y-1">
+											<p class="text-xs text-muted">Instructores por defecto</p>
+											<div class="space-y-1.5">
+												{#each data.instructors as instructor}
+													<label class="flex cursor-pointer items-center gap-2">
+														<input type="checkbox" name="defaultInstructorId" value={instructor.id}
+															checked={data.service.defaultInstructorIds?.includes(instructor.id) ?? false}
+															class="h-3.5 w-3.5 accent-ocean" />
+														<span class="text-xs text-gray-700">{instructor.name}</span>
+													</label>
+												{/each}
+											</div>
+										</div>
+									{/if}
+								{:else if mod.key === 'credits'}
+									<div class="grid grid-cols-2 gap-2">
+										<div>
+											<label class="mb-0.5 block text-xs text-muted">Créditos incluidos</label>
+											<input type="number" min="1" step="1" class="input" placeholder="5"
+												value={(editModules as any).credits?.creditsIncluded ?? 5}
+												oninput={(e) => {
+													const v = parseInt((e.target as HTMLInputElement).value) || 5;
+													editModules = { ...editModules, credits: { ...(editModules as any).credits, creditsIncluded: v, validityMode: (editModules as any).credits?.validityMode ?? 'season', compatibleServiceIds: [] } } as any;
+												}} />
+										</div>
+										<div>
+											<label class="mb-0.5 block text-xs text-muted">Validez</label>
+											<select class="input"
+												onchange={(e) => {
+													editModules = { ...editModules, credits: { ...(editModules as any).credits, validityMode: (e.target as HTMLSelectElement).value, creditsIncluded: (editModules as any).credits?.creditsIncluded ?? 5, compatibleServiceIds: [] } } as any;
+												}}>
+												<option value="season" selected={(editModules as any).credits?.validityMode !== 'days'}>Temporada</option>
+												<option value="days" selected={(editModules as any).credits?.validityMode === 'days'}>Días</option>
+											</select>
+										</div>
+									</div>
+								{/if}
 							</div>
-						</label>
-					{/each}
-				</div>
-			</details>
-
-			{#if editModules.sessions && !editModules.roster}
-				<div class="grid grid-cols-2 gap-3">
-					<div>
-						<label class="label">{m.service_new_duration()}</label>
-						<input name="durationMinutes" type="number" min="15" step="15"
-							value={data.service.durationMinutes ?? ''} class="input" />
+						{/each}
 					</div>
-					<div>
-						<label class="label">{m.service_new_sessions_per_booking()}</label>
-						<input name="defaultSessionsIncluded" type="number" min="1" step="1"
-							value={data.service.defaultSessionsIncluded ?? ''} class="input" placeholder="1" />
-						<p class="mt-1 text-xs text-muted">{m.service_new_sessions_default_hint()}</p>
+				{/if}
+
+				{#if inactiveEditModDefs.length > 0}
+					<div class="flex flex-wrap gap-2 pt-1">
+						{#each inactiveEditModDefs as mod (mod.key)}
+							<button type="button" onclick={() => activateEditModule(mod.key)}
+								class="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:border-ocean hover:text-ocean transition-colors">
+								{mod.icon} {mod.label}
+							</button>
+						{/each}
 					</div>
-				</div>
-			{/if}
-
-			<!-- Date range editing is now handled via service runs, not service fields -->
-
-			{#if editModules.roster}
-				<div>
-					<label class="label">{m.service_new_max_participants()}</label>
-					<input name="maxCapacity" type="number" min="1" step="1" required
-						value={data.service.maxCapacity ?? ''} class="input" />
-				</div>
-			{:else if editModules.inventory}
-				<div>
-					<label class="label">{m.service_new_available_units()}</label>
-					<input name="maxCapacity" type="number" min="1" step="1" required
-						value={data.service.maxCapacity ?? ''} class="input" />
-				</div>
-			{/if}
+				{/if}
+			</div>
 
 			<!-- Pricing mode — applies to all service types -->
 			<div>
@@ -514,22 +578,6 @@
 				</select>
 				<p class="mt-1 text-xs text-muted">Determines how the price is auto-calculated from participants, sessions, or duration.</p>
 			</div>
-
-			{#if editModules.instructor?.required && data.instructors.length > 0}
-				<div>
-					<label class="label mb-2">{m.service_new_default_instructors()}</label>
-					<div class="space-y-2 rounded-lg border border-border p-3">
-						{#each data.instructors as instructor}
-							<label class="flex cursor-pointer items-center gap-3">
-								<input type="checkbox" name="defaultInstructorId" value={instructor.id}
-									checked={data.service.defaultInstructorIds?.includes(instructor.id) ?? false}
-									class="h-4 w-4 accent-ocean" />
-								<span class="text-sm text-gray-800">{instructor.name}</span>
-							</label>
-						{/each}
-					</div>
-				</div>
-			{/if}
 
 			{#if canEditServices}
 			<div>

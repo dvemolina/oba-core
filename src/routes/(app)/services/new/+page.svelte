@@ -80,7 +80,30 @@
 	// Smart default pricingMode derived from current modules
 	const smartPricingMode = $derived(defaultPricingMode(modules));
 
-	let showAdvanced = $state(false);
+	// ── Module picker derived state ───────────────────────────────────────────
+	const activeModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
+		mod.key === 'instructor' ? !!(modules as any).instructor?.required : mod.key in (modules as Record<string, unknown>)
+	));
+	const inactiveModDefs = $derived(MODULE_DEFINITIONS.filter(mod =>
+		mod.key === 'instructor' ? !(modules as any).instructor?.required : !(mod.key in (modules as Record<string, unknown>))
+	));
+
+	function activateModule(key: string) {
+		if (key === 'instructor') {
+			modules = { ...modules, instructor: { required: true } } as any;
+		} else {
+			modules = { ...modules, [key]: getDefaultConfig(key) } as any;
+		}
+	}
+	function deactivateModule(key: string) {
+		if (key === 'instructor') {
+			const { instructor: _, ...rest } = modules as any;
+			modules = rest as any;
+		} else {
+			const { [key]: _, ...rest } = modules as Record<string, unknown>;
+			modules = rest as any;
+		}
+	}
 </script>
 
 <div class="p-4 md:p-6">
@@ -133,22 +156,6 @@
 				class="input" placeholder="40.00" />
 		</div>
 
-		{#if modules.sessions && !modules.roster}
-			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label class="label">{m.service_new_duration()}</label>
-					<input name="durationMinutes" type="number" min="15" step="15"
-						class="input" placeholder="90" />
-				</div>
-				<div>
-					<label class="label">{m.service_new_sessions_per_booking()}</label>
-					<input name="defaultSessionsIncluded" type="number" min="1" step="1"
-						class="input" placeholder="1" />
-					<p class="mt-1 text-xs text-muted">{m.service_new_sessions_default_hint()}</p>
-				</div>
-			</div>
-		{/if}
-
 		{#if modules.editions}
 			<div class="grid grid-cols-2 gap-3">
 				<div>
@@ -159,20 +166,6 @@
 					<label class="label">End date {modules.roster ? '*' : ''}</label>
 					<input name="endDate" type="date" required={!!modules.roster} class="input" />
 				</div>
-			</div>
-		{/if}
-
-		{#if modules.roster}
-			<div>
-				<label class="label">{m.service_new_max_participants()}</label>
-				<input name="maxCapacity" type="number" min="1" step="1" required
-					class="input" placeholder="12" />
-			</div>
-		{:else if modules.inventory}
-			<div>
-				<label class="label">{m.service_new_available_units()}</label>
-				<input name="maxCapacity" type="number" min="1" step="1" required
-					class="input" placeholder={m.service_new_available_units_placeholder()} />
 			</div>
 		{/if}
 
@@ -190,21 +183,6 @@
 			<p class="mt-1 text-xs text-muted">Auto-selected based on service type. Determines how booking price is calculated.</p>
 		</div>
 
-		{#if modules.instructor?.required && data.instructors.length > 0}
-			<div>
-				<label class="label mb-2">{m.service_new_default_instructors()}</label>
-				<div class="space-y-2 rounded-lg border border-border p-3">
-					{#each data.instructors as instructor}
-						<label class="flex cursor-pointer items-center gap-3">
-							<input type="checkbox" name="defaultInstructorId" value={instructor.id}
-								class="h-4 w-4 accent-ocean" />
-							<span class="text-sm text-gray-800">{instructor.name}</span>
-						</label>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
 		<div>
 			<label class="label mb-2">{m.service_new_color()}</label>
 			<ColorPicker selected={form?.values?.color ?? 'ocean'} />
@@ -216,37 +194,104 @@
 				placeholder={m.service_new_description_placeholder()}>{form?.values?.description ?? ''}</textarea>
 		</div>
 
-		<!-- Advanced: capability flags -->
-		<details bind:open={showAdvanced} class="rounded-lg border border-border">
-			<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted hover:text-slate-700">
-				{m.service_new_advanced()}
-			</summary>
-			<div class="space-y-2 border-t border-border px-4 py-3">
-				{#each MODULE_DEFINITIONS as mod}
-					{@const isActive = mod.key === 'instructor' ? !!(modules as any).instructor?.required : mod.key in (modules as Record<string, unknown>)}
-					<label class="flex cursor-pointer items-start gap-3">
-						<input type="checkbox"
-							checked={isActive}
-							onchange={(e) => {
-								const v = (e.target as HTMLInputElement).checked;
-								if (mod.key === 'instructor') {
-									modules = { ...modules, instructor: { required: v } } as any;
-								} else if (v) {
-									modules = { ...modules, [mod.key]: getDefaultConfig(mod.key) } as any;
-								} else {
-									const { [mod.key]: _, ...rest } = modules as Record<string, unknown>;
-									modules = rest as any;
-								}
-							}}
-							class="mt-0.5 h-4 w-4 accent-ocean" />
-						<div>
-							<p class="text-sm font-medium text-gray-800">{mod.icon} {mod.label}</p>
-							<p class="text-xs text-muted">{mod.description}</p>
+		<!-- Capabilities: active module cards + inactive chips -->
+		<div>
+			<p class="label mb-2">Capacidades</p>
+
+			{#if activeModDefs.length > 0}
+				<div class="space-y-2.5">
+					{#each activeModDefs as mod (mod.key)}
+						<div class="rounded-lg border-2 border-ocean/30 bg-ocean/5 p-3 space-y-2.5">
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-semibold text-gray-900">{mod.icon} {mod.label}</span>
+								<button type="button" onclick={() => deactivateModule(mod.key)}
+									class="text-[10px] text-muted hover:text-red-500">✕ Quitar</button>
+							</div>
+
+							{#if mod.key === 'sessions'}
+								<div class="grid grid-cols-2 gap-2">
+									<div>
+										<label class="mb-0.5 block text-xs text-muted">Duración (min)</label>
+										<input name="durationMinutes" type="number" min="15" step="15"
+											class="input" placeholder="90" />
+									</div>
+									{#if !modules.roster}
+										<div>
+											<label class="mb-0.5 block text-xs text-muted">Sesiones incluidas</label>
+											<input name="defaultSessionsIncluded" type="number" min="1"
+												class="input" placeholder="1" />
+										</div>
+									{/if}
+								</div>
+							{:else if mod.key === 'roster'}
+								<div>
+									<label class="mb-0.5 block text-xs text-muted">Capacidad máxima</label>
+									<input name="maxCapacity" type="number" min="1" step="1" required
+										class="input" placeholder="8" />
+								</div>
+							{:else if mod.key === 'inventory'}
+								{#if !modules.roster}
+									<div>
+										<label class="mb-0.5 block text-xs text-muted">Unidades disponibles</label>
+										<input name="maxCapacity" type="number" min="1" step="1"
+											class="input" placeholder="10" />
+									</div>
+								{/if}
+							{:else if mod.key === 'instructor'}
+								{#if data.instructors.length > 0}
+									<div class="space-y-1">
+										<p class="text-xs text-muted">Instructores por defecto</p>
+										<div class="space-y-1.5">
+											{#each data.instructors as instructor}
+												<label class="flex cursor-pointer items-center gap-2">
+													<input type="checkbox" name="defaultInstructorId" value={instructor.id}
+														checked={false}
+														class="h-3.5 w-3.5 accent-ocean" />
+													<span class="text-xs text-gray-700">{instructor.name}</span>
+												</label>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							{:else if mod.key === 'credits'}
+								<div class="grid grid-cols-2 gap-2">
+									<div>
+										<label class="mb-0.5 block text-xs text-muted">Créditos incluidos</label>
+										<input type="number" min="1" step="1" class="input" placeholder="5"
+											value={(modules as any).credits?.creditsIncluded ?? 5}
+											oninput={(e) => {
+												const v = parseInt((e.target as HTMLInputElement).value) || 5;
+												modules = { ...modules, credits: { ...(modules as any).credits, creditsIncluded: v, validityMode: (modules as any).credits?.validityMode ?? 'season', compatibleServiceIds: [] } } as any;
+											}} />
+									</div>
+									<div>
+										<label class="mb-0.5 block text-xs text-muted">Validez</label>
+										<select class="input"
+											onchange={(e) => {
+												modules = { ...modules, credits: { ...(modules as any).credits, validityMode: (e.target as HTMLSelectElement).value, creditsIncluded: (modules as any).credits?.creditsIncluded ?? 5, compatibleServiceIds: [] } } as any;
+											}}>
+											<option value="season" selected={(modules as any).credits?.validityMode !== 'days'}>Temporada</option>
+											<option value="days" selected={(modules as any).credits?.validityMode === 'days'}>Días</option>
+										</select>
+									</div>
+								</div>
+							{/if}
 						</div>
-					</label>
-				{/each}
-			</div>
-		</details>
+					{/each}
+				</div>
+			{/if}
+
+			{#if inactiveModDefs.length > 0}
+				<div class="flex flex-wrap gap-2 pt-1">
+					{#each inactiveModDefs as mod (mod.key)}
+						<button type="button" onclick={() => activateModule(mod.key)}
+							class="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:border-ocean hover:text-ocean transition-colors">
+							{mod.icon} {mod.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
 
 		{#if form?.error}
 			<p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{form.error}</p>
