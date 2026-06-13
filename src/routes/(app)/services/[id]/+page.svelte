@@ -210,7 +210,7 @@
 						</div>
 
 						{#if editingLinkId === link.id && data.canEditServices}
-						<form method="POST" action="?/updateInventoryLink" use:enhance={() => () => async ({ result, update }) => {
+						<form method="POST" action="?/updateInventoryLink" use:enhance={() => async ({ result, update }) => {
 							if (result.type === 'success') { toast('Link updated'); editingLinkId = null; await update(); } else { await update(); }
 						}} class="mt-3 space-y-2 rounded-lg bg-gray-50 p-3">
 							<input type="hidden" name="linkId" value={link.id} />

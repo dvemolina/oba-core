@@ -129,7 +129,7 @@
 				{#each TEMPLATES as t}
 					<button
 						type="button"
-						onclick={() => selectedTemplateId = t.id}
+						onclick={() => selectedTemplateId = t.id as TemplateId}
 						class="flex flex-col items-start rounded-xl border p-3 text-left transition-all
 							{selectedTemplateId === t.id
 								? 'border-ocean bg-ocean/5 ring-2 ring-ocean/30'

@@ -211,6 +211,13 @@
       "when": 1749772800000,
       "tag": "0035_module_system",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1781391239979,
+      "tag": "0036_normal_king_cobra",
+      "breakpoints": true
     }
   ]
 }
