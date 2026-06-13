@@ -130,6 +130,7 @@ export interface CreateBookingInput {
 	clients: {
 		clientId: string;
 		amountDue: string;
+		participantCount?: number;  // defaults to 1 if omitted
 	}[];
 }
 

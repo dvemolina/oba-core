@@ -414,7 +414,8 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 				clientId: c.clientId,
 				amountDue: c.amountDue,
 				amountPaid: '0',
-				paymentStatus: 'pending' as const
+				paymentStatus: 'pending' as const,
+				participantCount: c.participantCount ?? 1
 			}))
 		);
 	}

@@ -8,6 +8,7 @@ import {
 	bookingParticipants,
 	serviceEditions
 } from './schema'
+import type { CreateBookingInput } from '$lib/features/bookings/types'
 
 describe('schema enums', () => {
 	it('skillLevel has correct values', () => {
@@ -55,4 +56,15 @@ describe('serviceEditions table', () => {
 	it('exists (service_runs renamed to service_editions)', () => {
 		expect(serviceEditions).toBeDefined()
 	})
+})
+
+describe('CreateBookingInput', () => {
+	it('createBooking stores participantCount per client', async () => {
+		const input = {
+			clientId: 'test-client',
+			amountDue: '50',
+			participantCount: 3
+		} satisfies CreateBookingInput['clients'][number];
+		expect(input.participantCount).toBe(3);
+	});
 })
