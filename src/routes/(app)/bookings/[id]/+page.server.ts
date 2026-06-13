@@ -24,7 +24,7 @@ import {
 	addParticipant,
 	removeParticipant
 } from '$lib/features/sessions/queries';
-import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount } from '$lib/features/bookings/participants.queries';
+import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount, listParticipantsForEnrollment } from '$lib/features/bookings/participants.queries';
 import { recalcBookingAmounts } from '$lib/features/bookings/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -42,11 +42,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const [booking, instructors] = await Promise.all([getBooking(params.id), listInstructors()]);
 	if (!booking) error(404, 'Booking not found');
 
-	const isCamp = booking.serviceHasRoster;
 	const hasSessions = booking.serviceHasSessions;
 	const [service, clients, sessions, allDateSessions] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
-		isCamp ? listClients() : Promise.resolve([]),
+		booking.serviceHasRoster ? listClients() : Promise.resolve([]),
 		hasSessions ? listSessionsForBooking(params.id) : Promise.resolve([]),
 		// For "link to existing session": sessions on booking's start date from other bookings
 		hasSessions ? listSessionsForDate(booking.date) : Promise.resolve([])
@@ -55,6 +54,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// Sessions on the same date not already linked to this booking
 	const linkableSessions = allDateSessions.filter(
 		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
+	);
+
+	// Load named participants per enrollment
+	const participantsByEnrollment: Record<string, Awaited<ReturnType<typeof listParticipantsForEnrollment>>> = {};
+	await Promise.all(
+		booking.clients.map(async (bc) => {
+			participantsByEnrollment[bc.id] = await listParticipantsForEnrollment(bc.id);
+		})
 	);
 
 	const serviceInventoryLinks = (service && 'inventory' in (service.modules ?? {})) ? await listLinksForService(service.id) : [];
@@ -74,7 +81,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		})
 	);
 
-	return { booking, instructors, service: service ?? null, clients, isCamp, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks };
+	return { booking, instructors, service: service ?? null, clients, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment };
 };
 
 export const actions: Actions = {
