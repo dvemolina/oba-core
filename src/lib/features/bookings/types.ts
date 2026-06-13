@@ -1,4 +1,5 @@
 import type { InventoryAllocationWithDetails, CreateAllocationInput } from '$lib/features/inventory/types';
+import type { ServiceModules } from '$lib/features/services/modules';
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'partial' | 'paid';
@@ -42,6 +43,7 @@ export interface Booking {
 	serviceName: string | null;
 	serviceType: string | null;
 	serviceColor: string | null;
+	serviceModules: ServiceModules | null;
 	serviceHasSessions: boolean;
 	serviceHasRoster: boolean;
 	serviceHasDateRange: boolean;
