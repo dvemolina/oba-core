@@ -16,6 +16,11 @@ export interface BookingClient {
 	amountPaid: string;
 	paymentStatus: PaymentStatus;
 	cancelledAt: Date | null;
+	participantCount: number;
+	creditSourceId: string | null;
+	creditCount: number;
+	priceOverride: string | null;
+	overrideReason: string | null;
 }
 
 export interface BookingParticipant {
@@ -42,13 +47,12 @@ export interface Booking {
 	// Instructor for non-session services (rentals, products, accommodation) only
 	instructorId: string | null;
 	instructorName: string | null;
-	participantCount: number | null;
 	allocations: InventoryAllocationWithDetails[];
 	date: string;
 	dateEnd: string | null;
-	serviceRunId: string | null;
-	serviceRunStartDate: string | null;
-	serviceRunEndDate: string | null;
+	serviceEditionId: string | null;
+	serviceEditionStartDate: string | null;
+	serviceEditionEndDate: string | null;
 	time: string | null;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
@@ -56,7 +60,6 @@ export interface Booking {
 	source: BookingSource;
 	spotNotes: string | null;
 	notes: string | null;
-	priceOverride: string | null;
 	serviceBasePrice: string | null;
 	clients: BookingClient[];
 	participants: BookingParticipant[];
