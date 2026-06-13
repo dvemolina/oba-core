@@ -25,7 +25,9 @@ export interface BookingClient {
 
 export interface BookingParticipant {
 	id: string;
-	bookingId: string;
+	bookingClientId: string | null;
+	/** Temporary migration column — do not use */
+	bookingIdTemp?: string | null;
 	name: string;
 	notes: string | null;
 	sortOrder: number;
@@ -84,9 +86,9 @@ export interface BookingSummary {
 	allocationSummary: string | null;
 	date: string;
 	dateEnd: string | null;
-	serviceRunId: string | null;
-	serviceRunStartDate: string | null;
-	serviceRunEndDate: string | null;
+	serviceEditionId: string | null;
+	serviceEditionStartDate: string | null;
+	serviceEditionEndDate: string | null;
 	time: string | null;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
@@ -114,10 +116,9 @@ export interface CreateBookingInput {
 	/** For non-session services (rentals, products, accommodation) only */
 	instructorId?: string;
 	allocations?: CreateAllocationInput[];
-	participantCount?: number;
 	date: string;
 	dateEnd?: string;
-	serviceRunId?: string;
+	serviceEditionId?: string;
 	/** For non-session services only */
 	time?: string;
 	sessionsIncluded?: number;
@@ -144,5 +145,4 @@ export interface UpdateBookingInput {
 	status?: BookingStatus;
 	spotNotes?: string | null;
 	notes?: string | null;
-	priceOverride?: string | null;
 }

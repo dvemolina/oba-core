@@ -9,7 +9,7 @@ import {
 	bookingSessions,
 	clients,
 	services,
-	serviceRuns,
+	serviceEditions,
 	sessions,
 	inventoryAllocations,
 	inventoryItemTypes,
@@ -26,7 +26,6 @@ import type {
 	CreateBookingInput,
 	UpdateBookingInput
 } from './types';
-import { listParticipantsForBooking } from './participants.queries';
 import { listAllocationsForBooking } from '$lib/features/inventory/allocations.queries';
 import { getService } from '$lib/features/services/queries';
 
@@ -113,9 +112,9 @@ export async function listBookingsForDateRange(
 			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
-			serviceRunId: bookings.serviceRunId,
-			serviceRunStartDate: serviceRuns.startDate,
-			serviceRunEndDate: serviceRuns.endDate,
+			serviceEditionId: bookings.serviceEditionId,
+			serviceEditionStartDate: serviceEditions.startDate,
+			serviceEditionEndDate: serviceEditions.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -123,7 +122,7 @@ export async function listBookingsForDateRange(
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
+		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
 		// Overlap: booking starts before range ends AND booking ends (or is same-day) after range starts
 		.where(and(
 			lte(bookings.date, to),
@@ -173,9 +172,9 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 			allocationSummary: sql<string | null>`null`,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
-			serviceRunId: bookings.serviceRunId,
-			serviceRunStartDate: serviceRuns.startDate,
-			serviceRunEndDate: serviceRuns.endDate,
+			serviceEditionId: bookings.serviceEditionId,
+			serviceEditionStartDate: serviceEditions.startDate,
+			serviceEditionEndDate: serviceEditions.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -183,8 +182,8 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
-		.where(eq(bookings.serviceRunId, runId))
+		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
+		.where(eq(bookings.serviceEditionId, runId))
 		.orderBy(bookings.date, bookings.createdAt);
 
 	const withInstructors = await attachInstructorsToBookings(rows);
@@ -295,9 +294,9 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceMaxCapacity: services.maxCapacity,
 			date: bookings.date,
 			dateEnd: bookings.dateEnd,
-			serviceRunId: bookings.serviceRunId,
-			serviceRunStartDate: serviceRuns.startDate,
-			serviceRunEndDate: serviceRuns.endDate,
+			serviceEditionId: bookings.serviceEditionId,
+			serviceEditionStartDate: serviceEditions.startDate,
+			serviceEditionEndDate: serviceEditions.endDate,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -305,15 +304,13 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			source: bookings.source,
 			spotNotes: bookings.spotNotes,
 			notes: bookings.notes,
-			priceOverride: bookings.priceOverride,
 			serviceBasePrice: services.basePrice,
-			participantCount: bookings.participantCount,
 			createdAt: bookings.createdAt,
 			updatedAt: bookings.updatedAt
 		})
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.leftJoin(serviceRuns, eq(bookings.serviceRunId, serviceRuns.id))
+		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
 		.where(eq(bookings.id, id));
 
 	if (!booking) return undefined;
@@ -338,20 +335,24 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			amountDue: bookingClients.amountDue,
 			amountPaid: bookingClients.amountPaid,
 			paymentStatus: bookingClients.paymentStatus,
-			cancelledAt: bookingClients.cancelledAt
+			cancelledAt: bookingClients.cancelledAt,
+			participantCount: bookingClients.participantCount,
+			creditSourceId: bookingClients.creditSourceId,
+			creditCount: bookingClients.creditCount,
+			priceOverride: bookingClients.priceOverride,
+			overrideReason: bookingClients.overrideReason
 		})
 		.from(bookingClients)
 		.leftJoin(clients, eq(bookingClients.clientId, clients.id))
 		.where(eq(bookingClients.bookingId, id));
 
-	const participants = await listParticipantsForBooking(booking.id);
 	const allocations = await listAllocationsForBooking(booking.id);
 	return {
 		...booking,
 		instructorId: instrRow?.instructorId ?? null,
 		instructorName: instrRow?.instructorName ?? null,
 		clients: bookingClientRows,
-		participants,
+		participants: [],
 		allocations
 	} as Booking;
 }
@@ -378,7 +379,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.insert(bookings)
 		.values({
 			serviceId: input.serviceId,
-			serviceRunId: input.serviceRunId,
+			serviceEditionId: input.serviceEditionId,
 			date: input.date,
 			dateEnd: input.dateEnd,
 			time: input.time,
@@ -387,8 +388,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 			status: input.status ?? (input.source === 'whatsapp_bot' ? 'pending' : 'confirmed'),
 			source: input.source ?? 'admin',
 			spotNotes: input.spotNotes,
-			notes: input.notes,
-			participantCount: input.participantCount ?? null
+			notes: input.notes
 		})
 		.returning();
 
@@ -610,8 +610,9 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 	const service = await getService(booking.serviceId);
 	if (!service) return;
 
-	const participants = await listParticipantsForBooking(bookingId);
-	const participantCount = participants.length || booking.participantCount || 1;
+	const activeClients = booking.clients.filter(c => c.status !== 'cancelled');
+	// Total participant count across all enrolled booking clients
+	const participantCount = activeClients.reduce((sum, c) => sum + (c.participantCount ?? 1), 0) || 1;
 	const sessions = booking.sessionsIncluded ?? 1;
 
 	let days = 1;
@@ -630,11 +631,9 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 		hasInventoryUnits: !!service.hasInventoryUnits,
 	});
 
-	const activeClients = booking.clients.filter(c => c.status !== 'cancelled');
 	for (const bc of activeClients) {
-		// 1 enrolled client = organizer paying for the whole group → charge for all named participants.
-		// Multiple enrolled clients = each pays for themselves (1 participant each).
-		const p = activeClients.length === 1 ? participantCount : 1;
+		// Each booking client carries their own participantCount (defaults to 1).
+		const p = bc.participantCount ?? 1;
 		const amount = calculateAmount(basePrice, mode, { participants: p, sessions, days });
 		const amountDue = amount.toFixed(2);
 		const paid = parseFloat(bc.amountPaid);
@@ -643,7 +642,4 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 			paid >= due ? 'paid' : paid > 0 ? 'partial' : 'pending';
 		await db.update(bookingClients).set({ amountDue, paymentStatus }).where(eq(bookingClients.id, bc.id));
 	}
-
-	// Keep booking.participantCount in sync
-	await db.update(bookings).set({ participantCount }).where(eq(bookings.id, bookingId));
 }
