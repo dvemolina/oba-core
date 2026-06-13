@@ -10,9 +10,11 @@ import {
 	time,
 	jsonb,
 	index,
-	uniqueIndex
+	uniqueIndex,
+	type AnyPgColumn
 } from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
+import type { ServiceModules } from '$lib/features/services/modules';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -63,14 +65,10 @@ export const services = pgTable('services', {
 		.$defaultFn(() => crypto.randomUUID()),
 	name: text('name').notNull(),
 	description: text('description'),
-	// `type` kept as a display template hint — business logic now driven by capability flags below
+	// `type` kept as a display template hint — business logic now driven by modules JSONB below
 	type: text('type').notNull().default('other'),
-	// ── Capability flags ──────────────────────────────────────────────────────
-	hasSessions: boolean('has_sessions').notNull().default(false),
-	hasRoster: boolean('has_roster').notNull().default(false),
-	hasDateRange: boolean('has_date_range').notNull().default(false),
-	hasInventoryUnits: boolean('has_inventory_units').notNull().default(false),
-	requiresInstructor: boolean('requires_instructor').notNull().default(true),
+	// ── Modules ───────────────────────────────────────────────────────────────
+	modules: jsonb('modules').$type<ServiceModules>().notNull().default({}),
 	// ── Type-specific config ──────────────────────────────────────────────────
 	durationMinutes: integer('duration_minutes'),
 	defaultSessionsIncluded: integer('default_sessions_included'),
@@ -102,7 +100,7 @@ export const serviceInstructors = pgTable('service_instructors', {
 	index('idx_service_instructors_user').on(t.userId)
 ]);
 
-export const serviceRuns = pgTable('service_runs', {
+export const serviceEditions = pgTable('service_editions', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
@@ -117,8 +115,8 @@ export const serviceRuns = pgTable('service_runs', {
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [
-	index('idx_service_runs_service').on(t.serviceId),
-	index('idx_service_runs_dates').on(t.startDate, t.endDate)
+	index('idx_service_editions_service').on(t.serviceId),
+	index('idx_service_editions_dates').on(t.startDate, t.endDate)
 ]);
 
 export const bookings = pgTable('bookings', {
@@ -129,9 +127,8 @@ export const bookings = pgTable('bookings', {
 		.references(() => services.id),
 	date: date('date').notNull(),
 	dateEnd: date('date_end'),
-	serviceRunId: text('service_run_id')
-		.references(() => serviceRuns.id, { onDelete: 'set null' }),
-	participantCount: integer('participant_count'),
+	serviceEditionId: text('service_edition_id')
+		.references(() => serviceEditions.id, { onDelete: 'set null' }),
 	time: time('time'),
 	sessionsIncluded: integer('sessions_included'),
 	isFlexible: boolean('is_flexible').notNull().default(false),
@@ -139,14 +136,13 @@ export const bookings = pgTable('bookings', {
 	source: text('source').notNull().default('admin'),
 	spotNotes: text('spot_notes'),
 	notes: text('notes'),
-	priceOverride: numeric('price_override', { precision: 10, scale: 2 }),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_bookings_date').on(t.date),
 	index('idx_bookings_status').on(t.status),
 	index('idx_bookings_service').on(t.serviceId),
-	index('idx_bookings_service_run').on(t.serviceRunId)
+	index('idx_bookings_service_edition').on(t.serviceEditionId)
 ]);
 
 export const bookingClients = pgTable('booking_clients', {
@@ -160,6 +156,11 @@ export const bookingClients = pgTable('booking_clients', {
 		.notNull()
 		.references(() => clients.id),
 	status: text('status').notNull().default('enrolled'),
+	participantCount: integer('participant_count').notNull().default(1),
+	creditSourceId: text('credit_source_id').references((): AnyPgColumn => bookings.id),
+	creditCount: integer('credit_count').notNull().default(0),
+	priceOverride: numeric('price_override', { precision: 10, scale: 2 }),
+	overrideReason: text('override_reason'),
 	amountDue: numeric('amount_due', { precision: 10, scale: 2 }).notNull(),
 	amountPaid: numeric('amount_paid', { precision: 10, scale: 2 }).notNull().default('0'),
 	paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending'),
@@ -173,15 +174,14 @@ export const bookingParticipants = pgTable('booking_participants', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
-	bookingId: text('booking_id')
-		.notNull()
-		.references(() => bookings.id, { onDelete: 'cascade' }),
+	bookingIdTemp: text('booking_id'),  // kept temporarily for migration script
+	bookingClientId: text('booking_client_id').references(() => bookingClients.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
 	notes: text('notes'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow()
 }, (t) => [
-	index('idx_booking_participants_booking').on(t.bookingId)
+	index('idx_booking_participants_booking_client').on(t.bookingClientId)
 ]);
 
 export const events = pgTable('events', {
