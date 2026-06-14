@@ -73,11 +73,11 @@
 			<p class="text-[10px] font-semibold {color.text}">{session.time.slice(0, 5)}</p>
 		{/if}
 		<p class="truncate text-[11px] font-medium text-gray-800">
-			{session.serviceName ?? 'Session'}{session.participantNames[0] ? ` · ${session.participantNames[0]}` : ''}
+			{session.serviceName ?? 'Session'}{session.firstClientName ? ` · ${session.firstClientName}` : ''}
 		</p>
-		{#if session.participantNames.length > 0}
+		{#if session.totalParticipants > 0}
 			<p class="text-[10px] text-muted">
-				{session.participantNames.length} participante{session.participantNames.length !== 1 ? 's' : ''}
+				{session.totalParticipants} participante{session.totalParticipants !== 1 ? 's' : ''}
 			</p>
 		{/if}
 	</button>
@@ -89,7 +89,8 @@
 			serviceName={session.serviceName}
 			serviceColor={session.serviceColor}
 			time={session.time}
-			participantNames={session.participantNames}
+			firstClientName={session.firstClientName}
+			totalParticipants={session.totalParticipants}
 			bookingStatus={session.bookingStatus}
 			date={session.date}
 			totalAmountDue={session.totalAmountDue}

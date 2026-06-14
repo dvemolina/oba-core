@@ -192,19 +192,16 @@
 							{/each}
 						</select>
 						{#if selectedEdition}
-							<p class="mt-1 text-xs text-muted">
+							<div class="mt-1 rounded-lg bg-ocean/5 px-3 py-2 text-xs text-muted">
 								📅 {selectedEdition.startDate} → {selectedEdition.endDate}
-							</p>
+								{#if selectedEdition.maxCapacity}
+									· {selectedEdition.enrolledCount ?? 0}/{selectedEdition.maxCapacity} plazas
+								{/if}
+							</div>
 							<input type="hidden" name="date" value={selectedEdition.startDate} />
 							<input type="hidden" name="dateEnd" value={selectedEdition.endDate} />
 						{:else}
-							<input
-								type="date"
-								name="date"
-								required
-								value={data.defaultDate}
-								class="input w-full mt-2"
-							/>
+							<p class="mt-1 text-xs text-amber-600">Selecciona una edición para continuar</p>
 						{/if}
 					{:else}
 						<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
@@ -379,8 +376,7 @@
 		</div>
 
 		<!-- Notes (collapsed) -->
-		{#if !showEditionPicker}
-			<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
+		<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
 				<button
 					type="button"
 					onclick={() => (notesOpen = !notesOpen)}
@@ -403,7 +399,6 @@
 					</div>
 				{/if}
 			</div>
-		{/if}
 
 		<button
 			type="submit"

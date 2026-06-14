@@ -1,5 +1,5 @@
 # Architecture Session Brief — Modular Service/Booking System
-Date: 2026-06-09 (scheduled)
+Date: 2026-06-13 (scheduled)
 Prepared: 2026-06-08
 
 ## Purpose

@@ -551,6 +551,11 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 					? []
 					: bClients.map(c => `${c.firstName} ${c.lastName}`);
 
+			const firstClient = bClients[0];
+			const firstClientName = firstClient
+				? `${firstClient.firstName} ${firstClient.lastName}`
+				: null;
+
 			return {
 				...s,
 				bookingId: first.bookingId ?? '',
@@ -565,7 +570,9 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 				bookingDate: first.bookingDate ?? s.date,
 				bookingDateEnd: first.bookingDateEnd,
 				isFlexible: first.isFlexible ?? false,
+				firstClientName,
 				participantNames,
+				totalParticipants: firstHasRoster ? bClients.length : participantNames.length,
 				enrolledCount: bClients.length,
 				maxCapacity: first.serviceMaxCapacity,
 				totalAmountDue: bClients.reduce((sum, c) => sum + parseFloat(c.amountDue ?? '0'), 0),

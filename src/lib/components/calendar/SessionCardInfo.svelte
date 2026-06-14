@@ -6,7 +6,8 @@
 		serviceName,
 		serviceColor,
 		time,
-		participantNames,
+		firstClientName = null,
+		totalParticipants = 0,
 		bookingStatus,
 		date,
 		totalAmountDue = 0,
@@ -15,7 +16,8 @@
 		serviceName: string | null;
 		serviceColor: string | null;
 		time: string | null;
-		participantNames: string[];
+		firstClientName?: string | null;
+		totalParticipants?: number;
 		bookingStatus: string;
 		date: string;
 		totalAmountDue?: number;
@@ -25,8 +27,8 @@
 	const color = $derived(getServiceColor(serviceColor ?? ''));
 
 	const title = $derived(
-		participantNames[0]
-			? `${serviceName ?? '—'} · ${participantNames[0]}`
+		firstClientName
+			? `${serviceName ?? '—'} · ${firstClientName}`
 			: (serviceName ?? '—')
 	);
 
@@ -66,9 +68,9 @@
 		{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 		{#if time} · {time.slice(0, 5)}{/if}
 	</p>
-	{#if participantNames.length > 0}
+	{#if totalParticipants > 0}
 		<p class="text-xs text-gray-700">
-			{participantNames.length} participante{participantNames.length !== 1 ? 's' : ''}
+			{totalParticipants} participante{totalParticipants !== 1 ? 's' : ''}
 		</p>
 	{/if}
 	<div class="flex flex-wrap gap-1.5">

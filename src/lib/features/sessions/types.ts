@@ -63,8 +63,12 @@ export interface AgendaSession extends Session {
 	bookingDate: string;
 	bookingDateEnd: string | null;
 	isFlexible: boolean;
+	// First enrolled client name (for card title — "[Service] · [Client]")
+	firstClientName: string | null;
 	// Who attends: from session_participants if set, otherwise first booking client
 	participantNames: string[];
+	// Total participant count across all enrolled clients
+	totalParticipants: number;
 	// For camps (roster): enrollment aggregate
 	enrolledCount: number;
 	maxCapacity: number | null;
