@@ -6,6 +6,7 @@ import { listSessionsForDate, listSessionsForDateRange, updateSession } from '$l
 import { listInstructors } from '$lib/features/instructors/queries';
 import { getDateRange, getTodayString, getWeekStart, getWeekDays, formatDate } from '$lib/features/calendar/utils';
 import { getInventoryShortagesForDate } from '$lib/features/inventory/availability';
+import { listEditionsForDateRange } from '$lib/features/services/editions.queries';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
@@ -30,12 +31,13 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		instructorId = locals.user!.id;
 	}
 
-	const [bookings, events, daySessions, rangedSessions, instructorList] = await Promise.all([
+	const [bookings, events, daySessions, rangedSessions, instructorList, serviceEditions] = await Promise.all([
 		listBookingsForDateRange(from, to),
 		listEventsForDateRange(from, to),
 		view === 'day' ? listSessionsForDate(dayDate, instructorId) : Promise.resolve([]),
 		view !== 'day' ? listSessionsForDateRange(from, to, instructorId) : Promise.resolve([]),
-		view === 'day' ? listInstructors() : Promise.resolve([])
+		view === 'day' ? listInstructors() : Promise.resolve([]),
+		listEditionsForDateRange(from, to)
 	]);
 
 	// Week view helpers
@@ -62,7 +64,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		weekStart, weekDays, prevWeek, nextWeek,
 		dayDate, prevDay, nextDay, dayLabel,
 		today: todayStr,
-		inventoryShortages
+		inventoryShortages,
+		serviceEditions
 	};
 };
 

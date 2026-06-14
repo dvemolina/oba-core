@@ -197,11 +197,28 @@
 								<p class="mt-1.5 text-[11px] text-muted">Primera edición. Puedes añadir más ediciones después.</p>
 
 							{:else if mod.key === 'inventory'}
-								<div class="max-w-xs">
-									<label class="mb-1 block text-xs font-medium text-gray-600" for="maxCapacity">Unidades disponibles</label>
-									<input id="maxCapacity" name="maxCapacity" type="number" min="1" step="1"
-										class="input" placeholder="10" />
-								</div>
+								{#if data.allItemTypes.length > 0}
+									<div>
+										<p class="mb-2 text-xs font-medium text-gray-600">Tipos de producto a asociar</p>
+										<div class="space-y-1.5">
+											{#each data.allItemTypes as t}
+												<label class="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border px-3 py-2 hover:bg-ocean/5">
+													<input type="checkbox" name="inventoryItemTypeId" value={t.id}
+														class="h-3.5 w-3.5 accent-ocean" />
+													<span class="text-xs font-medium text-gray-800">{t.name}</span>
+													{#if t.description}
+														<span class="text-[11px] text-muted">— {t.description}</span>
+													{/if}
+												</label>
+											{/each}
+										</div>
+										<p class="mt-1.5 text-[11px] text-muted">Los tipos seleccionados estarán disponibles para asignar en los detalles de cada reserva.</p>
+									</div>
+								{:else}
+									<div class="rounded-lg bg-amber-50 p-3">
+										<p class="text-xs text-amber-700">No hay tipos de inventario creados aún. <a href="/inventory/new" class="underline">Crear tipo de producto</a></p>
+									</div>
+								{/if}
 
 							{:else if mod.key === 'instructor'}
 								{#if data.instructors.length > 0}

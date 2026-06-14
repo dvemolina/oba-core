@@ -192,6 +192,51 @@
 		const opacity = booking.status === 'pending' ? 'opacity-60' : '';
 		return `${c.bg} ${c.text} ${opacity}`;
 	}
+
+	// ── Service edition layout helpers ────────────────────────────────────────
+	type EditionSpanItem = { edition: (typeof data.serviceEditions)[0]; startCol: number; span: number; row: number };
+
+	function editionSpanLayout(weekDates: (string | null)[], startRow: number): EditionSpanItem[] {
+		const firstDay = weekDates.find(d => d !== null);
+		const lastDay = [...weekDates].filter(d => d !== null).at(-1);
+		if (!firstDay || !lastDay) return [];
+
+		const inWeek = data.serviceEditions.filter(e =>
+			e.startDate <= lastDay && e.endDate >= firstDay && e.enrolledCount === 0
+		);
+
+		const rowEndCols: number[] = [];
+		return inWeek.flatMap(e => {
+			const clampedStart = e.startDate >= firstDay ? e.startDate : firstDay;
+			const clampedEnd = e.endDate <= lastDay ? e.endDate : lastDay;
+			const startColIdx = weekDates.indexOf(clampedStart);
+			const endColIdx = weekDates.indexOf(clampedEnd);
+			if (startColIdx === -1 || endColIdx === -1) return [];
+			const span = endColIdx - startColIdx + 1;
+
+			let row = rowEndCols.findIndex(end => end < startColIdx);
+			if (row === -1) { row = rowEndCols.length; rowEndCols.push(endColIdx); }
+			else { rowEndCols[row] = endColIdx; }
+
+			return [{ edition: e, startCol: startColIdx, span, row: row + startRow }];
+		});
+	}
+
+	function editionRounded(ed: (typeof data.serviceEditions)[0], weekDates: (string | null)[]): string {
+		const validDates = weekDates.filter(Boolean) as string[];
+		const startsHere = ed.startDate >= validDates[0];
+		const endsHere = ed.endDate <= validDates[validDates.length - 1];
+		if (startsHere && endsHere) return 'rounded';
+		if (startsHere) return 'rounded-l rounded-r-none';
+		if (endsHere) return 'rounded-r rounded-l-none';
+		return 'rounded-none';
+	}
+
+	function editionPillClasses(ed: (typeof data.serviceEditions)[0]): string {
+		const c = getServiceColor(ed.serviceColor);
+		return `${c.bg} ${c.text} ${c.border}`;
+	}
+
 	function statusDot(status: string): string {
 		return status === 'confirmed' ? '●' : '○';
 	}
@@ -393,6 +438,9 @@
 				{#each weeks() as weekDates}
 					{@const layout = weekSpanLayout(weekDates)}
 					{@const maxRows = layout.length > 0 ? Math.max(...layout.map(l => l.row)) + 1 : 0}
+					{@const editionLayout = editionSpanLayout(weekDates, maxRows)}
+					{@const editionRows = editionLayout.length > 0 ? Math.max(...editionLayout.map(l => l.row - maxRows)) + 1 : 0}
+					{@const totalRows = maxRows + editionRows}
 
 					<div class="relative flex-1 border-b border-border/60 last:border-b-0">
 
@@ -465,6 +513,24 @@
 								</a>
 							{/if}
 						{/each}
+
+						<!-- Edition pills (services with editions but no bookings yet) -->
+						{#each editionLayout as { edition, startCol, span, row }}
+							{@const startsHere = edition.startDate >= (weekDates.find(d => d !== null) ?? '')}
+							<a
+								href="/services/{edition.serviceId}"
+								style={spanStyle(startCol, span, row)}
+								class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center border border-dashed opacity-60 hover:opacity-80 transition-opacity {editionRounded(edition, weekDates)} {editionPillClasses(edition)}"
+							>
+								{#if startsHere}
+									<Tent size={11} class="inline mr-0.5 shrink-0" />
+									<span class="truncate">{edition.serviceName}</span>
+									<span class="ml-1 shrink-0 opacity-70 text-[9px]">sin reservas</span>
+								{:else}
+									&nbsp;
+								{/if}
+							</a>
+						{/each}
 					</div>
 				{/each}
 			</div>
@@ -498,8 +564,17 @@
 					{#each data.weekDays as weekDay}
 						{@const isToday = weekDay === today}
 						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay)}
+						{@const dayEditions = data.serviceEditions.filter(e => e.startDate <= weekDay && e.endDate >= weekDay && e.enrolledCount === 0)}
 						<div class="flex flex-col gap-1 p-1 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
-							{#if daySessions.length === 0}
+							{#each dayEditions as ed}
+								{@const c = getServiceColor(ed.serviceColor)}
+								<a href="/services/{ed.serviceId}"
+									class="truncate rounded-lg border border-dashed px-2 py-1.5 text-[10px] opacity-60 hover:opacity-80 transition-opacity {c.bg} {c.text} {c.border}">
+									<Tent size={9} class="inline mr-0.5" />{ed.serviceName}
+									<span class="block text-[9px] opacity-70">sin reservas</span>
+								</a>
+							{/each}
+							{#if daySessions.length === 0 && dayEditions.length === 0}
 								<div class="flex flex-1 items-center justify-center">
 									<span class="text-[10px] text-border">—</span>
 								</div>
@@ -571,6 +646,23 @@
 							<p class="text-xs text-muted">{event.startDate} → {event.endDate}</p>
 						</div>
 					</a>
+				{/each}
+
+				<!-- Edition banners: service has active edition today but no bookings yet -->
+				{#each data.serviceEditions.filter(e => e.startDate <= data.dayDate && e.endDate >= data.dayDate && e.enrolledCount === 0) as ed}
+					{@const c = getServiceColor(ed.serviceColor)}
+					{@const dayN = Math.floor((new Date(data.dayDate + 'T00:00:00').getTime() - new Date(ed.startDate + 'T00:00:00').getTime()) / 86400000) + 1}
+					{@const totalDays = Math.floor((new Date(ed.endDate + 'T00:00:00').getTime() - new Date(ed.startDate + 'T00:00:00').getTime()) / 86400000) + 1}
+					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 opacity-60 border-l-4 border-dashed {c.border} {c.bg}">
+						<div>
+							<p class="text-xs font-semibold text-gray-800"><Tent size={13} class="inline mr-0.5" />{ed.serviceName} — Día {dayN}/{totalDays}</p>
+							<p class="text-xs text-muted">{ed.startDate} → {ed.endDate} · Sin reservas aún</p>
+						</div>
+						<a href="/services/{ed.serviceId}"
+							class="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 transition-colors">
+							Ver servicio →
+						</a>
+					</div>
 				{/each}
 
 				<!-- Camp active today but no sessions scheduled -->

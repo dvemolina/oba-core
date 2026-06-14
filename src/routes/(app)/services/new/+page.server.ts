@@ -6,6 +6,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { PRICING_MODE_OPTIONS } from '$lib/utils/pricing';
 import type { PricingMode } from '$lib/features/services/types';
 import { requireRole } from '$lib/server/permissions';
+import { listInventoryItemTypes } from '$lib/features/inventory/queries';
+import { addInventoryLink } from '$lib/features/inventory/serviceLinks.queries';
 
 const VALID_PRICING_MODES = new Set<PricingMode>(PRICING_MODE_OPTIONS.map(o => o.value));
 function parsePricingMode(raw: string | null): PricingMode | null {
@@ -14,8 +16,8 @@ function parsePricingMode(raw: string | null): PricingMode | null {
 
 export const load: PageServerLoad = async ({ locals }) => {
 	requireRole(locals, 'admin', 'owner', 'manager');
-	const instructors = await listInstructors();
-	return { instructors };
+	const [instructors, allItemTypes] = await Promise.all([listInstructors(), listInventoryItemTypes()]);
+	return { instructors, allItemTypes };
 };
 
 export const actions: Actions = {
@@ -42,19 +44,22 @@ export const actions: Actions = {
 
 		const values = { name, basePrice, description: description ?? '', color };
 
+		const inventoryItemTypeIds = form.getAll('inventoryItemTypeId').map(String).filter(Boolean);
+
 		if (!name || !basePrice) return fail(400, { error: 'Name and price are required', values });
 		if (isNaN(parseFloat(basePrice))) return fail(400, { error: 'Price must be a number', values });
-		if (('roster' in modules || 'inventory' in modules) && !maxCapacity) {
-			return fail(400, { error: 'Specify max participants / available units', values });
+		if ('roster' in modules && !maxCapacity) {
+			return fail(400, { error: 'Specify max participants for group capacity', values });
 		}
 
 		const newService = await createService({
 			name, type, basePrice, pricingMode, description, durationMinutes, defaultSessionsIncluded,
 			modules, maxCapacity, color
 		});
-		if (defaultInstructorIds.length > 0) {
-			await setServiceInstructors(newService.id, defaultInstructorIds);
-		}
+		await Promise.all([
+			defaultInstructorIds.length > 0 ? setServiceInstructors(newService.id, defaultInstructorIds) : Promise.resolve(),
+			...inventoryItemTypeIds.map(itemTypeId => addInventoryLink(newService.id, { itemTypeId }))
+		]);
 		redirect(302, '/services');
 	}
 };

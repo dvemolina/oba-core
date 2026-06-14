@@ -1,7 +1,66 @@
-import { and, count, eq, inArray, ne } from 'drizzle-orm';
+import { and, count, eq, inArray, lte, gte, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { serviceEditions, bookings, bookingClients } from '$lib/server/db/schema';
+import { serviceEditions, services, bookings, bookingClients } from '$lib/server/db/schema';
 import type { CreateServiceEditionInput, ServiceEdition, UpdateServiceEditionInput } from './editions.types';
+
+export interface CalendarEdition {
+	id: string;
+	serviceId: string;
+	serviceName: string;
+	serviceColor: string;
+	startDate: string;
+	endDate: string;
+	maxCapacity: number | null;
+	notes: string | null;
+	enrolledCount: number;
+}
+
+export async function listEditionsForDateRange(from: string, to: string): Promise<CalendarEdition[]> {
+	const rows = await db
+		.select({
+			id: serviceEditions.id,
+			serviceId: serviceEditions.serviceId,
+			serviceName: services.name,
+			serviceColor: services.color,
+			startDate: serviceEditions.startDate,
+			endDate: serviceEditions.endDate,
+			maxCapacity: serviceEditions.maxCapacity,
+			notes: serviceEditions.notes
+		})
+		.from(serviceEditions)
+		.innerJoin(services, eq(serviceEditions.serviceId, services.id))
+		.where(
+			and(
+				lte(serviceEditions.startDate, to),
+				gte(serviceEditions.endDate, from),
+				eq(serviceEditions.active, true)
+			)
+		)
+		.orderBy(serviceEditions.startDate);
+
+	if (rows.length === 0) return [];
+
+	const ids = rows.map(r => r.id);
+	const counts = await db
+		.select({ serviceEditionId: bookings.serviceEditionId, total: count() })
+		.from(bookingClients)
+		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
+		.where(
+			and(
+				inArray(bookings.serviceEditionId, ids as string[]),
+				ne(bookings.status, 'cancelled'),
+				eq(bookingClients.status, 'enrolled')
+			)
+		)
+		.groupBy(bookings.serviceEditionId);
+
+	const countByEdition: Record<string, number> = {};
+	for (const c of counts) {
+		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = Number(c.total);
+	}
+
+	return rows.map(r => ({ ...r, enrolledCount: countByEdition[r.id] ?? 0 }));
+}
 
 export async function listEditionsForService(serviceId: string): Promise<ServiceEdition[]> {
 	const rows = await db
