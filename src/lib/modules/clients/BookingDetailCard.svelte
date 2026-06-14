@@ -55,6 +55,7 @@
     } = $props();
 
     const hasRoster = $derived('roster' in modules);
+    const hasSessions = $derived('sessions' in modules);
 
     const activeClients = $derived(booking.clients.filter(c => c.status !== 'cancelled'));
     const cancelledClients = $derived(booking.clients.filter(c => c.status === 'cancelled'));
@@ -173,6 +174,8 @@
                 </button>
 
                 {#if isExpanded}
+                    {@const clientFullName = `${bc.clientFirstName} ${bc.clientLastName}`.trim()}
+                    {@const clientAlreadyParticipant = participants.some(p => p.name === clientFullName)}
                     <div class="ml-2 space-y-1">
                         {#each participants as p (p.id)}
                             <div class="flex items-center gap-2">
@@ -198,6 +201,18 @@
                             </div>
                         {/each}
 
+                        <!-- Quick-add client as own participant -->
+                        {#if !clientAlreadyParticipant}
+                            <form method="POST" action="?/addBookingParticipant" use:enhance={withToast()}>
+                                <input type="hidden" name="bookingClientId" value={bc.id} />
+                                <input type="hidden" name="name" value={clientFullName} />
+                                <input type="hidden" name="addToSessions" value={hasSessions ? 'true' : 'false'} />
+                                <button type="submit" class="text-xs text-muted hover:text-ocean">
+                                    ← {clientFullName} también participa
+                                </button>
+                            </form>
+                        {/if}
+
                         <!-- Add participant inline form -->
                         {#if addingParticipantFor === bc.id}
                             <form method="POST" action="?/addBookingParticipant"
@@ -213,6 +228,15 @@
                         {:else}
                             <button type="button" onclick={() => addingParticipantFor = bc.id}
                                 class="text-xs text-ocean hover:underline">+ Nombrar participante</button>
+                        {/if}
+
+                        <!-- Sync all named participants to all sessions -->
+                        {#if hasSessions && participants.length > 0}
+                            <form method="POST" action="?/syncParticipantsToSessions" use:enhance={withToast()}>
+                                <button type="submit" class="text-xs text-muted hover:text-purple-600">
+                                    ↕ Sincronizar todos a sesiones
+                                </button>
+                            </form>
                         {/if}
                     </div>
                 {/if}

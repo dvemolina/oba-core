@@ -60,6 +60,10 @@
 	let addFuzzy = $state(false);
 	let reassigningAllocId = $state<string | null>(null);
 
+	const missingLinks = $derived(
+		serviceInventoryLinks.filter(l => !booking.allocations.some(a => a.itemTypeId === l.itemTypeId))
+	);
+
 	// Items available for the currently-selected add type
 	const addAllocItems = $derived(
 		addAllocTypeId ? (itemsByAllocType[addAllocTypeId] ?? []) : []
@@ -228,6 +232,24 @@
 		</div>
 		{/if}
 	</form>
+	{/if}
+
+	<!-- Missing allocations banner: linked types with no allocation yet -->
+	{#if missingLinks.length > 0 && booking.status !== 'cancelled'}
+		<div class="border-b border-amber-100 bg-amber-50/70 px-4 py-2.5 space-y-1">
+			{#each missingLinks as link}
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-amber-700">
+						⚠ {totalParticipants}× <strong>{link.itemType.name}</strong> pendiente de asignar
+					</span>
+					<button type="button"
+						onclick={() => { addingAlloc = true; addAllocTypeId = link.itemTypeId; addAllocQty = totalParticipants; addAllocSelectedGroup = null; addFuzzy = false; }}
+						class="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-200">
+						Asignar
+					</button>
+				</div>
+			{/each}
+		</div>
 	{/if}
 
 	<!-- Existing allocations -->

@@ -435,6 +435,28 @@ export const actions: Actions = {
 		return { error: null, message: 'Participant renamed' };
 	},
 
+	syncParticipantsToSessions: async ({ params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+		const sessions = await listSessionsForBooking(params.id);
+		if (sessions.length === 0) return { error: null, message: 'No sessions to sync' };
+		// Collect all named participants from all enrollments
+		const allParticipants = booking.clients
+			.filter(c => c.status !== 'cancelled')
+			.flatMap(c => (c as any)._participants ?? []);
+		// Re-fetch from DB to get real participant names
+		const participantRows = await Promise.all(
+			booking.clients.filter(c => c.status !== 'cancelled').map(c => listParticipantsForEnrollment(c.id))
+		);
+		const names = [...new Set(participantRows.flat().map(p => p.name))];
+		if (names.length === 0) return { error: null, message: 'No named participants to sync' };
+		await Promise.all(
+			sessions.map(s => Promise.all(names.map(name => addParticipant({ sessionId: s.id, name }))))
+		);
+		return { error: null, message: `${names.length} participante${names.length !== 1 ? 's' : ''} sincronizados a ${sessions.length} sesión${sessions.length !== 1 ? 'es' : ''}` };
+	},
+
 	recalcPrice: async ({ params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		await recalcBookingAmounts(params.id);
