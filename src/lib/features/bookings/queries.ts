@@ -1,6 +1,6 @@
 // src/lib/features/bookings/queries.ts
 import { and, count, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
-import { calculateAmount, defaultPricingMode } from '$lib/utils/pricing';
+import { calculateAmount, defaultPricingMode, billableParticipants } from '$lib/utils/pricing';
 import { db } from '$lib/server/db';
 import {
 	bookings,
@@ -431,7 +431,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 /** Count enrolled clients across all active bookings for a service. Used for capacity checks. */
 export async function countEnrolledClientsForService(serviceId: string): Promise<number> {
 	const [row] = await db
-		.select({ total: count() })
+		.select({ total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)` })
 		.from(bookingClients)
 		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
 		.where(and(
@@ -439,7 +439,7 @@ export async function countEnrolledClientsForService(serviceId: string): Promise
 			ne(bookings.status, 'cancelled'),
 			eq(bookingClients.status, 'enrolled')
 		));
-	return Number(row?.total ?? 0);
+	return parseInt(row?.total ?? '0');
 }
 
 /** For camps: find the single booking for this service+date, or create it (empty, no clients yet). */
@@ -622,7 +622,15 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 	const activeClients = booking.clients.filter(c => c.status !== 'cancelled');
 	// Total participant count across all enrolled booking clients
 	const participantCount = activeClients.reduce((sum, c) => sum + (c.participantCount ?? 1), 0) || 1;
-	const sessions = booking.sessionsIncluded ?? 1;
+
+	// Use actual non-cancelled session count; fall back to sessionsIncluded from booking creation
+	const linkedSessions = await db
+		.select({ status: sessions.status })
+		.from(bookingSessions)
+		.leftJoin(sessions, eq(bookingSessions.sessionId, sessions.id))
+		.where(eq(bookingSessions.bookingId, bookingId));
+	const actualSessionCount = linkedSessions.filter(s => s.status !== 'cancelled').length;
+	const sessionCount = actualSessionCount > 0 ? actualSessionCount : (booking.sessionsIncluded ?? 1);
 
 	let days = 1;
 	if (booking.dateEnd) {
@@ -636,14 +644,32 @@ export async function recalcBookingAmounts(bookingId: string): Promise<void> {
 	const mode = service.pricingMode ?? defaultPricingMode(service.modules ?? {});
 
 	for (const bc of activeClients) {
-		// Each booking client carries their own participantCount (defaults to 1).
-		const p = bc.participantCount ?? 1;
-		const amount = calculateAmount(basePrice, mode, { participants: p, sessions, days });
-		const amountDue = amount.toFixed(2);
+		const billable = billableParticipants(bc);
+		const amountDue = billable === 0
+			? '0.00'
+			: calculateAmount(basePrice, mode, { participants: billable, sessions: sessionCount, days }).toFixed(2);
 		const paid = parseFloat(bc.amountPaid);
 		const due = parseFloat(amountDue);
 		const paymentStatus: 'pending' | 'partial' | 'paid' =
 			paid >= due ? 'paid' : paid > 0 ? 'partial' : 'pending';
 		await db.update(bookingClients).set({ amountDue, paymentStatus }).where(eq(bookingClients.id, bc.id));
 	}
+}
+
+export async function applyCreditsToEnrollment(
+	bookingClientId: string,
+	creditSourceId: string,
+	creditCount: number
+): Promise<void> {
+	await db
+		.update(bookingClients)
+		.set({ creditSourceId, creditCount })
+		.where(eq(bookingClients.id, bookingClientId));
+}
+
+export async function removeCreditsFromEnrollment(bookingClientId: string): Promise<void> {
+	await db
+		.update(bookingClients)
+		.set({ creditSourceId: null, creditCount: 0 })
+		.where(eq(bookingClients.id, bookingClientId));
 }

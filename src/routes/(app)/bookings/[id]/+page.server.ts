@@ -25,7 +25,9 @@ import {
 	removeParticipant
 } from '$lib/features/sessions/queries';
 import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount, listParticipantsForEnrollment } from '$lib/features/bookings/participants.queries';
-import { recalcBookingAmounts } from '$lib/features/bookings/queries';
+import { recalcBookingAmounts, applyCreditsToEnrollment, removeCreditsFromEnrollment } from '$lib/features/bookings/queries';
+import { getAvailableCreditsForClient, getCreditsUsedFromBooking } from '$lib/features/credits/queries';
+import type { CreditSource } from '$lib/features/credits/queries';
 import { getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
@@ -81,7 +83,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		})
 	);
 
-	return { booking, instructors, service: service ?? null, clients, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment };
+	const hasCreditsModule = 'credits' in (booking.serviceModules ?? {});
+
+	const [creditsUsedFromThisBooking, availableCreditsPerEnrollment] = await Promise.all([
+		hasCreditsModule ? getCreditsUsedFromBooking(params.id) : Promise.resolve(0),
+		booking.serviceId
+			? (async () => {
+				const map: Record<string, CreditSource[]> = {};
+				await Promise.all(
+					booking.clients.map(async (bc) => {
+						map[bc.id] = await getAvailableCreditsForClient(bc.clientId, booking.serviceId!, booking.date);
+					})
+				);
+				return map;
+			})()
+			: Promise.resolve({} as Record<string, CreditSource[]>)
+	]);
+
+	return { booking, instructors, service: service ?? null, clients, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment };
 };
 
 export const actions: Actions = {
@@ -207,6 +226,7 @@ export const actions: Actions = {
 		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
 		if (!date) return fail(400, { error: 'Session date required' });
 		await createSession({ bookingId: params.id, date, time, durationMinutes, notes, instructorIds });
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Session added' };
 	},
 
@@ -226,21 +246,23 @@ export const actions: Actions = {
 		return { error: null, message: 'Session updated' };
 	},
 
-	cancelSession: async ({ request, locals }) => {
+	cancelSession: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await cancelSession(sessionId);
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Session cancelled' };
 	},
 
-	deleteSession: async ({ request, locals }) => {
+	deleteSession: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await deleteSession(sessionId);
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Session deleted' };
 	},
 
@@ -250,6 +272,7 @@ export const actions: Actions = {
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await linkSessionToBooking(sessionId, params.id);
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Linked to session' };
 	},
 
@@ -259,6 +282,7 @@ export const actions: Actions = {
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		if (!sessionId) return fail(400, { error: 'Missing session id' });
 		await unlinkSessionFromBooking(sessionId, params.id);
+		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Unlinked from session' };
 	},
 
@@ -267,8 +291,9 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
 		const name = form.get('participantName')?.toString().trim() ?? '';
+		const bookingParticipantId = form.get('bookingParticipantId')?.toString() || undefined;
 		if (!sessionId || !name) return fail(400, { error: 'Session and name are required' });
-		await addParticipant({ sessionId, name });
+		await addParticipant({ sessionId, name, bookingParticipantId });
 		return { error: null, message: 'Participant added' };
 	},
 
@@ -441,25 +466,67 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Booking not found' });
 		const sessions = await listSessionsForBooking(params.id);
 		if (sessions.length === 0) return { error: null, message: 'No sessions to sync' };
-		// Collect all named participants from all enrollments
-		const allParticipants = booking.clients
-			.filter(c => c.status !== 'cancelled')
-			.flatMap(c => (c as any)._participants ?? []);
-		// Re-fetch from DB to get real participant names
+
 		const participantRows = await Promise.all(
 			booking.clients.filter(c => c.status !== 'cancelled').map(c => listParticipantsForEnrollment(c.id))
 		);
-		const names = [...new Set(participantRows.flat().map(p => p.name))];
-		if (names.length === 0) return { error: null, message: 'No named participants to sync' };
+		// Dedup by booking_participant id — same person enrolled under multiple clients counts once
+		const byId = new Map<string, { id: string; name: string }>();
+		for (const p of participantRows.flat()) byId.set(p.id, { id: p.id, name: p.name });
+		const participants = [...byId.values()];
+
+		if (participants.length === 0) return { error: null, message: 'No named participants to sync' };
+		// onConflictDoNothing in addParticipant makes this safe to run multiple times
 		await Promise.all(
-			sessions.map(s => Promise.all(names.map(name => addParticipant({ sessionId: s.id, name }))))
+			sessions.map(s => Promise.all(
+				participants.map(p => addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id }))
+			))
 		);
-		return { error: null, message: `${names.length} participante${names.length !== 1 ? 's' : ''} sincronizados a ${sessions.length} sesión${sessions.length !== 1 ? 'es' : ''}` };
+		return { error: null, message: `${participants.length} participante${participants.length !== 1 ? 's' : ''} sincronizados a ${sessions.length} sesión${sessions.length !== 1 ? 'es' : ''}` };
 	},
 
 	recalcPrice: async ({ params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Price recalculated' };
+	},
+
+	applyCredits: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		const creditSourceId = form.get('creditSourceId')?.toString() ?? '';
+		const creditCount = parseInt(form.get('creditCount')?.toString() ?? '0');
+
+		if (!bookingClientId || !creditSourceId || creditCount < 1)
+			return fail(400, { error: 'Missing required fields' });
+
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+
+		const bc = booking.clients.find(c => c.id === bookingClientId);
+		if (!bc) return fail(404, { error: 'Client not found in booking' });
+		if (!booking.serviceId) return fail(400, { error: 'Booking has no service' });
+
+		const available = await getAvailableCreditsForClient(bc.clientId, booking.serviceId, booking.date);
+		const source = available.find(s => s.bookingId === creditSourceId);
+		if (!source) return fail(400, { error: 'Credit source not found or not compatible with this service' });
+		if (source.expired) return fail(400, { error: 'These credits have expired' });
+		if (creditCount > source.creditsRemaining) return fail(400, { error: `Only ${source.creditsRemaining} credits remaining` });
+
+		await applyCreditsToEnrollment(bookingClientId, creditSourceId, creditCount);
+		await recalcBookingAmounts(params.id);
+		return { error: null, message: 'Credits applied' };
+	},
+
+	removeCredits: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
+
+		await removeCreditsFromEnrollment(bookingClientId);
+		await recalcBookingAmounts(params.id);
+		return { error: null, message: 'Credits removed' };
 	}
 };

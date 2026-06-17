@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const [inventoryLinks, allItemTypes, runs] = await Promise.all([
 		listLinksForService(params.id),
-		('inventory' in (service.modules ?? {})) ? listInventoryItemTypes() : Promise.resolve([]),
+		listInventoryItemTypes(),  // always load so the form can add links when module is toggled on
 		listEditionsForService(params.id)
 	]);
 
@@ -47,20 +47,39 @@ export const actions: Actions = {
 		const colorRaw = form.get('color')?.toString() ?? '';
 		const color = isValidColorKey(colorRaw) ? colorRaw : DEFAULT_COLOR;
 
-		const modulesRaw         = form.get('modules');
-		const modules            = modulesRaw ? JSON.parse(modulesRaw as string) : {};
-		const pricingMode        = parsePricingMode(form.get('pricingMode')?.toString() ?? null);
+		const modulesRaw  = form.get('modules');
+		const modules     = modulesRaw ? JSON.parse(modulesRaw as string) : {};
+		const pricingMode = parsePricingMode(form.get('pricingMode')?.toString() ?? null);
 
-		if (!name || !basePrice) return fail(400, { error: 'Name and price are required' });
-		if (('roster' in modules || 'inventory' in modules) && !maxCapacity)
-			return fail(400, { error: 'Specify max participants / available units' });
+		// New editions/links drafted in the form (to create on save)
+		let newEditions: { startDate: string; endDate: string; maxCapacity?: number | null; notes?: string | null }[] = [];
+		let newLinks: { itemTypeId: string; quantityPerBooking?: number; isIncluded?: boolean; addonPrice?: string | null; addonPricingMode?: string | null; isOptional?: boolean }[] = [];
+		try { const r = form.get('newEditions')?.toString(); if (r) newEditions = JSON.parse(r); } catch { /* ignore */ }
+		try { const r = form.get('newLinks')?.toString(); if (r) newLinks = JSON.parse(r); } catch { /* ignore */ }
+
+		if (!name || !basePrice) return fail(400, { error: 'Nombre y precio son requeridos' });
+		if (('roster' in modules) && !maxCapacity)
+			return fail(400, { error: 'Especifica la capacidad máxima del grupo' });
 
 		await updateService(params.id, {
 			name, type, basePrice, pricingMode, description, durationMinutes, defaultSessionsIncluded,
 			modules, maxCapacity, color
 		});
-		await setServiceInstructors(params.id, defaultInstructorIds);
-		return { message: 'Service updated' };
+
+		await Promise.all([
+			setServiceInstructors(params.id, defaultInstructorIds),
+			...newEditions.map(ed => createServiceEdition(params.id, ed)),
+			...newLinks.map(lk => addInventoryLink(params.id, {
+				itemTypeId: lk.itemTypeId,
+				quantityPerBooking: lk.quantityPerBooking ?? 1,
+				isIncluded: lk.isIncluded ?? true,
+				addonPrice: lk.addonPrice ?? null,
+				addonPricingMode: (lk.addonPricingMode as PricingMode | null) ?? null,
+				isOptional: lk.isOptional ?? true
+			}))
+		]);
+
+		return { message: 'Servicio actualizado' };
 	},
 
 	toggle: async ({ params, locals }) => {

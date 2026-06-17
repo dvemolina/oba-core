@@ -2,6 +2,7 @@
     import { enhance } from '$app/forms';
     import { withToast } from '$lib/utils/enhance';
     import type { ServiceModules } from '$lib/features/services/modules';
+    // enhance/withToast kept for the booking-level instructor edit form (non-sessions path)
 
     let {
         booking,
@@ -55,30 +56,19 @@
                 </span>
             {/if}
         {:else}
-            <!-- Per-session instructor assignment -->
+            <!-- Read-only summary — instructor assignment is managed in the sessions card -->
             {#if sessions.length === 0}
-                <p class="text-sm text-muted">Las sesiones se asignan por sesión.</p>
+                <p class="text-sm text-muted">Los instructores se asignan por sesión.</p>
             {:else}
-                <div class="space-y-2">
-                    {#each sessions as session (session.id)}
-                        <div class="flex items-center gap-2">
-                            <span class="min-w-0 flex-1 text-xs text-muted">
-                                {session.date}{session.time ? ' · ' + session.time.slice(0,5) : ''}
-                            </span>
-                            <form method="POST" action="?/updateSession" use:enhance={withToast()} class="flex items-center gap-1">
-                                <input type="hidden" name="sessionId" value={session.id} />
-                                <select name="sessionInstructorId"
-                                    class="rounded border border-border px-2 py-1 text-xs focus:border-ocean focus:outline-none">
-                                    <option value="">–</option>
-                                    {#each instructors as inst}
-                                        <option value={inst.id} selected={session.instructorId === inst.id}>{inst.name}</option>
-                                    {/each}
-                                </select>
-                                <button type="submit" class="text-xs text-ocean hover:underline">Set</button>
-                            </form>
-                        </div>
-                    {/each}
-                </div>
+                {@const assignedNames = [...new Set(
+                    sessions.flatMap(s => (s as any).instructors ?? []).map((i: any) => i.instructorName).filter(Boolean)
+                )]}
+                {#if assignedNames.length > 0}
+                    <p class="text-sm text-gray-800">{assignedNames.join(', ')}</p>
+                {:else}
+                    <p class="text-sm text-muted">Sin asignar</p>
+                {/if}
+                <p class="mt-1 text-[10px] text-muted">Gestiona los instructores en el módulo de sesiones.</p>
             {/if}
         {/if}
     </div>

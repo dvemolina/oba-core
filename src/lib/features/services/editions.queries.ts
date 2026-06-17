@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, lte, gte, ne } from 'drizzle-orm';
+import { and, count, eq, inArray, lte, gte, ne, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { serviceEditions, services, bookings, bookingClients } from '$lib/server/db/schema';
 import type { CreateServiceEditionInput, ServiceEdition, UpdateServiceEditionInput } from './editions.types';
@@ -42,7 +42,10 @@ export async function listEditionsForDateRange(from: string, to: string): Promis
 
 	const ids = rows.map(r => r.id);
 	const counts = await db
-		.select({ serviceEditionId: bookings.serviceEditionId, total: count() })
+		.select({
+			serviceEditionId: bookings.serviceEditionId,
+			total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)`
+		})
 		.from(bookingClients)
 		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
 		.where(
@@ -56,7 +59,7 @@ export async function listEditionsForDateRange(from: string, to: string): Promis
 
 	const countByEdition: Record<string, number> = {};
 	for (const c of counts) {
-		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = Number(c.total);
+		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = parseInt(c.total);
 	}
 
 	return rows.map(r => ({ ...r, enrolledCount: countByEdition[r.id] ?? 0 }));
@@ -76,7 +79,7 @@ export async function listEditionsForService(serviceId: string): Promise<Service
 	const counts = await db
 		.select({
 			serviceEditionId: bookings.serviceEditionId,
-			total: count()
+			total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)`
 		})
 		.from(bookingClients)
 		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
@@ -91,7 +94,7 @@ export async function listEditionsForService(serviceId: string): Promise<Service
 
 	const countByEdition: Record<string, number> = {};
 	for (const c of counts) {
-		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = Number(c.total);
+		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = parseInt(c.total);
 	}
 
 	return rows.map((r) => ({ ...r, enrolledCount: countByEdition[r.id] ?? 0 }));
@@ -132,7 +135,7 @@ export async function deleteServiceEdition(id: string): Promise<void> {
 
 export async function countEnrolledClientsForEdition(editionId: string): Promise<number> {
 	const [row] = await db
-		.select({ total: count() })
+		.select({ total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)` })
 		.from(bookingClients)
 		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
 		.where(
@@ -142,5 +145,5 @@ export async function countEnrolledClientsForEdition(editionId: string): Promise
 				eq(bookingClients.status, 'enrolled')
 			)
 		);
-	return Number(row?.total ?? 0);
+	return parseInt(row?.total ?? '0');
 }

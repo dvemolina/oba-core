@@ -218,6 +218,20 @@
       "when": 1781391239979,
       "tag": "0036_normal_king_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781548611681,
+      "tag": "0037_luxuriant_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781683242414,
+      "tag": "0038_foamy_la_nuit",
+      "breakpoints": true
     }
   ]
 }

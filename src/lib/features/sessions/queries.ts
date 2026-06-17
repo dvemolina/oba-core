@@ -67,6 +67,7 @@ async function attachParticipants<T extends { id: string }>(
 		.select({
 			id: sessionParticipants.id,
 			sessionId: sessionParticipants.sessionId,
+			bookingParticipantId: sessionParticipants.bookingParticipantId,
 			name: sessionParticipants.name,
 			notes: sessionParticipants.notes,
 			sortOrder: sessionParticipants.sortOrder
@@ -217,7 +218,7 @@ export async function listSessionsForDate(date: string, instructorId?: string): 
 
 			// Prefer explicit session_participants; fall back to booking client names
 			const participantNames = s.participants.length > 0
-				? s.participants.map(p => p.name)
+				? [...new Set(s.participants.map(p => p.name))]
 				: allClientNames;
 
 			// Aggregate payment totals across all bookings for this session
@@ -422,6 +423,7 @@ export async function listParticipantsForSession(sessionId: string): Promise<Ses
 		.select({
 			id: sessionParticipants.id,
 			sessionId: sessionParticipants.sessionId,
+			bookingParticipantId: sessionParticipants.bookingParticipantId,
 			name: sessionParticipants.name,
 			notes: sessionParticipants.notes,
 			sortOrder: sessionParticipants.sortOrder
@@ -431,18 +433,20 @@ export async function listParticipantsForSession(sessionId: string): Promise<Ses
 		.orderBy(sessionParticipants.sortOrder);
 }
 
-export async function addParticipant(input: CreateParticipantInput): Promise<SessionParticipant> {
+export async function addParticipant(input: CreateParticipantInput): Promise<SessionParticipant | null> {
 	const [row] = await db
 		.insert(sessionParticipants)
 		.values({
 			id: crypto.randomUUID(),
 			sessionId: input.sessionId,
+			bookingParticipantId: input.bookingParticipantId ?? null,
 			name: input.name.trim(),
 			notes: input.notes ?? null,
 			sortOrder: input.sortOrder ?? 0
 		})
+		.onConflictDoNothing()
 		.returning();
-	return row;
+	return row ?? null;
 }
 
 export async function removeParticipant(participantId: string): Promise<void> {
@@ -546,7 +550,7 @@ export async function listSessionsForDateRange(from: string, to: string, instruc
 
 			const firstHasRoster = 'roster' in (first.serviceModules ?? {});
 			const participantNames = s.participants.length > 0
-				? s.participants.map(p => p.name)
+				? [...new Set(s.participants.map(p => p.name))]
 				: firstHasRoster
 					? []
 					: bClients.map(c => `${c.firstName} ${c.lastName}`);

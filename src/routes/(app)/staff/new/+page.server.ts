@@ -1,4 +1,4 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { requireRole, primaryRole } from '$lib/server/permissions';
 import type { Role } from '$lib/server/permissions';
 import { auth } from '$lib/server/auth';
@@ -47,8 +47,14 @@ export const actions: Actions = {
 			.set({ roles: selectedRoles, role: primary, phone })
 			.where(eq(userTable.id, newUserId));
 
-		await sendStaffInvite({ to: email, name, role: primary ?? selectedRoles[0], tempPassword });
+		// Send invite email (non-blocking — if it fails user is still created and password shown on screen)
+		try {
+			await sendStaffInvite({ to: email, name, role: primary ?? selectedRoles[0], tempPassword });
+		} catch {
+			// Email failure is non-fatal — admin can share the password shown on screen
+		}
 
-		redirect(302, '/staff');
+		// Return temp password so admin can share it if email delivery fails
+		return { created: true, name, email, tempPassword, userId: newUserId };
 	}
 };

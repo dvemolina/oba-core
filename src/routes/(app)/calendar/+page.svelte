@@ -516,20 +516,22 @@
 
 						<!-- Edition pills (services with editions but no bookings yet) -->
 						{#each editionLayout as { edition, startCol, span, row }}
-							{@const startsHere = edition.startDate >= (weekDates.find(d => d !== null) ?? '')}
-							<a
-								href="/services/{edition.serviceId}"
-								style={spanStyle(startCol, span, row)}
-								class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center border border-dashed opacity-60 hover:opacity-80 transition-opacity {editionRounded(edition, weekDates)} {editionPillClasses(edition)}"
-							>
-								{#if startsHere}
-									<Tent size={11} class="inline mr-0.5 shrink-0" />
-									<span class="truncate">{edition.serviceName}</span>
-									<span class="ml-1 shrink-0 opacity-70 text-[9px]">sin reservas</span>
-								{:else}
-									&nbsp;
-								{/if}
-							</a>
+							{#if edition.enrolledCount === 0}
+								{@const startsHere = edition.startDate >= (weekDates.find(d => d !== null) ?? '')}
+								<a
+									href="/services/{edition.serviceId}"
+									style={spanStyle(startCol, span, row)}
+									class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center border border-dashed opacity-60 hover:opacity-80 transition-opacity {editionRounded(edition, weekDates)} {editionPillClasses(edition)}"
+								>
+									{#if startsHere}
+										<Tent size={11} class="inline mr-0.5 shrink-0" />
+										<span class="truncate">{edition.serviceName}</span>
+										<span class="ml-1 shrink-0 opacity-70 text-[9px]">sin reservas</span>
+									{:else}
+										&nbsp;
+									{/if}
+								</a>
+							{/if}
 						{/each}
 					</div>
 				{/each}
@@ -545,16 +547,20 @@
 				{#each data.weekDays as dateStr}
 					{@const isToday = dateStr === today}
 					{@const d = new Date(dateStr + 'T00:00:00')}
-					<a href="/calendar?view=day&date={dateStr}"
-						class="flex flex-col items-center py-2 text-center transition-colors hover:bg-ocean/5">
-						<span class="text-[10px] font-semibold uppercase tracking-wide text-muted">
-							{d.toLocaleDateString(getLocale(), { weekday: 'short' })}
-						</span>
-						<span class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
-							{isToday ? 'bg-ocean text-white' : 'text-navy'}">
-							{d.getDate()}
-						</span>
-					</a>
+					<div class="group relative flex flex-col items-center py-2 text-center">
+						<a href="/calendar?view=day&date={dateStr}" class="flex flex-col items-center transition-colors hover:bg-ocean/5 rounded-lg px-2 py-0.5">
+							<span class="text-[10px] font-semibold uppercase tracking-wide text-muted">
+								{d.toLocaleDateString(getLocale(), { weekday: 'short' })}
+							</span>
+							<span class="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
+								{isToday ? 'bg-ocean text-white' : 'text-navy'}">
+								{d.getDate()}
+							</span>
+						</a>
+						<a href="/bookings/new?date={dateStr}"
+							class="absolute right-0.5 top-1 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold text-ocean hover:text-blue-700 leading-none p-1"
+							title="Nueva reserva para {dateStr}">+</a>
+					</div>
 				{/each}
 			</div>
 
@@ -943,7 +949,7 @@
 	{/if}
 </div>
 
-<a href="/bookings/new{data.view === 'day' ? '?date=' + data.dayDate : ''}"
+<a href="/bookings/new{data.view === 'day' ? '?date=' + data.dayDate : data.view === 'week' ? '?date=' + data.weekDays[0] : ''}"
 	class="bottom-nav fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 hover:shadow-ocean/40 active:scale-95"
 	aria-label="New booking">
 	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>

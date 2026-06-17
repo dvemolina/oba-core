@@ -75,11 +75,15 @@
 		<p class="truncate text-[11px] font-medium text-gray-800">
 			{session.serviceName ?? 'Session'}{session.firstClientName ? ` · ${session.firstClientName}` : ''}
 		</p>
-		{#if session.totalParticipants > 0}
-			<p class="text-[10px] text-muted">
-				{session.totalParticipants} participante{session.totalParticipants !== 1 ? 's' : ''}
-			</p>
-		{/if}
+		<div class="flex items-center gap-1.5 text-[10px] text-muted">
+			{#if session.totalParticipants > 0}
+				<span>{session.totalParticipants} part.</span>
+			{/if}
+			{#if session.instructors.length > 0}
+				{#if session.totalParticipants > 0}<span>·</span>{/if}
+				<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+			{/if}
+		</div>
 	</button>
 {/if}
 

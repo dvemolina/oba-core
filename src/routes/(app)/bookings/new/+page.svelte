@@ -258,14 +258,15 @@
 					</div>
 				{/if}
 			{:else}
-				<!-- Default: date + optional time -->
-				<div class="grid grid-cols-2 gap-3">
+				<!-- Default: date (+ time only for non-session services) -->
+				<div class="{hasSessions ? '' : 'grid grid-cols-2 gap-3'}">
 					<div>
 						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
 							>Fecha</label
 						>
 						<input type="date" name="date" bind:value={date} required class="input w-full" />
 					</div>
+					{#if !hasSessions}
 					<div>
 						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
 							>Hora</label
@@ -278,6 +279,7 @@
 							class="input w-full disabled:opacity-40"
 						/>
 					</div>
+					{/if}
 				</div>
 				{#if !hasSessions}
 					<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">

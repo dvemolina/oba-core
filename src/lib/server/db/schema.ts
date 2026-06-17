@@ -38,6 +38,8 @@ export const pricingModeEnum = pgEnum('pricing_mode', [
 	'per_half_day'
 ]);
 
+export const sessionStatusEnum = pgEnum('session_status', ['unscheduled', 'scheduled', 'cancelled']);
+export const bookingClientStatusEnum = pgEnum('booking_client_status', ['enrolled', 'cancelled']);
 export const trackingModeEnum = pgEnum('tracking_mode', ['pool', 'specific']);
 export const itemStatusEnum = pgEnum('item_status', ['available', 'maintenance', 'retired']);
 export const allocationStatusEnum = pgEnum('allocation_status', ['allocated', 'returned', 'damaged', 'lost']);
@@ -155,7 +157,7 @@ export const bookingClients = pgTable('booking_clients', {
 	clientId: text('client_id')
 		.notNull()
 		.references(() => clients.id),
-	status: text('status').notNull().default('enrolled'),
+	status: bookingClientStatusEnum('status').notNull().default('enrolled'),
 	participantCount: integer('participant_count').notNull().default(1),
 	creditSourceId: text('credit_source_id').references((): AnyPgColumn => bookings.id),
 	creditCount: integer('credit_count').notNull().default(0),
@@ -221,7 +223,7 @@ export const sessions = pgTable('sessions', {
 	durationMinutes: integer('duration_minutes'),
 	notes: text('notes'),
 	skillLevel: skillLevelEnum('skill_level'),
-	status: text('status').notNull().default('unscheduled'),
+	status: sessionStatusEnum('status').notNull().default('unscheduled'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
@@ -268,11 +270,15 @@ export const sessionParticipants = pgTable('session_participants', {
 	sessionId: text('session_id')
 		.notNull()
 		.references(() => sessions.id, { onDelete: 'cascade' }),
+	bookingParticipantId: text('booking_participant_id')
+		.references(() => bookingParticipants.id, { onDelete: 'set null' }),
 	name: text('name').notNull(),
 	notes: text('notes'),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow()
-});
+}, (t) => [
+	uniqueIndex('uq_session_participants_session_name').on(t.sessionId, t.name)
+]);
 
 export const bookingInstructors = pgTable('booking_instructors', {
 	id: text('id')

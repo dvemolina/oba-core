@@ -258,6 +258,7 @@
 		clients={data.clients}
 		participantsByEnrollment={data.participantsByEnrollment}
 		{canSeeFinancials}
+		availableCreditsPerEnrollment={data.availableCreditsPerEnrollment}
 	/>
 
 	{#if hasSessions}
@@ -286,10 +287,14 @@
 	{/if}
 
 	{#if hasCredits}
-		<CreditsCard booking={data.booking} {modules} />
+		<CreditsCard booking={data.booking} {modules}
+			creditsUsed={data.creditsUsedFromThisBooking}
+			bookingDate={data.booking.date} />
 	{/if}
 
-	<PaymentCard booking={data.booking} {modules} {canSeeFinancials} />
+	<PaymentCard booking={data.booking} {modules} {canSeeFinancials}
+		servicePricingMode={data.service?.pricingMode ?? null}
+		sessionsIncluded={data.sessions.filter(s => s.status !== 'cancelled').length || (data.booking.sessionsIncluded ?? null)} />
 
 	<!-- Cancel / Delete actions -->
 	{#if data.booking.status !== 'cancelled' && data.userRole !== 'staff'}

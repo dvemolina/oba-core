@@ -5,6 +5,7 @@
     import ContactButtons from '$lib/components/ContactButtons.svelte';
     import type { ServiceModules } from '$lib/features/services/modules';
     import type { BookingParticipant } from '$lib/features/bookings/types';
+    import type { CreditSource } from '$lib/features/credits/queries';
 
     interface Enrollment {
         id: string;
@@ -45,13 +46,15 @@
         modules,
         clients = [],
         participantsByEnrollment = {},
-        canSeeFinancials
+        canSeeFinancials,
+        availableCreditsPerEnrollment = {}
     }: {
         booking: Booking;
         modules: ServiceModules;
         clients: Client[];
         participantsByEnrollment: Record<string, BookingParticipant[]>;
         canSeeFinancials: boolean;
+        availableCreditsPerEnrollment?: Record<string, CreditSource[]>;
     } = $props();
 
     const hasRoster = $derived('roster' in modules);
@@ -72,6 +75,9 @@
     let addingParticipantFor = $state<string | null>(null);
     let newParticipantName = $state('');
     let selectedEnroll = $state<{ clientId: string; name: string } | null>(null);
+    let creditPickerFor = $state<string | null>(null);
+    let selectedCreditSource = $state('');
+    let creditCountInput = $state(1);
 
     const paymentColors: Record<string, string> = {
         paid:    'bg-confirmed/15 text-green-700',
@@ -137,6 +143,56 @@
                         {bc.paymentStatus === 'paid' ? `€${bc.amountPaid} ✓` : bc.paymentStatus === 'partial' ? `€${bc.amountPaid}/€${bc.amountDue}` : `€${bc.amountDue} pendiente`}
                     </span>
                 </div>
+
+                <!-- Credits -->
+                {#if canSeeFinancials}
+                    {@const creditSources = availableCreditsPerEnrollment[bc.id] ?? []}
+                    {#if bc.creditSourceId}
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] text-purple-700">🎟 {bc.creditCount} crédito{bc.creditCount !== 1 ? 's' : ''} aplicado{bc.creditCount !== 1 ? 's' : ''}</span>
+                            <form method="POST" action="?/removeCredits" use:enhance={withToast()}>
+                                <input type="hidden" name="bookingClientId" value={bc.id} />
+                                <button type="submit" class="text-[10px] text-red-400 hover:text-red-600">✕ Quitar</button>
+                            </form>
+                        </div>
+                    {:else if creditSources.length > 0}
+                        {#if creditPickerFor === bc.id}
+                            {@const nonExpired = creditSources.filter(s => !s.expired && s.creditsRemaining > 0)}
+                            <form method="POST" action="?/applyCredits"
+                                use:enhance={withToast(() => { creditPickerFor = null; })}
+                                class="space-y-1.5 rounded-lg bg-purple-50 p-2">
+                                <input type="hidden" name="bookingClientId" value={bc.id} />
+                                <p class="text-[10px] font-semibold text-purple-700">Aplicar créditos de bono</p>
+                                {#if nonExpired.length === 0}
+                                    <p class="text-[10px] text-muted">No hay créditos disponibles.</p>
+                                {:else}
+                                    <select name="creditSourceId" bind:value={selectedCreditSource}
+                                        class="w-full rounded border border-purple-200 bg-white px-2 py-1 text-xs focus:outline-none">
+                                        <option value="">Seleccionar bono...</option>
+                                        {#each nonExpired as s (s.bookingId)}
+                                            <option value={s.bookingId}>{s.serviceName} · {s.creditsRemaining} disponibles{s.validTo ? ` · hasta ${s.validTo}` : ''}</option>
+                                        {/each}
+                                    </select>
+                                    <div class="flex items-center gap-2">
+                                        <label class="text-[10px] text-muted shrink-0">Cantidad:</label>
+                                        <input name="creditCount" type="number" min="1"
+                                            bind:value={creditCountInput}
+                                            max={nonExpired.find(s => s.bookingId === selectedCreditSource)?.creditsRemaining ?? 1}
+                                            class="w-14 rounded border border-purple-200 px-1 py-0.5 text-center text-xs focus:outline-none" />
+                                        <button type="submit" class="btn-primary btn-sm text-[10px]" disabled={!selectedCreditSource}>Aplicar</button>
+                                        <button type="button" onclick={() => creditPickerFor = null} class="text-[10px] text-muted hover:text-gray-700">Cancelar</button>
+                                    </div>
+                                {/if}
+                            </form>
+                        {:else}
+                            <button type="button"
+                                onclick={() => { creditPickerFor = bc.id; selectedCreditSource = ''; creditCountInput = 1; }}
+                                class="flex items-center gap-1 text-[10px] text-purple-600 hover:underline">
+                                🎟 Usar créditos de bono
+                            </button>
+                        {/if}
+                    {/if}
+                {/if}
 
                 <!-- Contact buttons -->
                 {#if bc.clientPhone || bc.clientEmail}

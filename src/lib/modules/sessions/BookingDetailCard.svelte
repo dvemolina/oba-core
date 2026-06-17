@@ -132,21 +132,35 @@
 		{#if booking.status !== 'cancelled'}
 			<div class="flex items-center gap-3">
 				{#if hasDateRange}
+					<div class="group relative">
+						<button
+							type="button"
+							onclick={() => { showBulkGenerate = !showBulkGenerate; showAddSession = false; }}
+							class="text-xs font-medium text-muted hover:text-slate-700"
+						>
+							{showBulkGenerate ? 'Cancelar' : 'Generar'}
+						</button>
+						{#if !showBulkGenerate}
+							<span class="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-48 rounded-md bg-gray-800 px-2 py-1 text-[10px] text-white group-hover:block">
+								Crea múltiples sesiones automáticamente según el rango de fechas de la reserva
+							</span>
+						{/if}
+					</div>
+				{/if}
+				<div class="group relative">
 					<button
 						type="button"
-						onclick={() => { showBulkGenerate = !showBulkGenerate; showAddSession = false; }}
-						class="text-xs font-medium text-muted hover:text-slate-700"
+						onclick={() => { showAddSession = !showAddSession; showBulkGenerate = false; }}
+						class="text-xs font-medium text-indigo-600 hover:underline"
 					>
-						{showBulkGenerate ? 'Cancelar' : 'Generar'}
+						{showAddSession ? 'Cancelar' : '+ Añadir'}
 					</button>
-				{/if}
-				<button
-					type="button"
-					onclick={() => { showAddSession = !showAddSession; showBulkGenerate = false; }}
-					class="text-xs font-medium text-indigo-600 hover:underline"
-				>
-					{showAddSession ? 'Cancelar' : '+ Añadir'}
-				</button>
+					{#if !showAddSession}
+						<span class="pointer-events-none absolute bottom-full right-0 mb-1 hidden w-44 rounded-md bg-gray-800 px-2 py-1 text-[10px] text-white group-hover:block">
+							Añade una sesión individual con fecha y hora específica
+						</span>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -322,7 +336,7 @@
 										<!-- Checklist: tick booking-level participants in/out of this session -->
 										<div class="space-y-1">
 											{#each allParticipants as bp (bp.id)}
-												{@const inSession = session.participants.find(sp => sp.name === bp.name)}
+												{@const inSession = session.participants.find(sp => sp.bookingParticipantId === bp.id || sp.name === bp.name)}
 												{#if inSession}
 													<div class="flex items-center justify-between rounded-md bg-indigo-50 px-2 py-1">
 														<div class="flex items-center gap-2">
@@ -343,6 +357,7 @@
 													>
 														<input type="hidden" name="sessionId" value={session.id} />
 														<input type="hidden" name="participantName" value={bp.name} />
+														<input type="hidden" name="bookingParticipantId" value={bp.id} />
 														<div class="flex items-center gap-2">
 															<span class="h-3.5 w-3.5 rounded-full border border-indigo-200 bg-white"></span>
 															<span class="text-xs text-muted">{bp.name}</span>

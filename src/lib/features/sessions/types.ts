@@ -11,6 +11,7 @@ export interface SessionParticipant {
 	id: string;
 	sessionId: string;
 	name: string;
+	bookingParticipantId: string | null;
 	notes: string | null;
 	sortOrder: number;
 }
@@ -102,6 +103,7 @@ export interface UpdateSessionInput {
 export interface CreateParticipantInput {
 	sessionId: string;
 	name: string;
+	bookingParticipantId?: string;
 	notes?: string;
 	sortOrder?: number;
 }

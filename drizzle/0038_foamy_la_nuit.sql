@@ -1,0 +1,3 @@
+ALTER TABLE "session_participants" ADD COLUMN "booking_participant_id" text;--> statement-breakpoint
+ALTER TABLE "session_participants" ADD CONSTRAINT "session_participants_booking_participant_id_booking_participants_id_fk" FOREIGN KEY ("booking_participant_id") REFERENCES "public"."booking_participants"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_session_participants_session_name" ON "session_participants" USING btree ("session_id","name");

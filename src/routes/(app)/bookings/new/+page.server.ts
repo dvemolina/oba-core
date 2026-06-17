@@ -103,20 +103,26 @@ export const actions: Actions = {
 		if (!date) return fail(400, { error: 'Date is required' });
 
 		// ── Capacity check ─────────────────────────────────────────────────────
+		const totalParticipantsRequested = participantCounts.reduce((s, n) => s + n, 0);
+
 		if ('roster' in (service.modules ?? {}) && serviceEditionId) {
 			const edition = await getServiceEdition(serviceEditionId);
 			if (edition?.maxCapacity) {
 				const enrolled  = await countEnrolledClientsForEdition(serviceEditionId);
 				const available = edition.maxCapacity - enrolled;
-				if (clientIds.length > available)
-					return fail(400, { error: `Only ${available} spot${available !== 1 ? 's' : ''} remaining in this edition` });
+				if (totalParticipantsRequested > available)
+					return fail(400, { error: `Solo quedan ${available} plaza${available !== 1 ? 's' : ''} en esta edición` });
 			}
 		} else if ('roster' in (service.modules ?? {}) && service.maxCapacity) {
 			const enrolled  = await countEnrolledClientsForService(serviceId);
 			const available = service.maxCapacity - enrolled;
-			if (clientIds.length > available)
-				return fail(400, { error: `Only ${available} slot${available !== 1 ? 's' : ''} remaining` });
+			if (totalParticipantsRequested > available)
+				return fail(400, { error: `Solo quedan ${available} plaza${available !== 1 ? 's' : ''} disponibles` });
 		}
+
+		// Require edition when service uses editions module and editions exist
+		if ('editions' in (service.modules ?? {}) && !serviceEditionId)
+			return fail(400, { error: 'Selecciona una edición para continuar' });
 
 		// ── Lessons (sessions module) ──────────────────────────────────────────
 		// Auto-create N unscheduled sessions from service default.

@@ -19,8 +19,10 @@ export type InstructorModuleConfig = {
 
 export type CreditsModuleConfig = {
 	creditsIncluded: number
-	validityMode: 'season' | 'days'
-	validityDays?: number
+	validityMode: 'range' | 'days'
+	validityDays?: number  // used when validityMode === 'days'
+	validFrom?: string     // ISO date, used when validityMode === 'range'
+	validTo?: string       // ISO date, used when validityMode === 'range'
 	compatibleServiceIds: string[]
 }
 

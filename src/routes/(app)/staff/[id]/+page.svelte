@@ -101,16 +101,63 @@
 	</section>
 
 	<!-- Access -->
-	<section class="rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+	<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.staff_detail_access()}</h2>
-		<form method="POST" action="?/toggleBan" use:enhance>
-			<button
-				type="submit"
-				class="{data.member.banned ? 'btn-primary' : 'btn-danger'} btn-sm"
-				onclick={(e) => { if (!confirm(data.member.banned ? m.staff_detail_confirm_restore() : m.staff_detail_confirm_ban())) e.preventDefault(); }}
-			>
-				{data.member.banned ? m.staff_detail_restore_access() : m.staff_detail_ban()}
+		<div class="space-y-3">
+			<form method="POST" action="?/toggleBan" use:enhance>
+				<button
+					type="submit"
+					class="{data.member.banned ? 'btn-primary' : 'btn-danger'} btn-sm"
+					onclick={(e) => { if (!confirm(data.member.banned ? m.staff_detail_confirm_restore() : m.staff_detail_confirm_ban())) e.preventDefault(); }}
+				>
+					{data.member.banned ? m.staff_detail_restore_access() : m.staff_detail_ban()}
+				</button>
+			</form>
+		</div>
+	</section>
+
+	<!-- Password reset -->
+	<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
+		<h2 class="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Contraseña</h2>
+		<p class="mb-3 text-xs text-muted">Genera una nueva contraseña temporal para este usuario.</p>
+		{#if form?.resetPassword}
+			<div class="mb-3 rounded-lg border border-green-200 bg-green-50 p-3">
+				<p class="mb-1.5 text-xs font-semibold text-green-700">Nueva contraseña temporal generada:</p>
+				<code class="block rounded bg-white px-2 py-1.5 font-mono text-sm text-gray-900">{form.resetPassword}</code>
+				<p class="mt-1.5 text-xs text-green-600">Compártela con el usuario para que pueda acceder.</p>
+			</div>
+		{/if}
+		{#if form?.resetError}
+			<p class="mb-3 text-sm text-red-600">{form.resetError}</p>
+		{/if}
+		<form method="POST" action="?/resetPassword" use:enhance>
+			<button type="submit" class="btn-secondary btn-sm"
+				onclick={(e) => { if (!confirm('¿Generar nueva contraseña temporal para este usuario?')) e.preventDefault(); }}>
+				Resetear contraseña
 			</button>
 		</form>
 	</section>
+
+	<!-- Danger zone (admin only) -->
+	{#if data.isAdmin}
+	<section class="rounded-(--radius-card) border border-red-200 bg-red-50/50 p-5">
+		<h2 class="mb-1 text-xs font-semibold uppercase tracking-wider text-red-600">Zona peligrosa</h2>
+		<p class="mb-3 text-xs text-red-500">Eliminar el usuario es irreversible. Solo los admins pueden hacer esto.</p>
+		{#if form?.error && form?.deleted === undefined}
+			<p class="mb-3 text-sm text-red-600">{form.error}</p>
+		{/if}
+		<form method="POST" action="?/deleteUser" use:enhance={() => async ({ result, update }) => {
+			if (result.type === 'success' && (result.data as any)?.deleted) {
+				window.location.href = '/staff';
+			} else {
+				await update();
+			}
+		}}>
+			<button type="submit" class="btn-destructive btn-sm"
+				onclick={(e) => { if (!confirm('¿Eliminar este usuario permanentemente? Esta acción no se puede deshacer.')) e.preventDefault(); }}>
+				Eliminar usuario
+			</button>
+		</form>
+	</section>
+	{/if}
 </div>

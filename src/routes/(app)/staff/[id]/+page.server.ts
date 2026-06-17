@@ -1,9 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
 import { requireRole, hasRole, primaryRole } from '$lib/server/permissions';
 import type { Role } from '$lib/server/permissions';
+import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/auth.schema';
 import { eq } from 'drizzle-orm';
+import { generateTempPassword } from '$lib/server/email/sender';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -51,5 +53,34 @@ export const actions: Actions = {
 		if (!member) error(404);
 		await db.update(userTable).set({ banned: !member.banned }).where(eq(userTable.id, params.id));
 		return {};
+	},
+
+	resetPassword: async ({ params, locals, request }) => {
+		requireRole(locals, 'admin', 'owner');
+		if (params.id === locals.user?.id) return fail(400, { error: "Use settings to change your own password" });
+		const newPassword = generateTempPassword();
+		try {
+			await auth.api.setUserPassword({
+				headers: request.headers,
+				body: { userId: params.id, newPassword }
+			});
+		} catch {
+			return fail(500, { resetError: 'Failed to reset password' });
+		}
+		return { resetPassword: newPassword };
+	},
+
+	deleteUser: async ({ params, locals, request }) => {
+		requireRole(locals, 'admin');
+		if (params.id === locals.user?.id) return fail(400, { error: "Can't delete yourself" });
+		try {
+			await auth.api.removeUser({
+				headers: request.headers,
+				body: { userId: params.id }
+			});
+		} catch {
+			return fail(500, { error: 'Failed to delete user' });
+		}
+		return { deleted: true };
 	}
 };

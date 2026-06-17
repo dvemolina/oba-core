@@ -15,8 +15,8 @@ const db = drizzle(client)
 const SERVICE_MODULES: Record<string, ServiceModules> = {
 	'Clase grupal':                 { roster: { maxCapacity: 8 }, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
 	'Clase Privada':                { sessions: { durationMinutes: 90 }, inventory: { perParticipant: true }, instructor: { required: true } },
-	'Bono 5x clases surf grupales': { credits: { creditsIncluded: 5, validityMode: 'season', compatibleServiceIds: [] } },
-	'Bono 5x clases surf privadas': { credits: { creditsIncluded: 5, validityMode: 'season', compatibleServiceIds: [] } },
+	'Bono 5x clases surf grupales': { credits: { creditsIncluded: 5, validityMode: 'range', compatibleServiceIds: [] } },
+	'Bono 5x clases surf privadas': { credits: { creditsIncluded: 5, validityMode: 'range', compatibleServiceIds: [] } },
 	'Neopreno Medio dia':           { inventory: { perParticipant: true } },
 	'Tabla Surf Medio Día':         { inventory: { perParticipant: true } },
 	'Tabla + Neopreno Medio Día':   { inventory: { perParticipant: true } },
