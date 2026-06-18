@@ -39,6 +39,7 @@ export const pricingModeEnum = pgEnum('pricing_mode', [
 ]);
 
 export const sessionStatusEnum = pgEnum('session_status', ['unscheduled', 'scheduled', 'cancelled']);
+export const sessionOwnerTypeEnum = pgEnum('session_owner_type', ['booking', 'service', 'edition']);
 export const bookingClientStatusEnum = pgEnum('booking_client_status', ['enrolled', 'cancelled']);
 export const trackingModeEnum = pgEnum('tracking_mode', ['pool', 'specific']);
 export const itemStatusEnum = pgEnum('item_status', ['available', 'maintenance', 'retired']);
@@ -138,13 +139,16 @@ export const bookings = pgTable('bookings', {
 	source: text('source').notNull().default('admin'),
 	spotNotes: text('spot_notes'),
 	notes: text('notes'),
+	sessionId: text('session_id')
+		.references((): AnyPgColumn => sessions.id, { onDelete: 'set null' }),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_bookings_date').on(t.date),
 	index('idx_bookings_status').on(t.status),
 	index('idx_bookings_service').on(t.serviceId),
-	index('idx_bookings_service_edition').on(t.serviceEditionId)
+	index('idx_bookings_service_edition').on(t.serviceEditionId),
+	index('idx_bookings_session_id').on(t.sessionId)
 ]);
 
 export const bookingClients = pgTable('booking_clients', {
@@ -176,7 +180,6 @@ export const bookingParticipants = pgTable('booking_participants', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
-	bookingIdTemp: text('booking_id_temp'),  // kept temporarily for migration script
 	bookingClientId: text('booking_client_id').references(() => bookingClients.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
 	notes: text('notes'),
@@ -218,6 +221,13 @@ export const sessions = pgTable('sessions', {
 	id: text('id')
 		.primaryKey()
 		.$defaultFn(() => crypto.randomUUID()),
+	ownerType: sessionOwnerTypeEnum('owner_type').notNull(),
+	bookingId: text('booking_id')
+		.references(() => bookings.id, { onDelete: 'cascade' }),
+	serviceId: text('service_id')
+		.references(() => services.id, { onDelete: 'cascade' }),
+	serviceEditionId: text('service_edition_id')
+		.references(() => serviceEditions.id, { onDelete: 'cascade' }),
 	date: date('date').notNull(),
 	time: time('time'),
 	durationMinutes: integer('duration_minutes'),
@@ -229,7 +239,10 @@ export const sessions = pgTable('sessions', {
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 }, (t) => [
 	index('idx_sessions_date').on(t.date),
-	index('idx_sessions_status').on(t.status)
+	index('idx_sessions_status').on(t.status),
+	index('idx_sessions_booking_id').on(t.bookingId),
+	index('idx_sessions_service_id').on(t.serviceId),
+	index('idx_sessions_service_edition_id').on(t.serviceEditionId)
 ]);
 
 export const bookingSessions = pgTable('booking_sessions', {
@@ -277,7 +290,7 @@ export const sessionParticipants = pgTable('session_participants', {
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at').notNull().defaultNow()
 }, (t) => [
-	uniqueIndex('uq_session_participants_session_name').on(t.sessionId, t.name)
+	index('idx_session_participants_bp').on(t.sessionId, t.bookingParticipantId)
 ]);
 
 export const bookingInstructors = pgTable('booking_instructors', {
