@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { withToast } from '$lib/utils/enhance';
-	import { fmtTimeRange, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
+	import { fmtTimeRange, checkAllInstructorConflicts, addMinutesToTime } from '$lib/features/calendar/utils';
 	import type { InstructorConflict } from '$lib/features/calendar/utils';
 	import type { ServiceModules } from '$lib/features/services/modules';
 	import type { BookingParticipant } from '$lib/features/bookings/types';
@@ -22,14 +22,16 @@
 		sessions,
 		allDateSessions,
 		instructors,
-		participantsByEnrollment
+		participantsByEnrollment,
+		sessionOwnerType = null
 	}: {
-		booking: { id: string; date: string; dateEnd?: string | null; status: string };
+		booking: { id: string; date: string; dateEnd?: string | null; status: string; serviceId?: string | null; serviceEditionId?: string | null; sessionId?: string | null };
 		modules: ServiceModules;
 		sessions: Session[];
 		allDateSessions: SessionForDay[];
 		instructors: Instructor[];
 		participantsByEnrollment: Record<string, BookingParticipant[]>;
+		sessionOwnerType?: 'booking' | 'service' | 'edition' | null;
 	} = $props();
 
 	// ── Derived state ─────────────────────────────────────────────────────────
@@ -86,6 +88,8 @@
 	let showAddSession = $state(false);
 	let showBulkGenerate = $state(false);
 	let bulkSessionsPerDay = $state(2);
+	let bulkDuration = $state(serviceDuration);
+	let bulkAllDay = $state(false);
 
 	const DEFAULT_TIMES_MAP: Record<number, string[]> = {
 		1: ['09:00'], 2: ['09:00', '14:00'], 3: ['09:00', '12:00', '16:00'],
@@ -112,7 +116,8 @@
 	}
 </script>
 
-<div class="rounded-(--radius-card) bg-surface ring-1 ring-indigo-100 overflow-hidden">
+{#if !sessionOwnerType || sessionOwnerType === 'booking'}
+<div class="rounded-(--radius-card) bg-surface ring-1 ring-indigo-100">
 	<!-- ── Header ─────────────────────────────────────────────────────────────── -->
 	<div class="flex items-center justify-between px-4 pt-4 pb-3">
 		<div class="border-l-2 border-indigo-400 pl-2">
@@ -196,12 +201,34 @@
 					class="mt-0.5 input text-xs w-24"
 				/>
 			</div>
-			<div class="space-y-1">
-				<label class="text-xs text-muted">Horarios</label>
-				{#each bulkTimes as _, i}
-					<input name="sessionTime_{i}" type="time" bind:value={bulkTimes[i]} class="mt-0.5 input text-xs" />
-				{/each}
+			<div>
+				<label class="text-xs text-muted">Duración (min)</label>
+				<input
+					name="sessionDuration"
+					type="number"
+					min="15"
+					step="15"
+					bind:value={bulkDuration}
+					class="mt-0.5 input text-xs w-24"
+				/>
 			</div>
+			<label class="flex cursor-pointer items-center gap-2">
+				<input type="checkbox" bind:checked={bulkAllDay} class="h-3.5 w-3.5 accent-amber-500" />
+				<span class="text-xs text-gray-700">Todo el día (sin hora fija)</span>
+			</label>
+			{#if !bulkAllDay}
+				<div class="space-y-1">
+					<label class="text-xs text-muted">Horarios</label>
+					{#each bulkTimes as _, i}
+						<div class="flex items-center gap-2">
+							<input name="sessionTime_{i}" type="time" bind:value={bulkTimes[i]} class="mt-0.5 input text-xs w-28" />
+							{#if bulkTimes[i]}
+								<span class="text-xs text-muted">→ {addMinutesToTime(bulkTimes[i], bulkDuration)}</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 			<label class="flex cursor-pointer items-center gap-2">
 				<input type="checkbox" name="weekdaysOnly" class="h-3.5 w-3.5 accent-indigo-600" />
 				<span class="text-xs text-gray-700">Solo días laborables</span>
@@ -483,3 +510,86 @@
 		</div>
 	{/if}
 </div>
+
+{:else if sessionOwnerType === 'service'}
+  <div class="rounded-(--radius-card) bg-surface ring-1 ring-indigo-100">
+    <div class="flex items-center justify-between px-4 pt-4 pb-3">
+      <div class="border-l-2 border-indigo-400 pl-2">
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted">⏱ Sesión de grupo</p>
+        <p class="mt-0.5 text-[11px] text-slate-500">Las sesiones se gestionan a nivel de servicio</p>
+      </div>
+      <a href="/services/{booking.serviceId}/sessions/" class="text-xs font-medium text-indigo-600 hover:underline">
+        Gestionar →
+      </a>
+    </div>
+
+    {#if sessions.length === 0}
+      <p class="px-4 pb-4 text-sm text-muted">Sin sesiones disponibles para esta fecha. <a href="/services/{booking.serviceId}/sessions/" class="text-indigo-600 hover:underline">Crear sesión</a></p>
+    {:else}
+      <div class="divide-y divide-indigo-100/60 pb-3">
+        {#each sessions as s}
+          {@const isAssigned = booking.sessionId === s.id}
+          <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-800">
+                {s.time ? s.time.slice(0,5) : 'Sin hora'}
+                {#if s.durationMinutes}
+                  <span class="text-xs text-muted">· {s.durationMinutes} min</span>
+                {/if}
+              </p>
+              <p class="text-xs text-muted capitalize">{s.status} · {s.participants.length} participantes</p>
+            </div>
+            {#if isAssigned}
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Asignada</span>
+                {#if booking.status !== 'cancelled'}
+                  <form method="POST" action="?/unassignFromSession" use:enhance={withToast()}>
+                    <button type="submit" class="text-xs text-muted hover:text-red-500">Quitar</button>
+                  </form>
+                {/if}
+              </div>
+            {:else if booking.status !== 'cancelled' && !booking.sessionId}
+              <form method="POST" action="?/assignToSession" use:enhance={withToast()}>
+                <input type="hidden" name="sessionId" value={s.id} />
+                <button type="submit" class="text-xs font-medium text-indigo-600 hover:underline">Asignar</button>
+              </form>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+
+{:else if sessionOwnerType === 'edition'}
+  <div class="rounded-(--radius-card) bg-surface ring-1 ring-indigo-100">
+    <div class="flex items-center justify-between px-4 pt-4 pb-3">
+      <div class="border-l-2 border-indigo-400 pl-2">
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted">⏱ Programa del campamento</p>
+        <p class="mt-0.5 text-[11px] text-slate-500">{sessions.filter(s => s.status !== 'cancelled').length} sesiones programadas</p>
+      </div>
+      <a href="/services/{booking.serviceId}/roster?run={booking.serviceEditionId}" class="text-xs font-medium text-indigo-600 hover:underline">
+        Ver programa →
+      </a>
+    </div>
+
+    {#if sessions.length === 0}
+      <p class="px-4 pb-4 text-sm text-muted">Sin sesiones programadas aún.</p>
+    {:else}
+      <div class="divide-y divide-indigo-100/60 pb-3">
+        {#each sessions as s}
+          <div class="px-4 py-2 flex items-center gap-3">
+            <span class="w-24 shrink-0 text-xs text-muted">{s.date}</span>
+            <span class="text-sm font-medium text-gray-800">{s.time ? s.time.slice(0,5) : '—'}</span>
+            {#if s.durationMinutes}
+              <span class="text-xs text-muted">{s.durationMinutes} min</span>
+            {/if}
+            <span class="text-xs capitalize text-muted">{s.status}</span>
+            {#if s.participants.length > 0}
+              <span class="ml-auto text-xs text-muted">{s.participants.length} part.</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+{/if}
