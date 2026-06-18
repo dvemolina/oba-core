@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate } from '$app/navigation';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { enhance } from '$app/forms';
 	import { getDaysInMonth, addMinutesToTime, checkAllInstructorConflicts } from '$lib/features/calendar/utils';
 	import { Tent } from 'lucide-svelte';
@@ -9,11 +11,22 @@
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 	import SessionCard from '$lib/components/calendar/SessionCard.svelte';
+	import { sessionDetailLink } from '$lib/features/sessions/link';
 
 	let { data }: { data: PageData } = $props();
 
 	// Scheduling board: track which session is being inline-edited
 	let assigningSessionId = $state<string | null>(null);
+
+	// Time slot click popover
+	let slotPopoverTime = $state<string | null>(null);
+	let slotPopoverEl = $state<HTMLElement | null>(null);
+
+	function openSlotPopover(slot: string, e: MouseEvent) {
+		slotPopoverTime = slot;
+		slotPopoverEl = (e.currentTarget as HTMLElement);
+	}
+	function closeSlotPopover() { slotPopoverTime = null; }
 
 	// Track form values for the active inline edit (used for real-time conflict detection)
 	let editFormTime = $state('');
@@ -43,13 +56,19 @@
 	const today = $derived(data.today);
 
 	function setView(v: 'month' | 'week' | 'day') {
-		// Preserve date context when switching views (Google Cal / iCal behaviour)
-		const ctx = data.view === 'day'  ? data.dayDate
-		          : data.view === 'week' ? data.weekStart
-		          : `${data.year}-${String(data.month).padStart(2, '0')}-01`;
+		let ctx: string;
+		if (data.view === 'month') {
+			// If viewed month contains today → land on today; else → first of that month
+			const [todayY, todayM] = today.split('-').map(Number);
+			ctx = (data.year === todayY && data.month === todayM)
+				? today
+				: `${data.year}-${String(data.month).padStart(2, '0')}-01`;
+		} else {
+			ctx = data.view === 'day' ? data.dayDate : data.weekStart;
+		}
 		const d = new Date(ctx + 'T00:00:00');
-		if (v === 'week')  goto(`/calendar?view=week&week=${ctx}`);
-		else if (v === 'day') goto(`/calendar?view=day&date=${ctx}`);
+		if (v === 'week')       goto(`/calendar?view=week&week=${ctx}`);
+		else if (v === 'day')   goto(`/calendar?view=day&date=${ctx}`);
 		else goto(`/calendar?view=month&year=${d.getFullYear()}&month=${d.getMonth() + 1}`);
 	}
 	function prevMonth() {
@@ -62,6 +81,89 @@
 		if (m > 12) { m = 1; y++; }
 		goto(`/calendar?view=month&year=${y}&month=${m}`);
 	}
+
+	// ── Gesture navigation ────────────────────────────────────────────────────
+	function navigateBack() {
+		if (data.view === 'month') prevMonth();
+		else if (data.view === 'week') goto(`/calendar?view=week&week=${data.prevWeek}`);
+		else goto(`/calendar?view=day&date=${data.prevDay}`);
+	}
+	function navigateForward() {
+		if (data.view === 'month') nextMonth();
+		else if (data.view === 'week') goto(`/calendar?view=week&week=${data.nextWeek}`);
+		else goto(`/calendar?view=day&date=${data.nextDay}`);
+	}
+
+	// Touch swipe
+	let touchStartX = 0;
+	let touchStartY = 0;
+	function onTouchStart(e: TouchEvent) {
+		touchStartX = e.touches[0].clientX;
+		touchStartY = e.touches[0].clientY;
+	}
+	function onTouchEnd(e: TouchEvent) {
+		const dx = e.changedTouches[0].clientX - touchStartX;
+		const dy = e.changedTouches[0].clientY - touchStartY;
+		const threshold = 60;
+		if (data.view === 'month') {
+			// vertical swipe for month
+			if (Math.abs(dy) < threshold || Math.abs(dy) < Math.abs(dx)) return;
+			if (dy < 0) navigateForward(); else navigateBack();
+		} else {
+			// horizontal swipe for week/day
+			if (Math.abs(dx) < threshold || Math.abs(dy) > Math.abs(dx)) return;
+			if (dx < 0) navigateForward(); else navigateBack();
+		}
+	}
+
+	// Trackpad / mouse-wheel gesture nav.
+	// Registered as non-passive+capture so we can preventDefault on horizontal swipes
+	// before inner scroll containers see the event.
+	let wheelAccumX = 0;
+	let wheelNavigating = false;
+	let calendarEl = $state<HTMLElement | null>(null);
+
+	function handleWheel(e: WheelEvent) {
+		if (wheelNavigating) { e.preventDefault(); return; }
+		const absX = Math.abs(e.deltaX);
+		const absY = Math.abs(e.deltaY);
+		if (absX < 3 || absY > absX) return; // vertical scroll or noise — pass through
+		e.preventDefault();
+		// Reset accumulator on direction reversal
+		if (wheelAccumX !== 0 && Math.sign(e.deltaX) !== Math.sign(wheelAccumX)) wheelAccumX = 0;
+		wheelAccumX += e.deltaX;
+		if (Math.abs(wheelAccumX) >= 50) {
+			wheelNavigating = true;
+			const forward = wheelAccumX > 0;
+			wheelAccumX = 0;
+			if (forward) navigateForward(); else navigateBack();
+			setTimeout(() => { wheelNavigating = false; }, 700);
+		}
+	}
+
+	$effect(() => {
+		const el = calendarEl;
+		if (!el) return;
+		el.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+		return () => el.removeEventListener('wheel', handleWheel, { capture: true });
+	});
+
+	// Direction tracking for the slide-in transition (set before data changes)
+	let flyX = $state(0);
+	let flyY = $state(0);
+	beforeNavigate(({ from, to }) => {
+		flyX = 0; flyY = 0;
+		if (!from?.url || !to?.url) return;
+		const fv = from.url.searchParams;
+		const tv = to.url.searchParams;
+		if (fv.get('view') !== tv.get('view')) return;
+		const view = tv.get('view');
+		const fromDate = fv.get('date') ?? fv.get('week') ?? `${fv.get('year') ?? '2000'}-${(fv.get('month') ?? '1').padStart(2,'0')}-01`;
+		const toDate   = tv.get('date') ?? tv.get('week') ?? `${tv.get('year') ?? '2000'}-${(tv.get('month') ?? '1').padStart(2,'0')}-01`;
+		const forward  = toDate > fromDate;
+		if (view === 'month') { flyY = forward ? 14 : -14; }
+		else                  { flyX = forward ? 20 : -20; }
+	});
 
 	const monthName = $derived(
 		new Date(data.year, data.month - 1).toLocaleString(getLocale(), { month: 'long' })
@@ -196,13 +298,32 @@
 	// ── Service edition layout helpers ────────────────────────────────────────
 	type EditionSpanItem = { edition: (typeof data.serviceEditions)[0]; startCol: number; span: number; row: number };
 
+	// Edition IDs that already have bookings — kept for legacy reference
+	const bookedEditionIds = $derived(
+		new Set(
+			data.bookings
+				.filter(b => b.status !== 'cancelled' && b.serviceEditionId)
+				.map(b => b.serviceEditionId!)
+		)
+	);
+
+	// Service IDs that have any edition defined — roster booking pills suppress when this is true
+	const editionServiceIds = $derived(new Set(data.serviceEditions.map(e => e.serviceId)));
+
+	// Roster multi-day booking IDs — their session chips are redundant (camp pill already shows)
+	const rosterMultiDayBookingIds = $derived(
+		new Set(
+			multiDayBookings.filter(b => b.serviceHasRoster).map(b => b.id)
+		)
+	);
+
 	function editionSpanLayout(weekDates: (string | null)[], startRow: number): EditionSpanItem[] {
 		const firstDay = weekDates.find(d => d !== null);
 		const lastDay = [...weekDates].filter(d => d !== null).at(-1);
 		if (!firstDay || !lastDay) return [];
 
 		const inWeek = data.serviceEditions.filter(e =>
-			e.startDate <= lastDay && e.endDate >= firstDay && e.enrolledCount === 0
+			e.startDate <= lastDay && e.endDate >= firstDay
 		);
 
 		const rowEndCols: number[] = [];
@@ -376,33 +497,40 @@
 	}
 </script>
 
-<div class="flex h-full flex-col overflow-hidden">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="flex h-full flex-col overflow-hidden"
+	bind:this={calendarEl}
+	ontouchstart={onTouchStart}
+	ontouchend={onTouchEnd}
+>
 
 	<!-- Header -->
-	<div class="page-header">
-		<!-- Navigation: prev/title/next — shrinks to fit remaining space -->
-		<div class="flex min-w-0 flex-1 items-center gap-1">
-			{#if data.view === 'month'}
-				<button onclick={prevMonth} class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</button>
-				<h1 class="min-w-0 flex-1 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
-				<button onclick={nextMonth} class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</button>
-			{:else if data.view === 'week'}
-				<a href="/calendar?view=week&week={data.prevWeek}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</a>
-				<h1 class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-navy">{weekLabel()}</h1>
-				<a href="/calendar?view=week&week={data.nextWeek}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</a>
-			{:else}
-				<a href="/calendar?view=day&date={data.prevDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">‹</a>
-				<h1 class="min-w-0 flex-1 truncate text-center text-sm font-semibold text-navy">
-					<!-- Short on mobile, full on sm+ -->
-					<span class="sm:hidden">{new Date(data.dayDate + 'T00:00:00').toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-					<span class="hidden sm:inline">{data.dayLabel}</span>
-				</h1>
-				<a href="/calendar?view=day&date={data.nextDay}" class="btn-ghost btn-sm flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0 text-base">›</a>
-			{/if}
+	<div class="page-header relative">
+		<!-- Navigation: absolutely centered so prev/next flank the title -->
+		<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+			<div class="flex items-center gap-1 pointer-events-auto">
+				{#if data.view === 'month'}
+					<button onclick={prevMonth} class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">‹</button>
+					<h1 class="w-36 text-center text-sm font-semibold text-navy">{monthName} {data.year}</h1>
+					<button onclick={nextMonth} class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">›</button>
+				{:else if data.view === 'week'}
+					<a href="/calendar?view=week&week={data.prevWeek}" class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">‹</a>
+					<h1 class="w-48 truncate text-center text-sm font-semibold text-navy">{weekLabel()}</h1>
+					<a href="/calendar?view=week&week={data.nextWeek}" class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">›</a>
+				{:else}
+					<a href="/calendar?view=day&date={data.prevDay}" class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">‹</a>
+					<h1 class="w-48 truncate text-center text-sm font-semibold text-navy">
+						<span class="sm:hidden">{new Date(data.dayDate + 'T00:00:00').toLocaleDateString(getLocale(), { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+						<span class="hidden sm:inline">{data.dayLabel}</span>
+					</h1>
+					<a href="/calendar?view=day&date={data.nextDay}" class="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-base text-muted shadow-sm hover:bg-sand hover:text-navy transition-colors">›</a>
+				{/if}
+			</div>
 		</div>
 
 		<!-- Right: legend (month/week) + view toggle -->
-		<div class="ml-2 flex shrink-0 items-center gap-2">
+		<div class="ml-auto flex shrink-0 items-center gap-2">
 			{#if data.view !== 'day'}
 				<span class="hidden items-center gap-2 text-[10px] text-muted sm:flex">
 					<span>{m.calendar_confirmed()}</span>
@@ -422,6 +550,11 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- {#key} triggers a Svelte fly-in when date/view changes — no screenshots, no ghost -->
+	{#key `${data.view}-${data.year}-${data.month}-${data.weekStart ?? ''}-${data.dayDate ?? ''}`}
+	<div class="flex flex-1 flex-col overflow-hidden"
+		in:fly={{ x: flyX, y: flyY, duration: 160, easing: cubicOut }}>
 
 	<!-- ─── MONTH VIEW ─── -->
 	{#if data.view === 'month'}
@@ -476,15 +609,17 @@
 													<span class="sm:hidden">🏕️</span>
 												</a>
 											{/each}
-											<!-- session compact cards -->
-											{#each data.rangedSessions.filter(s => s.date === dateStr).slice(0, 3) as session}
-												<SessionCard {session} size="compact" />
+											<!-- session compact cards (exclude sessions belonging to roster camp bookings) -->
+											{#each [data.rangedSessions.filter(s => s.date === dateStr && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))] as cellSessions}
+												{#each cellSessions.slice(0, 3) as session}
+													<SessionCard {session} size="compact" />
+												{/each}
+												{#if cellSessions.length > 3}
+													<span class="text-[9px] text-muted leading-none px-1">
+														+{cellSessions.length - 3}
+													</span>
+												{/if}
 											{/each}
-											{#if data.rangedSessions.filter(s => s.date === dateStr).length > 3}
-												<span class="text-[9px] text-muted leading-none px-1">
-													+{data.rangedSessions.filter(s => s.date === dateStr).length - 3}
-												</span>
-											{/if}
 										</div>
 									</div>
 								{/if}
@@ -494,7 +629,7 @@
 						<!-- Events spanning pills (multi-day events only — bookings replaced by session dots) -->
 						{#each layout as { booking, startCol, span, row }}
 							{@const startsHere = booking.date >= (weekDates.find(d => d !== null) ?? '')}
-							{#if booking.serviceHasRoster}
+							{#if booking.serviceHasRoster && !booking.serviceEditionId && !editionServiceIds.has(booking.serviceId ?? '')}
 								<a
 									href="/bookings/{booking.id}"
 									style={spanStyle(startCol, span, row)}
@@ -514,24 +649,26 @@
 							{/if}
 						{/each}
 
-						<!-- Edition pills (services with editions but no bookings yet) -->
+						<!-- Edition pills -->
 						{#each editionLayout as { edition, startCol, span, row }}
-							{#if edition.enrolledCount === 0}
-								{@const startsHere = edition.startDate >= (weekDates.find(d => d !== null) ?? '')}
-								<a
-									href="/services/{edition.serviceId}"
-									style={spanStyle(startCol, span, row)}
-									class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center border border-dashed opacity-60 hover:opacity-80 transition-opacity {editionRounded(edition, weekDates)} {editionPillClasses(edition)}"
-								>
-									{#if startsHere}
-										<Tent size={11} class="inline mr-0.5 shrink-0" />
-										<span class="truncate">{edition.serviceName}</span>
-										<span class="ml-1 shrink-0 opacity-70 text-[9px]">sin reservas</span>
+							{@const startsHere = edition.startDate >= (weekDates.find(d => d !== null) ?? '')}
+							<a
+								href="/services/{edition.serviceId}/roster?run={edition.id}"
+								style={spanStyle(startCol, span, row)}
+								class="truncate px-1.5 text-[10px] font-medium leading-none flex items-center hover:brightness-95 {edition.enrolledCount === 0 ? 'border border-dashed opacity-60' : ''} {editionRounded(edition, weekDates)} {editionPillClasses(edition)}"
+							>
+								{#if startsHere}
+									<Tent size={11} class="inline mr-0.5 shrink-0" />
+									<span class="truncate">{edition.serviceName}</span>
+									{#if edition.enrolledCount > 0}
+										<span class="ml-1 shrink-0 opacity-70">({edition.enrolledCount}{edition.maxCapacity != null ? `/${edition.maxCapacity}` : ''})</span>
 									{:else}
-										&nbsp;
+										<span class="ml-1 shrink-0 opacity-60 text-[9px]">sin reservas</span>
 									{/if}
-								</a>
-							{/if}
+								{:else}
+									&nbsp;
+								{/if}
+							</a>
 						{/each}
 					</div>
 				{/each}
@@ -569,15 +706,19 @@
 				<div class="grid min-h-full w-full grid-cols-7 divide-x divide-border/40">
 					{#each data.weekDays as weekDay}
 						{@const isToday = weekDay === today}
-						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay)}
-						{@const dayEditions = data.serviceEditions.filter(e => e.startDate <= weekDay && e.endDate >= weekDay && e.enrolledCount === 0)}
+						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))}
+						{@const dayEditions = data.serviceEditions.filter(e => e.startDate <= weekDay && e.endDate >= weekDay)}
 						<div class="flex flex-col gap-1 p-1 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
 							{#each dayEditions as ed}
 								{@const c = getServiceColor(ed.serviceColor)}
-								<a href="/services/{ed.serviceId}"
-									class="truncate rounded-lg border border-dashed px-2 py-1.5 text-[10px] opacity-60 hover:opacity-80 transition-opacity {c.bg} {c.text} {c.border}">
+								<a href="/services/{ed.serviceId}/roster?run={ed.id}"
+									class="truncate rounded-lg px-2 py-1.5 text-[10px] hover:brightness-95 {ed.enrolledCount === 0 ? 'border border-dashed opacity-60' : ''} {c.bg} {c.text} {c.border}">
 									<Tent size={9} class="inline mr-0.5" />{ed.serviceName}
-									<span class="block text-[9px] opacity-70">sin reservas</span>
+									{#if ed.enrolledCount > 0}
+										<span class="block text-[9px] opacity-70">{ed.enrolledCount}{ed.maxCapacity != null ? `/${ed.maxCapacity}` : ''} inscritos</span>
+									{:else}
+										<span class="block text-[9px] opacity-70">sin reservas</span>
+									{/if}
 								</a>
 							{/each}
 							{#if daySessions.length === 0 && dayEditions.length === 0}
@@ -654,19 +795,26 @@
 					</a>
 				{/each}
 
-				<!-- Edition banners: service has active edition today but no bookings yet -->
-				{#each data.serviceEditions.filter(e => e.startDate <= data.dayDate && e.endDate >= data.dayDate && e.enrolledCount === 0) as ed}
+				<!-- Edition banners: active editions today -->
+				{#each data.serviceEditions.filter(e => e.startDate <= data.dayDate && e.endDate >= data.dayDate) as ed}
 					{@const c = getServiceColor(ed.serviceColor)}
 					{@const dayN = Math.floor((new Date(data.dayDate + 'T00:00:00').getTime() - new Date(ed.startDate + 'T00:00:00').getTime()) / 86400000) + 1}
 					{@const totalDays = Math.floor((new Date(ed.endDate + 'T00:00:00').getTime() - new Date(ed.startDate + 'T00:00:00').getTime()) / 86400000) + 1}
-					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 opacity-60 border-l-4 border-dashed {c.border} {c.bg}">
+					<div class="flex items-center justify-between border-b border-border/50 px-4 py-2.5 border-l-4 {ed.enrolledCount === 0 ? 'opacity-60 border-dashed' : ''} {c.border} {c.bg}">
 						<div>
 							<p class="text-xs font-semibold text-gray-800"><Tent size={13} class="inline mr-0.5" />{ed.serviceName} — Día {dayN}/{totalDays}</p>
-							<p class="text-xs text-muted">{ed.startDate} → {ed.endDate} · Sin reservas aún</p>
+							<p class="text-xs text-muted">
+								{ed.startDate} → {ed.endDate}
+								{#if ed.enrolledCount > 0}
+									· {ed.enrolledCount}{ed.maxCapacity != null ? `/${ed.maxCapacity}` : ''} inscritos
+								{:else}
+									· Sin reservas aún
+								{/if}
+							</p>
 						</div>
-						<a href="/services/{ed.serviceId}"
+						<a href="/services/{ed.serviceId}/roster?run={ed.id}"
 							class="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-200 transition-colors">
-							Ver servicio →
+							Ver roster →
 						</a>
 					</div>
 				{/each}
@@ -758,7 +906,7 @@
 											{/if}
 											<div class="flex gap-2 pt-1">
 												<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.calendar_schedule()}</button>
-												<a href="/bookings/{session.bookingId}" class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_view_booking()}</a>
+												<a href={sessionDetailLink(session)} class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_view_booking()}</a>
 											</div>
 										</form>
 									{/if}
@@ -782,14 +930,18 @@
 				{/if}
 
 				<!-- Time grid -->
-				<div class="divide-y divide-border/50">
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+				<div class="divide-y divide-border/50" onclick={(e) => { if (slotPopoverTime && !(e.target as HTMLElement).closest('[role=dialog]')) closeSlotPopover(); }}>
 					{#each daySlots as slot}
 						{@const sessionsHere = daySessionSlots()[slot] ?? []}
 						{@const nonSessionHere = daySlottedNonSessionBookings()[slot] ?? []}
 						{@const spannedList = daySessionSpanned()[slot] ?? []}
 						{@const anyHere = sessionsHere.length > 0 || nonSessionHere.length > 0}
 						{@const isHour = slot.endsWith(':00')}
-						<div class="flex min-h-12 gap-0 {anyHere || spannedList.length > 0 ? '' : 'hover:bg-sand/60'}">
+						<div
+							class="relative flex min-h-12 gap-0 {anyHere || spannedList.length > 0 ? '' : 'cursor-pointer hover:bg-sand/60'}"
+							onclick={(!anyHere && spannedList.length === 0) ? (e) => openSlotPopover(slot, e) : undefined}
+						>
 							<div class="w-14 shrink-0 border-r border-border/50 px-2 pt-1 text-right">
 								{#if isHour}
 									<span class="text-[11px] font-medium text-muted">{slot}</span>
@@ -817,7 +969,7 @@
 											<div class="min-w-0 flex-1 rounded-lg border-l-4 ring-1 ring-border overflow-hidden {sc.border} {sc.bg}"
 												style={sessionCardStyle(dur)}>
 												<div class="flex items-start justify-between px-2.5 py-2">
-													<a href="/bookings/{session.bookingId}" class="min-w-0 flex-1 block">
+													<a href={sessionDetailLink(session)} class="min-w-0 flex-1 block">
 														<p class="text-xs font-bold text-gray-900 tabular-nums">
 															{session.time?.slice(0,5)} – {endTime}
 														</p>
@@ -916,9 +1068,36 @@
 										<span class="ml-2 shrink-0 text-xs {dayStatusText(booking)}">{booking.status}</span>
 									</a>
 								{/each}
-								{#if !anyHere && isHour}
-									<a href="/bookings/new?date={data.dayDate}&time={slot}"
-										class="block h-full w-full text-[10px] text-transparent hover:text-muted/60">+ {slot}</a>
+								{#if slotPopoverTime === slot}
+									<!-- Slot popover -->
+									<div class="absolute left-14 top-0 z-50 w-56 rounded-xl border border-border bg-white shadow-lg ring-1 ring-black/5"
+										role="dialog">
+										<div class="flex items-center justify-between border-b border-border/60 px-3 py-2">
+											<span class="text-[11px] font-semibold text-navy">{slot}</span>
+											<button type="button" onclick={(e) => { e.stopPropagation(); closeSlotPopover(); }}
+												class="text-[11px] text-muted hover:text-gray-700">✕</button>
+										</div>
+										<div class="space-y-1 p-2">
+											<a href="/bookings/new?date={data.dayDate}&time={slot}"
+												onclick={closeSlotPopover}
+												class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-ocean/10 hover:text-ocean transition-colors">
+												<span class="text-sm">📅</span> Nueva reserva
+											</a>
+											{#if dayUnscheduledSessions.length > 0}
+												<div class="border-t border-border/40 pt-1 mt-1">
+													<p class="px-3 pb-1 text-[10px] text-muted font-medium uppercase tracking-wide">Programar sesión</p>
+													{#each dayUnscheduledSessions.slice(0, 4) as us}
+														<button type="button"
+															onclick={(e) => { e.stopPropagation(); assigningSessionId = us.id; editFormTime = slot; closeSlotPopover(); }}
+															class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
+															<span class="text-sm">⏱</span>
+															<span class="truncate">{us.serviceName}{us.firstClientName ? ` · ${us.firstClientName}` : ''}</span>
+														</button>
+													{/each}
+												</div>
+											{/if}
+										</div>
+									</div>
 								{/if}
 							</div>
 						</div>
@@ -947,6 +1126,9 @@
 			</div>
 		</div>
 	{/if}
+
+	</div><!-- /key content div -->
+	{/key}
 </div>
 
 <a href="/bookings/new{data.view === 'day' ? '?date=' + data.dayDate : data.view === 'week' ? '?date=' + data.weekDays[0] : ''}"
@@ -954,3 +1136,4 @@
 	aria-label="New booking">
 	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 </a>
+

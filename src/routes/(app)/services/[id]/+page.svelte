@@ -62,9 +62,17 @@
 		</div>
 	</div>
 
+	<!-- Group class sessions link -->
+	{#if data.hasGroupSessions}
+		<a href="/services/{data.service.id}/sessions/"
+			class="btn-primary btn-block mb-4 text-center block">
+			Ver sesiones de grupo →
+		</a>
+	{/if}
+
 	<!-- Roster quick link (for camp-style services) -->
 	{#if data.service.modules?.roster && data.runs?.length > 0}
-		<a href="/bookings/camp/{data.service.id}"
+		<a href="/services/{data.service.id}/roster"
 			class="btn-primary btn-block mb-6 text-center block">
 			{m.service_detail_open_roster()}
 		</a>

@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { deleteService, getService, setServiceInstructors, updateService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
-import { listEditionsForService, createServiceEdition, deleteServiceEdition } from '$lib/features/services/editions.queries';
+import { listEditionsForService, createServiceEdition, updateServiceEdition, deleteServiceEdition } from '$lib/features/services/editions.queries';
 import { isValidColorKey, DEFAULT_COLOR } from '$lib/features/services/colors';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canEditServices } from '$lib/server/permissions';
@@ -26,7 +26,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		listEditionsForService(params.id)
 	]);
 
-	return { service, instructors, inventoryLinks, allItemTypes, runs, canEditServices: canEditServices(locals) };
+	const m = service.modules ?? {};
+	const hasGroupSessions = 'sessions' in m && 'roster' in m && !('editions' in m);
+
+	return { service, instructors, inventoryLinks, allItemTypes, runs, canEditServices: canEditServices(locals), hasGroupSessions };
 };
 
 export const actions: Actions = {
@@ -155,6 +158,22 @@ export const actions: Actions = {
 			return fail(400, { runError: 'Valid start and end dates required (end must be after start)' });
 		await createServiceEdition(params.id, { startDate, endDate, maxCapacity, notes });
 		return { message: 'Run added' };
+	},
+
+	updateRun: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner');
+		const form = await request.formData();
+		const runId = form.get('runId')?.toString() ?? '';
+		if (!runId) return fail(400, { error: 'Missing run ID' });
+		const startDate = form.get('startDate')?.toString() ?? '';
+		const endDate   = form.get('endDate')?.toString() ?? '';
+		if (!startDate || !endDate || startDate >= endDate)
+			return fail(400, { runError: 'Valid start and end dates required' });
+		const maxCapacityRaw = form.get('maxCapacity')?.toString();
+		const maxCapacity = maxCapacityRaw ? parseInt(maxCapacityRaw) : null;
+		const notes = form.get('notes')?.toString().trim() || null;
+		await updateServiceEdition(runId, { startDate, endDate, maxCapacity, notes });
+		return { message: 'Run updated' };
 	},
 
 	deleteRun: async ({ request, locals }) => {

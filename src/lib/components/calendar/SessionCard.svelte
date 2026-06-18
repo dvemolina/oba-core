@@ -7,6 +7,7 @@
 	import SessionCardInfo from './SessionCardInfo.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import type { AgendaSession } from '$lib/features/sessions/types';
+	import { sessionDetailLink } from '$lib/features/sessions/link';
 
 	let {
 		session,
@@ -44,7 +45,7 @@
 			if (popoverOpen) popoverOpen = false;
 			else showPopover();
 		} else {
-			goto(`/bookings/${session.bookingId}`);
+			goto(sessionDetailLink(session));
 		}
 	}
 </script>
@@ -102,7 +103,7 @@
 		/>
 		<div class="mt-3 flex gap-2">
 			<a
-				href="/bookings/{session.bookingId}"
+				href={sessionDetailLink(session)}
 				class="flex-1 rounded-lg bg-ocean py-1.5 text-center text-xs font-semibold text-white hover:bg-ocean/90"
 			>
 				{m.calendar_view_booking()}

@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { createBooking, countEnrolledClientsForService } from '$lib/features/bookings/queries';
+import { createBooking, countEnrolledClientsForService, recalcBookingAmounts } from '$lib/features/bookings/queries';
 import { createSession } from '$lib/features/sessions/queries';
+import { setEnrollmentParticipantCount, addParticipant as addEnrollmentParticipant } from '$lib/features/bookings/participants.queries';
 import { calculateAmount } from '$lib/utils/pricing';
 import { listServices, getService } from '$lib/features/services/queries';
 import { listInstructors } from '$lib/features/instructors/queries';
@@ -19,6 +20,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	]);
 	const defaultDate = url.searchParams.get('date') ?? '';
 	const defaultTime = url.searchParams.get('time') ?? '';
+	const defaultServiceId = url.searchParams.get('serviceId') ?? '';
+	const defaultEditionId = url.searchParams.get('editionId') ?? '';
 
 	const editionsByService: Record<string, ServiceEdition[]> = {};
 	await Promise.all(
@@ -27,7 +30,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			.map(async s => { editionsByService[s.id] = await listEditionsForService(s.id); })
 	);
 
-	return { services, instructors, clients, defaultDate, defaultTime, editionsByService };
+	return { services, instructors, clients, defaultDate, defaultTime, defaultServiceId, defaultEditionId, editionsByService };
 };
 
 export const actions: Actions = {
@@ -45,6 +48,8 @@ export const actions: Actions = {
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
 		const participantCounts = form.getAll('participantCount').map((v) => parseInt(v as string) || 1);
+		const clientNames = form.getAll('clientName').map(String);
+		const alsoParticipatesFlags = form.getAll('alsoParticipates').map((v) => v === 'true');
 
 		// Calculate initial amountDue from pricingMode.
 		// 1 participant assumed at creation — recalculated when participants are set from detail page.
@@ -63,6 +68,27 @@ export const actions: Actions = {
 
 		const spotNotes = form.get('spotNotes')?.toString().trim() || undefined;
 		const notes     = form.get('notes')?.toString().trim() || undefined;
+
+		const participantCountByClientId = Object.fromEntries(clientIds.map((id, i) => [id, participantCounts[i] ?? 1]));
+		const clientNameByClientId = Object.fromEntries(clientIds.map((id, i) => [id, clientNames[i] ?? '']));
+		const alsoParticipatesByClientId = Object.fromEntries(clientIds.map((id, i) => [id, alsoParticipatesFlags[i] ?? false]));
+
+		async function autoCreateParticipants(booking: { clients: { id: string; clientId: string; clientFirstName: string }[] }) {
+			await Promise.all(
+				booking.clients.map(async (bc) => {
+					const count = participantCountByClientId[bc.clientId] ?? 1;
+					const alsoParticipates = alsoParticipatesByClientId[bc.clientId] ?? false;
+					const fullName = clientNameByClientId[bc.clientId] || bc.clientFirstName || '';
+
+					if (alsoParticipates) {
+						if (fullName) await addEnrollmentParticipant(bc.id, fullName);
+						if (count > 1) await setEnrollmentParticipantCount(bc.id, count, bc.clientFirstName ?? undefined);
+					} else if (count > 1) {
+						await setEnrollmentParticipantCount(bc.id, count, bc.clientFirstName ?? undefined);
+					}
+				})
+			);
+		}
 
 		// ── Accommodation ──────────────────────────────────────────────────────
 		if ('inventory' in (service.modules ?? {})) {
@@ -89,6 +115,8 @@ export const actions: Actions = {
 				status: 'confirmed',
 				clients: invClients
 			});
+			await autoCreateParticipants(booking);
+			await recalcBookingAmounts(booking.id);
 			return { bookingId: booking.id, message: 'Booking created — assign inventory from the booking detail' };
 		}
 
@@ -141,9 +169,11 @@ export const actions: Actions = {
 
 			await Promise.all(
 				Array.from({ length: sessionsIncluded }, (_, i) =>
-					createSession({ bookingId: booking.id, date, sortOrder: i })
+					createSession({ ownerType: 'booking', bookingId: booking.id, date, sortOrder: i })
 				)
 			);
+			await autoCreateParticipants(booking);
+			await recalcBookingAmounts(booking.id);
 
 			const n = sessionsIncluded;
 			return {
@@ -163,6 +193,8 @@ export const actions: Actions = {
 			isFlexible, status, spotNotes, notes,
 			clients: bookingClients
 		});
+		await autoCreateParticipants(booking);
+		await recalcBookingAmounts(booking.id);
 		return { bookingId: booking.id, message: 'Booking created' };
 	}
 };
