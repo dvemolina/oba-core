@@ -545,6 +545,7 @@ async function enrichEditionOwnedForCalendar(rows: Session[]): Promise<SessionFo
 		const totalPaid = bIds.reduce((acc, id) => acc + (payMap[id]?.paid ?? 0), 0);
 		return {
 			...s,
+			serviceId: sv?.id ?? null,   // edition sessions have null serviceId in DB; override for routing
 			primaryBookingId: null,
 			bookingIds: bIds,
 			editionId: s.serviceEditionId,
@@ -712,6 +713,7 @@ async function enrichEditionOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 		const pNames = s.participants.length > 0 ? [...new Set(s.participants.map(p => p.name))] : [];
 		return {
 			...s,
+			serviceId: sv?.id ?? null,   // edition sessions have null serviceId in DB; override for routing
 			primaryBookingId: null,
 			bookingIds: bks.map(b => b.bookingId),
 			editionId: s.serviceEditionId,

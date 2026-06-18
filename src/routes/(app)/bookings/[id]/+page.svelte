@@ -21,7 +21,7 @@
 
 	// Module flags (pure module checks — no type names)
 	const modules = $derived(data.booking.serviceModules ?? {});
-	const hasSessions = $derived('sessions' in modules);
+	const hasSessions = $derived('sessions' in modules || 'editions' in modules);
 	const hasInventory = $derived('inventory' in modules);
 	const hasInstructor = $derived('instructor' in modules);
 	const hasCredits = $derived('credits' in modules);

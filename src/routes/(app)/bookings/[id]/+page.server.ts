@@ -47,14 +47,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!booking) error(404, 'Booking not found');
 
 	const hasSessions = booking.serviceHasSessions;
+	const hasEditions = 'editions' in (booking.serviceModules ?? {});
+	const showSessionsCard = hasSessions || hasEditions;
 	const [service, clients, sessions] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
 		booking.serviceHasRoster ? listClients() : Promise.resolve([]),
-		hasSessions ? listSessionsForContext(booking) : Promise.resolve([]),
+		showSessionsCard ? listSessionsForContext(booking) : Promise.resolve([]),
 		Promise.resolve([])  // allDateSessions no longer used
 	]);
 
-	const ctx = hasSessions ? resolveSessionContext(booking) : null;
+	const ctx = showSessionsCard ? resolveSessionContext(booking) : null;
 
 	// Load named participants per enrollment
 	const participantsByEnrollment: Record<string, Awaited<ReturnType<typeof listParticipantsForEnrollment>>> = {};
