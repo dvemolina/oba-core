@@ -232,6 +232,13 @@
       "when": 1781683242414,
       "tag": "0038_foamy_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1781769600000,
+      "tag": "0039_session_ownership",
+      "breakpoints": true
     }
   ]
 }
