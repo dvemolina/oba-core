@@ -34,34 +34,33 @@
 
 <div class="flex flex-1 flex-col overflow-hidden">
 	<!-- Header -->
-	<div class="border-b border-border bg-surface px-6 py-4 space-y-3">
-		<!-- Same structure as sessions: title left, controls right -->
-		<div class="flex items-center justify-between gap-4">
-			<div>
-				<h1 class="text-lg font-bold text-navy">{m.booking_list_title()}</h1>
-				<p class="text-xs text-muted">{totalCount} reserva{totalCount !== 1 ? 's' : ''} · {data.from} → {data.to}</p>
-			</div>
-			<form method="GET" class="flex items-center gap-2">
-				<input type="date" name="from" value={data.from} class="input text-sm"
-					onchange={(e) => e.currentTarget.form?.requestSubmit()} />
-				<span class="text-xs text-muted">→</span>
-				<input type="date" name="to" value={data.to} class="input text-sm"
-					onchange={(e) => e.currentTarget.form?.requestSubmit()} />
-				{#if data.uniqueServices.length > 1}
-					<select name="service" class="input text-sm"
-						onchange={(e) => e.currentTarget.form?.requestSubmit()}>
-						<option value="">Todos los servicios</option>
-						{#each data.uniqueServices as svc}
-							<option value={svc} selected={svc === data.serviceFilter}>{svc}</option>
-						{/each}
-					</select>
-				{/if}
-				{#if data.statusFilter !== 'all'}
-					<input type="hidden" name="status" value={data.statusFilter} />
-				{/if}
+	<div class="border-b border-border bg-surface px-4 py-3 space-y-2 sm:px-6 sm:py-4">
+		<div class="flex items-center justify-between gap-2">
+			<h1 class="text-lg font-bold text-navy">{m.booking_list_title()}</h1>
+			<div class="flex items-center gap-2">
+				<p class="text-xs text-muted">{totalCount} reserva{totalCount !== 1 ? 's' : ''}</p>
 				<a href="/bookings/new" class="btn-primary btn-sm">{m.common_new()}</a>
-			</form>
+			</div>
 		</div>
+		<form method="GET" class="flex flex-wrap items-center gap-2">
+			<input type="date" name="from" value={data.from} class="input text-sm min-w-0 flex-1"
+				onchange={(e) => e.currentTarget.form?.requestSubmit()} />
+			<span class="text-xs text-muted">→</span>
+			<input type="date" name="to" value={data.to} class="input text-sm min-w-0 flex-1"
+				onchange={(e) => e.currentTarget.form?.requestSubmit()} />
+			{#if data.uniqueServices.length > 1}
+				<select name="service" class="input text-sm w-full sm:w-auto"
+					onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+					<option value="">Todos los servicios</option>
+					{#each data.uniqueServices as svc}
+						<option value={svc} selected={svc === data.serviceFilter}>{svc}</option>
+					{/each}
+				</select>
+			{/if}
+			{#if data.statusFilter !== 'all'}
+				<input type="hidden" name="status" value={data.statusFilter} />
+			{/if}
+		</form>
 
 		<!-- Status tabs -->
 		<div class="flex gap-1.5 overflow-x-auto py-0.5">
