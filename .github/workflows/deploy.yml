@@ -63,5 +63,6 @@ jobs:
           env_file: ./envfile
           registry_host: ghcr.io
           registry_user: ${{ github.actor }}
-          registry_pass: ${{ secrets.GIT_PAT }}
+          registry_pass: ${{ secrets.GITHUB_TOKEN }}
           summary: true
+          disable_keyscan: false

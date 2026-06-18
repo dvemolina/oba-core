@@ -7,19 +7,19 @@
 	import Popover from '$lib/components/ui/Popover.svelte';
 	import SessionCardInfo from './SessionCardInfo.svelte';
 	import * as m from '$lib/paraglide/messages';
-	import type { AgendaSession } from '$lib/features/sessions/types';
+	import type { SessionSurface } from '$lib/features/sessions/types';
 
 	let {
 		session,
 		size
 	}: {
-		session: AgendaSession;
+		session: SessionSurface;
 		size: 'compact' | 'medium';
 	} = $props();
 
 	const color = $derived(getServiceColor(session.serviceColor ?? ''));
 	const isGroup = $derived(session.ownerType === 'service');
-	const enrolledCount = $derived((session as { bookingIds?: string[] }).bookingIds?.length ?? 0);
+	const enrolledCount = $derived(session.bookingIds.length);
 
 	let cardEl = $state<HTMLElement | null>(null);
 	let popoverOpen = $state(false);
@@ -32,13 +32,18 @@
 	});
 
 	function showPopover() {
-		if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+		if (hideTimeout) {
+			clearTimeout(hideTimeout);
+			hideTimeout = null;
+		}
 		triggerRect = cardEl?.getBoundingClientRect() ?? null;
 		popoverOpen = true;
 	}
 
 	function scheduleHide() {
-		hideTimeout = setTimeout(() => { popoverOpen = false; }, 150);
+		hideTimeout = setTimeout(() => {
+			popoverOpen = false;
+		}, 150);
 	}
 
 	function openDrawer() {
@@ -94,9 +99,11 @@
 		{/if}
 		<p class="truncate text-[11px] font-medium text-gray-800">
 			{#if isGroup}
-				<span class="text-[9px] opacity-60 mr-0.5">👥</span>{session.serviceName ?? 'Clase'}
+				<span class="mr-0.5 text-[9px] opacity-60">👥</span>{session.serviceName ?? 'Clase'}
 			{:else}
-				{session.serviceName ?? 'Session'}{session.firstClientName ? ` · ${session.firstClientName}` : ''}
+				{session.serviceName ?? 'Session'}{session.firstClientName
+					? ` · ${session.firstClientName}`
+					: ''}
 			{/if}
 		</p>
 		<div class="flex items-center gap-1.5 text-[10px] text-muted">
@@ -104,7 +111,9 @@
 				<span>{enrolledCount} inscritos</span>
 				{#if session.instructors.length > 0}
 					<span>·</span>
-					<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+					<span class="truncate"
+						>{session.instructors.map((i) => i.instructorName?.split(' ')[0]).join(', ')}</span
+					>
 				{/if}
 			{:else}
 				{#if session.totalParticipants > 0}
@@ -112,14 +121,22 @@
 				{/if}
 				{#if session.instructors.length > 0}
 					{#if session.totalParticipants > 0}<span>·</span>{/if}
-					<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+					<span class="truncate"
+						>{session.instructors.map((i) => i.instructorName?.split(' ')[0]).join(', ')}</span
+					>
 				{/if}
 			{/if}
 		</div>
 	</button>
 {/if}
 
-<Popover open={popoverOpen} {triggerRect} onclose={() => { popoverOpen = false; }}>
+<Popover
+	open={popoverOpen}
+	{triggerRect}
+	onclose={() => {
+		popoverOpen = false;
+	}}
+>
 	<div onmouseenter={showPopover} onmouseleave={scheduleHide} role="presentation">
 		<SessionCardInfo
 			serviceName={session.serviceName}
@@ -127,7 +144,7 @@
 			time={session.time}
 			ownerType={session.ownerType}
 			firstClientName={session.firstClientName}
-			enrolledCount={enrolledCount}
+			{enrolledCount}
 			totalParticipants={session.totalParticipants}
 			bookingStatus={session.bookingStatus ?? ''}
 			date={session.date}

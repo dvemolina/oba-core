@@ -1,13 +1,13 @@
 import type { ServiceModules } from '$lib/features/services/modules';
 
-export type SessionStatus    = 'unscheduled' | 'scheduled' | 'completed' | 'cancelled';
-export type SkillLevel       = 'beginner' | 'intermediate' | 'advanced';
+export type SessionStatus = 'unscheduled' | 'scheduled' | 'completed' | 'cancelled';
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
 export type SessionOwnerType = 'booking' | 'service' | 'edition';
 
 export type SessionContext =
 	| { type: 'booking'; bookingId: string }
 	| { type: 'service'; serviceId: string; date: string }
-	| { type: 'edition'; editionId: string }
+	| { type: 'edition'; editionId: string };
 
 // Minimal shape needed by resolveSessionContext — full Booking satisfies this structurally
 export interface BookingSessionContext {
@@ -37,9 +37,9 @@ export interface SessionParticipant {
 export interface Session {
 	id: string;
 	ownerType: SessionOwnerType;
-	bookingId: string | null;         // set when ownerType='booking'
-	serviceId: string | null;         // set when ownerType='service'
-	serviceEditionId: string | null;  // set when ownerType='edition'
+	bookingId: string | null; // set when ownerType='booking'
+	serviceId: string | null; // set when ownerType='service'
+	serviceEditionId: string | null; // set when ownerType='edition'
 	date: string;
 	time: string | null;
 	durationMinutes: number | null;
@@ -53,9 +53,9 @@ export interface Session {
 	updatedAt: Date;
 }
 
-// Calendar day view — enriched with booking/service context
-export interface SessionForDay extends Session {
-	primaryBookingId: string | null;  // null for edition sessions
+// Shared session shape used by calendar cards, drawers, and routing helpers.
+export interface SessionSurface extends Session {
+	primaryBookingId: string | null;
 	bookingIds: string[];
 	editionId: string | null;
 	bookingStatus: string | null;
@@ -64,41 +64,32 @@ export interface SessionForDay extends Session {
 	serviceHasSessions: boolean;
 	serviceDurationMinutes: number | null;
 	effectiveDuration: number;
+	firstClientName: string | null;
 	participantNames: string[];
 	totalParticipants: number;
 	totalAmountDue: number;
 	totalAmountPaid: number;
 }
 
+// Calendar day view — enriched with booking/service context
+export interface SessionForDay extends SessionSurface {}
+
 // Agenda view — enriched with full booking/client context
-export interface AgendaSession extends Session {
-	primaryBookingId: string | null;
-	bookingIds: string[];
-	editionId: string | null;
-	serviceName: string | null;
-	serviceColor: string | null;
+export interface AgendaSession extends SessionSurface {
 	serviceHasRoster: boolean;
-	serviceDurationMinutes: number | null;
-	effectiveDuration: number;
 	sessionsIncluded: number | null;
-	bookingStatus: string | null;
 	bookingDate: string;
 	bookingDateEnd: string | null;
 	isFlexible: boolean;
-	firstClientName: string | null;
-	participantNames: string[];
-	totalParticipants: number;
 	enrolledCount: number;
 	maxCapacity: number | null;
-	totalAmountDue: number;
-	totalAmountPaid: number;
 }
 
 // Discriminated union — ownerType drives which FK is set
 export type CreateSessionInput =
 	| ({ ownerType: 'booking'; bookingId: string } & BaseSessionInput)
 	| ({ ownerType: 'service'; serviceId: string } & BaseSessionInput)
-	| ({ ownerType: 'edition'; editionId: string } & BaseSessionInput)
+	| ({ ownerType: 'edition'; editionId: string } & BaseSessionInput);
 
 export interface BaseSessionInput {
 	date: string;
@@ -138,9 +129,12 @@ export interface BulkGenOptions {
 }
 
 // Type guards
-export const isBookingSession  = (s: Session): s is Session & { bookingId: string }        => s.ownerType === 'booking';
-export const isServiceSession  = (s: Session): s is Session & { serviceId: string }        => s.ownerType === 'service';
-export const isEditionSession  = (s: Session): s is Session & { serviceEditionId: string } => s.ownerType === 'edition';
+export const isBookingSession = (s: Session): s is Session & { bookingId: string } =>
+	s.ownerType === 'booking';
+export const isServiceSession = (s: Session): s is Session & { serviceId: string } =>
+	s.ownerType === 'service';
+export const isEditionSession = (s: Session): s is Session & { serviceEditionId: string } =>
+	s.ownerType === 'edition';
 
 export interface BookingEnrollment {
 	bookingId: string;

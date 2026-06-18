@@ -1,11 +1,8 @@
-type SessionDetailTarget =
+import type { SessionSurface } from './types';
+
+export type SessionDetailTarget =
 	| { id: string }
-	| {
-		ownerType: 'booking' | 'service' | 'edition';
-		primaryBookingId: string | null;
-		serviceId: string | null;
-		editionId: string | null;
-	};
+	| Pick<SessionSurface, 'ownerType' | 'primaryBookingId' | 'serviceId' | 'editionId'>;
 
 export function sessionDetailLink(session: SessionDetailTarget): string {
 	if ('ownerType' in session) {

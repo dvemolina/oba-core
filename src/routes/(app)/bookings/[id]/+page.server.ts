@@ -25,20 +25,47 @@ import {
 	removeParticipant,
 	renameSessionParticipantsByBookingParticipantId
 } from '$lib/features/sessions/queries';
-import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount, listParticipantsForEnrollment, syncParticipantCount } from '$lib/features/bookings/participants.queries';
-import { recalcBookingAmounts, applyCreditsToEnrollment, removeCreditsFromEnrollment, recalcEditionBookingAmounts } from '$lib/features/bookings/queries';
-import { getAvailableCreditsForClient, getCreditsUsedFromBooking } from '$lib/features/credits/queries';
+import {
+	addParticipant as addEnrollmentParticipant,
+	removeParticipant as removeEnrollmentParticipant,
+	renameParticipant,
+	setEnrollmentParticipantCount,
+	listParticipantsForEnrollment,
+	syncParticipantCount
+} from '$lib/features/bookings/participants.queries';
+import {
+	recalcBookingAmounts,
+	applyCreditsToEnrollment,
+	removeCreditsFromEnrollment,
+	recalcEditionBookingAmounts
+} from '$lib/features/bookings/queries';
+import {
+	getAvailableCreditsForClient,
+	getCreditsUsedFromBooking
+} from '$lib/features/credits/queries';
 import type { CreditSource } from '$lib/features/credits/queries';
+import {
+	assertBookingHasCapacity,
+	getBookingCapacitySnapshot
+} from '$lib/features/bookings/capacity.server';
 import { getService } from '$lib/features/services/queries';
-import { countEnrolledForEditionOverlap, getServiceEdition } from '$lib/features/services/editions.queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
 import type { BookingStatus } from '$lib/features/bookings/types';
 import type { Actions, PageServerLoad } from './$types';
 import { requireRole, canSeeFinancials } from '$lib/server/permissions';
 import { listLinksForService } from '$lib/features/inventory/serviceLinks.queries';
-import { listItemsByType, getInventoryItemType, checkAvailability } from '$lib/features/inventory/queries';
-import { updateAllocation, deleteAllocation, createAllocation, createAllocations } from '$lib/features/inventory/allocations.queries';
+import {
+	listItemsByType,
+	getInventoryItemType,
+	checkAvailability
+} from '$lib/features/inventory/queries';
+import {
+	updateAllocation,
+	deleteAllocation,
+	createAllocation,
+	createAllocations
+} from '$lib/features/inventory/allocations.queries';
 import type { AllocationStatus } from '$lib/features/inventory/types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -53,51 +80,50 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
 		booking.serviceHasRoster ? listClients() : Promise.resolve([]),
 		showSessionsCard ? listSessionsForContext(booking) : Promise.resolve([]),
-		Promise.resolve([])  // allDateSessions no longer used
+		Promise.resolve([]) // allDateSessions no longer used
 	]);
 
 	const ctx = showSessionsCard ? resolveSessionContext(booking) : null;
 	// Edition services always show edition UI, even if no specific edition is selected
-	const sessionOwnerType: 'booking' | 'service' | 'edition' | null =
-		hasEditions ? 'edition' : ctx?.type ?? null;
+	const sessionOwnerType: 'booking' | 'service' | 'edition' | null = hasEditions
+		? 'edition'
+		: (ctx?.type ?? null);
 
 	// Load named participants per enrollment
-	const participantsByEnrollment: Record<string, Awaited<ReturnType<typeof listParticipantsForEnrollment>>> = {};
+	const participantsByEnrollment: Record<
+		string,
+		Awaited<ReturnType<typeof listParticipantsForEnrollment>>
+	> = {};
 	await Promise.all(
 		booking.clients.map(async (bc) => {
 			participantsByEnrollment[bc.id] = await listParticipantsForEnrollment(bc.id);
 		})
 	);
 
-	const serviceInventoryLinks = (service && 'inventory' in (service.modules ?? {})) ? await listLinksForService(service.id) : [];
+	const serviceInventoryLinks =
+		service && 'inventory' in (service.modules ?? {}) ? await listLinksForService(service.id) : [];
 
 	// Load items for all relevant types: existing allocations + service link types (for the add form)
-	const allocItemTypeIds = [...new Set([
-		...booking.allocations.map(a => a.itemTypeId),
-		...serviceInventoryLinks.map(l => l.itemTypeId)
-	])];
+	const allocItemTypeIds = [
+		...new Set([
+			...booking.allocations.map((a) => a.itemTypeId),
+			...serviceInventoryLinks.map((l) => l.itemTypeId)
+		])
+	];
 	const itemsByAllocType: Record<string, Awaited<ReturnType<typeof listItemsByType>>> = {};
 	const allocTypeTracking: Record<string, 'pool' | 'specific'> = {};
 	await Promise.all(
 		allocItemTypeIds.map(async (typeId) => {
 			const type = await getInventoryItemType(typeId);
 			allocTypeTracking[typeId] = type?.trackingMode ?? 'specific';
-			itemsByAllocType[typeId] = type?.trackingMode === 'specific' ? await listItemsByType(typeId) : [];
+			itemsByAllocType[typeId] =
+				type?.trackingMode === 'specific' ? await listItemsByType(typeId) : [];
 		})
 	);
 
-	// Edition-level enrollment + capacity: fetched separately to avoid JOIN alias issues.
-	// Used to show real-time service availability in the clients card, same number as calendar chips.
-	const [editionEnrolledCount, editionMaxCapacity] = await (async () => {
-		if (!booking.serviceEditionId || !booking.serviceId) return [null, null];
-		const [edition, enrolled] = await Promise.all([
-			getServiceEdition(booking.serviceEditionId),
-			(booking.serviceEditionStartDate && booking.serviceEditionEndDate)
-				? countEnrolledForEditionOverlap(booking.serviceId, booking.serviceEditionStartDate, booking.serviceEditionEndDate)
-				: Promise.resolve(null)
-		]);
-		return [enrolled, edition?.maxCapacity ?? null];
-	})();
+	const capacity = await getBookingCapacitySnapshot(booking);
+	const editionEnrolledCount = capacity.scope === 'edition' ? capacity.activeCount : null;
+	const editionMaxCapacity = capacity.scope === 'edition' ? capacity.maxCapacity : null;
 
 	const hasCreditsModule = 'credits' in (booking.serviceModules ?? {});
 
@@ -105,18 +131,40 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		hasCreditsModule ? getCreditsUsedFromBooking(params.id) : Promise.resolve(0),
 		booking.serviceId
 			? (async () => {
-				const map: Record<string, CreditSource[]> = {};
-				await Promise.all(
-					booking.clients.map(async (bc) => {
-						map[bc.id] = await getAvailableCreditsForClient(bc.clientId, booking.serviceId!, booking.date);
-					})
-				);
-				return map;
-			})()
+					const map: Record<string, CreditSource[]> = {};
+					await Promise.all(
+						booking.clients.map(async (bc) => {
+							map[bc.id] = await getAvailableCreditsForClient(
+								bc.clientId,
+								booking.serviceId!,
+								booking.date
+							);
+						})
+					);
+					return map;
+				})()
 			: Promise.resolve({} as Record<string, CreditSource[]>)
 	]);
 
-	return { booking, instructors, service: service ?? null, clients, sessions, allDateSessions: [], sessionOwnerType, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment, editionEnrolledCount, editionMaxCapacity };
+	return {
+		booking,
+		instructors,
+		service: service ?? null,
+		clients,
+		sessions,
+		allDateSessions: [],
+		sessionOwnerType,
+		canSeeFinancials: canSeeFinancials(locals),
+		userRole: locals.user?.role ?? '',
+		itemsByAllocType,
+		allocTypeTracking,
+		serviceInventoryLinks,
+		participantsByEnrollment,
+		creditsUsedFromThisBooking,
+		availableCreditsPerEnrollment,
+		editionEnrolledCount,
+		editionMaxCapacity
+	};
 };
 
 export const actions: Actions = {
@@ -129,15 +177,17 @@ export const actions: Actions = {
 
 		const isSessionBased = booking.serviceHasSessions;
 		await updateBooking(params.id, {
-			...(isSessionBased ? {} : {
-				instructorId: form.get('instructorId')?.toString() || null,
-				time: form.get('time')?.toString() || null,
-			}),
+			...(isSessionBased
+				? {}
+				: {
+						instructorId: form.get('instructorId')?.toString() || null,
+						time: form.get('time')?.toString() || null
+					}),
 			date: form.get('date')?.toString(),
 			isFlexible: form.get('isFlexible') === 'true',
 			status: newStatus,
 			spotNotes: form.get('spotNotes')?.toString() || null,
-			notes: form.get('notes')?.toString() || null,
+			notes: form.get('notes')?.toString() || null
 		});
 		const message = newStatus === 'confirmed' ? 'Booking confirmed' : 'Booking updated';
 		return { error: null, message };
@@ -173,12 +223,13 @@ export const actions: Actions = {
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });
 
-		const max = booking.serviceMaxCapacity ?? Infinity;
-		const activeCount = booking.clients.filter(c => c.status !== 'cancelled').reduce((s, c) => s + (c.participantCount ?? 1), 0);
-		if (activeCount >= max) return fail(400, { error: 'Camp is full' });
-
 		const alreadyEnrolled = booking.clients.some((c) => c.clientId === clientId);
 		if (alreadyEnrolled) return fail(400, { error: 'Client already enrolled' });
+		try {
+			await assertBookingHasCapacity(booking, 1);
+		} catch (error) {
+			return fail(400, { error: (error as Error).message });
+		}
 
 		await addClientToBooking(params.id, clientId, amountDue);
 		return { error: null, message: 'Student enrolled' };
@@ -203,9 +254,8 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner');
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Not found' });
-		const hasPaid = booking.clients.some(c => parseFloat(c.amountPaid) > 0);
-		if (hasPaid)
-			return fail(400, { error: 'Cannot delete a booking with recorded payments' });
+		const hasPaid = booking.clients.some((c) => parseFloat(c.amountPaid) > 0);
+		if (hasPaid) return fail(400, { error: 'Cannot delete a booking with recorded payments' });
 		if (booking.status !== 'cancelled') await cancelBooking(params.id);
 		await deleteBooking(params.id);
 		return { deleted: true, message: 'Booking deleted' };
@@ -230,11 +280,22 @@ export const actions: Actions = {
 		return { error: null, message: 'Client enrollment cancelled' };
 	},
 
-	reenrollClient: async ({ request, locals }) => {
+	reenrollClient: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (!bookingClientId) return fail(400, { error: 'Missing booking client id' });
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+		const bookingClient = booking.clients.find((client) => client.id === bookingClientId);
+		if (!bookingClient) return fail(404, { error: 'Client enrollment not found' });
+		if (bookingClient.status === 'cancelled') {
+			try {
+				await assertBookingHasCapacity(booking, bookingClient.participantCount ?? 1);
+			} catch (error) {
+				return fail(400, { error: (error as Error).message });
+			}
+		}
 		await reenrollBookingClient(bookingClientId);
 		return { error: null, message: 'Client re-enrolled' };
 	},
@@ -252,8 +313,19 @@ export const actions: Actions = {
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });
 		const ctx = resolveSessionContext(booking);
-		if (ctx.type !== 'booking') return fail(400, { error: 'Sessions are managed at the service level for this booking type' });
-		await createSession({ ownerType: 'booking', bookingId: params.id, date, time, durationMinutes, notes, instructorIds });
+		if (ctx.type !== 'booking')
+			return fail(400, {
+				error: 'Sessions are managed at the service level for this booking type'
+			});
+		await createSession({
+			ownerType: 'booking',
+			bookingId: params.id,
+			date,
+			time,
+			durationMinutes,
+			notes,
+			instructorIds
+		});
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Session added' };
 	},
@@ -341,11 +413,16 @@ export const actions: Actions = {
 		if (!booking.dateEnd) return fail(400, { error: 'Booking has no end date' });
 		if (!booking.serviceHasSessions) return fail(400, { error: 'Service does not use sessions' });
 		const ctx = resolveSessionContext(booking);
-		if (ctx.type !== 'booking') return fail(400, { error: 'Bulk generate only supported for private lesson bookings' });
+		if (ctx.type !== 'booking')
+			return fail(400, { error: 'Bulk generate only supported for private lesson bookings' });
 
-		const sessionsPerDay = Math.min(6, Math.max(1, parseInt(form.get('sessionsPerDay')?.toString() ?? '1')));
-		const times = Array.from({ length: sessionsPerDay }, (_, i) =>
-			form.get(`sessionTime_${i}`)?.toString() || undefined
+		const sessionsPerDay = Math.min(
+			6,
+			Math.max(1, parseInt(form.get('sessionsPerDay')?.toString() ?? '1'))
+		);
+		const times = Array.from(
+			{ length: sessionsPerDay },
+			(_, i) => form.get(`sessionTime_${i}`)?.toString() || undefined
 		);
 		const weekdaysOnly = form.get('weekdaysOnly') === 'on';
 		const clearExisting = form.get('clearExisting') === 'on';
@@ -356,18 +433,32 @@ export const actions: Actions = {
 
 		const start = new Date(booking.date + 'T00:00:00');
 		const end = new Date(booking.dateEnd + 'T00:00:00');
-		const toCreate: { ownerType: 'booking'; bookingId: string; date: string; time?: string; durationMinutes?: number; sortOrder: number }[] = [];
+		const toCreate: {
+			ownerType: 'booking';
+			bookingId: string;
+			date: string;
+			time?: string;
+			durationMinutes?: number;
+			sortOrder: number;
+		}[] = [];
 
 		for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
 			const dow = d.getDay();
 			if (weekdaysOnly && (dow === 0 || dow === 6)) continue;
 			const dateStr = d.toISOString().slice(0, 10);
 			for (let i = 0; i < sessionsPerDay; i++) {
-				toCreate.push({ ownerType: 'booking', bookingId: params.id, date: dateStr, time: times[i], durationMinutes, sortOrder: i });
+				toCreate.push({
+					ownerType: 'booking',
+					bookingId: params.id,
+					date: dateStr,
+					time: times[i],
+					durationMinutes,
+					sortOrder: i
+				});
 			}
 		}
 
-		await Promise.all(toCreate.map(s => createSession(s)));
+		await Promise.all(toCreate.map((s) => createSession(s)));
 		return { error: null, message: `${toCreate.length} sessions generated` };
 	},
 
@@ -384,7 +475,7 @@ export const actions: Actions = {
 		if (substituteIfPlaceholder) {
 			// Replace the first auto-generated placeholder name with the real name
 			const existing = await listParticipantsForEnrollment(bookingClientId);
-			const placeholder = existing.find(p => /^Participante \d+/.test(p.name));
+			const placeholder = existing.find((p) => /^Participante \d+/.test(p.name));
 			if (placeholder) {
 				await renameParticipant(placeholder.id, name);
 				await renameSessionParticipantsByBookingParticipantId(placeholder.id, name);
@@ -397,7 +488,9 @@ export const actions: Actions = {
 		const bp = await addEnrollmentParticipant(bookingClientId, name);
 		if (addToSessions && booking) {
 			const sessions = await listSessionsForContext(booking);
-			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name, bookingParticipantId: bp.id })));
+			await Promise.all(
+				sessions.map((s) => addParticipant({ sessionId: s.id, name, bookingParticipantId: bp.id }))
+			);
 		}
 		await syncParticipantCount(bookingClientId);
 		await recalcBookingAmounts(params.id);
@@ -464,9 +557,10 @@ export const actions: Actions = {
 		const fuzzy = form.get('fuzzy') === 'true';
 		const attrKeys = form.getAll('attrKey').map(String);
 		const attrVals = form.getAll('attrVal').map(String);
-		const attributeFilter = attrKeys.length > 0
-			? Object.fromEntries(attrKeys.map((k, i) => [k, attrVals[i] ?? '']))
-			: null;
+		const attributeFilter =
+			attrKeys.length > 0
+				? Object.fromEntries(attrKeys.map((k, i) => [k, attrVals[i] ?? '']))
+				: null;
 
 		const startDate = booking.date;
 		const endDate = booking.dateEnd ?? null;
@@ -474,16 +568,39 @@ export const actions: Actions = {
 		// For specific-tracked types with variant selected: auto-assign items and check availability
 		// For fuzzy (no variant chosen) or pool mode: create pending allocation with itemId=null
 		if (type.trackingMode === 'specific' && !fuzzy) {
-			const avail = await checkAvailability(itemTypeId, startDate, endDate, qty, undefined, params.id);
+			const avail = await checkAvailability(
+				itemTypeId,
+				startDate,
+				endDate,
+				qty,
+				undefined,
+				params.id
+			);
 			if (avail.availableCount < qty) {
 				return fail(400, { error: `Not enough "${type.name}" available` });
 			}
-			const itemIds = avail.availableItems.slice(0, qty).map(i => i.id);
-			await createAllocations(itemIds.map(itemId => ({
-				bookingId: params.id, itemTypeId, itemId, quantity: 1, attributeFilter, startDate, endDate
-			})));
+			const itemIds = avail.availableItems.slice(0, qty).map((i) => i.id);
+			await createAllocations(
+				itemIds.map((itemId) => ({
+					bookingId: params.id,
+					itemTypeId,
+					itemId,
+					quantity: 1,
+					attributeFilter,
+					startDate,
+					endDate
+				}))
+			);
 		} else {
-			await createAllocation({ bookingId: params.id, itemTypeId, itemId: null, quantity: qty, attributeFilter, startDate, endDate });
+			await createAllocation({
+				bookingId: params.id,
+				itemTypeId,
+				itemId: null,
+				quantity: qty,
+				attributeFilter,
+				startDate,
+				endDate
+			});
 		}
 		return { error: null, message: `${qty}× ${type.name} añadidos` };
 	},
@@ -499,8 +616,16 @@ export const actions: Actions = {
 
 		// Look up client name for meaningful default participant names
 		const booking = await getBooking(params.id);
-		const bc = booking?.clients.find(c => c.id === bookingClientId);
+		const bc = booking?.clients.find((c) => c.id === bookingClientId);
 		const clientFirstName = bc?.clientFirstName ?? undefined;
+		if (!booking || !bc) return fail(404, { error: 'Booking enrollment not found' });
+		const activeCountForEnrollment = bc.status !== 'cancelled' ? (bc.participantCount ?? 1) : 0;
+		const delta = count - activeCountForEnrollment;
+		try {
+			await assertBookingHasCapacity(booking, delta);
+		} catch (error) {
+			return fail(400, { error: (error as Error).message });
+		}
 
 		await setEnrollmentParticipantCount(bookingClientId, count, clientFirstName);
 
@@ -512,21 +637,28 @@ export const actions: Actions = {
 			const sessions = await listSessionsForContext(booking);
 			if (sessions.length > 0 && allParticipants.length > 0) {
 				await Promise.all(
-					sessions.map(s => Promise.all(
-						allParticipants.map(p => addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id }))
-					))
+					sessions.map((s) =>
+						Promise.all(
+							allParticipants.map((p) =>
+								addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id })
+							)
+						)
+					)
 				);
 			}
 		}
 
 		await recalcBookingAmounts(params.id);
-		return { error: null, message: `${count} participante${count !== 1 ? 's' : ''} configurado${count !== 1 ? 's' : ''}` };
+		return {
+			error: null,
+			message: `${count} participante${count !== 1 ? 's' : ''} configurado${count !== 1 ? 's' : ''}`
+		};
 	},
 
 	renameParticipant: async ({ request, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
-		const id   = form.get('participantId')?.toString() ?? '';
+		const id = form.get('participantId')?.toString() ?? '';
 		const name = form.get('name')?.toString().trim() ?? '';
 		if (!id) return fail(400, { error: 'Missing participant id' });
 		if (!name) return fail(400, { error: 'Name required' });
@@ -548,7 +680,9 @@ export const actions: Actions = {
 		if (sessions.length === 0) return { error: null, message: 'No sessions to sync' };
 
 		const participantRows = await Promise.all(
-			booking.clients.filter(c => c.status !== 'cancelled').map(c => listParticipantsForEnrollment(c.id))
+			booking.clients
+				.filter((c) => c.status !== 'cancelled')
+				.map((c) => listParticipantsForEnrollment(c.id))
 		);
 		// Dedup by booking_participant id — same person enrolled under multiple clients counts once
 		const byId = new Map<string, { id: string; name: string }>();
@@ -558,11 +692,18 @@ export const actions: Actions = {
 		if (participants.length === 0) return { error: null, message: 'No named participants to sync' };
 		// onConflictDoNothing in addParticipant makes this safe to run multiple times
 		await Promise.all(
-			sessions.map(s => Promise.all(
-				participants.map(p => addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id }))
-			))
+			sessions.map((s) =>
+				Promise.all(
+					participants.map((p) =>
+						addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id })
+					)
+				)
+			)
 		);
-		return { error: null, message: `${participants.length} participante${participants.length !== 1 ? 's' : ''} sincronizados a ${sessions.length} sesión${sessions.length !== 1 ? 'es' : ''}` };
+		return {
+			error: null,
+			message: `${participants.length} participante${participants.length !== 1 ? 's' : ''} sincronizados a ${sessions.length} sesión${sessions.length !== 1 ? 'es' : ''}`
+		};
 	},
 
 	recalcPrice: async ({ params, locals }) => {
@@ -584,15 +725,21 @@ export const actions: Actions = {
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });
 
-		const bc = booking.clients.find(c => c.id === bookingClientId);
+		const bc = booking.clients.find((c) => c.id === bookingClientId);
 		if (!bc) return fail(404, { error: 'Client not found in booking' });
 		if (!booking.serviceId) return fail(400, { error: 'Booking has no service' });
 
-		const available = await getAvailableCreditsForClient(bc.clientId, booking.serviceId, booking.date);
-		const source = available.find(s => s.bookingId === creditSourceId);
-		if (!source) return fail(400, { error: 'Credit source not found or not compatible with this service' });
+		const available = await getAvailableCreditsForClient(
+			bc.clientId,
+			booking.serviceId,
+			booking.date
+		);
+		const source = available.find((s) => s.bookingId === creditSourceId);
+		if (!source)
+			return fail(400, { error: 'Credit source not found or not compatible with this service' });
 		if (source.expired) return fail(400, { error: 'These credits have expired' });
-		if (creditCount > source.creditsRemaining) return fail(400, { error: `Only ${source.creditsRemaining} credits remaining` });
+		if (creditCount > source.creditsRemaining)
+			return fail(400, { error: `Only ${source.creditsRemaining} credits remaining` });
 
 		await applyCreditsToEnrollment(bookingClientId, creditSourceId, creditCount);
 		await recalcBookingAmounts(params.id);
