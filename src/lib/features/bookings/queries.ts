@@ -1,5 +1,5 @@
 // src/lib/features/bookings/queries.ts
-import { and, count, eq, gte, lte, desc, inArray, ne, sql } from 'drizzle-orm';
+import { and, count, eq, gte, lte, desc, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { calculateAmount, defaultPricingMode, billableParticipants } from '$lib/utils/pricing';
 import { db } from '$lib/server/db';
 import {
@@ -100,6 +100,7 @@ export async function listBookingsForDateRange(
 	const rows = await db
 		.select({
 			id: bookings.id,
+			serviceId: bookings.serviceId,
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
@@ -158,9 +159,18 @@ export async function listBookingsForDateRange(
 }
 
 export async function listBookingsForRun(runId: string): Promise<BookingSummary[]> {
+	// Fetch edition to get serviceId + dates for overlap matching
+	const [edition] = await db
+		.select({ serviceId: serviceEditions.serviceId, startDate: serviceEditions.startDate, endDate: serviceEditions.endDate })
+		.from(serviceEditions)
+		.where(eq(serviceEditions.id, runId))
+		.limit(1);
+	if (!edition) return [];
+
 	const rows = await db
 		.select({
 			id: bookings.id,
+			serviceId: bookings.serviceId,
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
@@ -180,22 +190,37 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
-		.where(eq(bookings.serviceEditionId, runId))
+		.where(and(
+			ne(bookings.status, 'cancelled'),
+			or(
+				// Exact edition link
+				eq(bookings.serviceEditionId, runId),
+				// Overlap: same service, no edition set, dates overlap this run
+				and(
+					eq(bookings.serviceId, edition.serviceId),
+					isNull(bookings.serviceEditionId),
+					lte(bookings.date, edition.endDate),
+					gte(sql`COALESCE(${bookings.dateEnd}, ${bookings.date})`, edition.startDate)
+				)
+			)
+		))
 		.orderBy(bookings.date, bookings.createdAt);
 
 	const withInstructors = await attachInstructorsToBookings(rows);
 	const ids = withInstructors.map(r => r.id);
 	const allocationSummaries = await fetchAllocationSummaries(ids);
 	const counts: Record<string, number> = {};
+	const participantCounts: Record<string, number> = {};
 	const firstClientNames: Record<string, string> = {};
 	if (ids.length > 0) {
 		const clientRows = await db
-			.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName })
+			.select({ bookingId: bookingClients.bookingId, firstName: clients.firstName, participantCount: bookingClients.participantCount })
 			.from(bookingClients)
 			.leftJoin(clients, eq(bookingClients.clientId, clients.id))
-			.where(inArray(bookingClients.bookingId, ids));
+			.where(and(inArray(bookingClients.bookingId, ids), eq(bookingClients.status, 'enrolled')));
 		for (const row of clientRows) {
 			counts[row.bookingId] = (counts[row.bookingId] ?? 0) + 1;
+			participantCounts[row.bookingId] = (participantCounts[row.bookingId] ?? 0) + (row.participantCount ?? 1);
 			if (!firstClientNames[row.bookingId] && row.firstName) firstClientNames[row.bookingId] = row.firstName;
 		}
 	}
@@ -208,6 +233,7 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 		serviceRequiresInstructor: (r.serviceModules as { instructor?: { required?: boolean } } | null)?.instructor?.required ?? false,
 		allocationSummary: allocationSummaries[r.id] ?? null,
 		clientCount: counts[r.id] ?? 0,
+		participantCount: participantCounts[r.id] ?? 0,
 		firstClientName: firstClientNames[r.id] ?? null
 	})) as BookingSummary[];
 }
@@ -216,6 +242,7 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 	const rows = await db
 		.select({
 			id: bookings.id,
+			serviceId: bookings.serviceId,
 			serviceName: services.name,
 			serviceType: services.type,
 			serviceColor: services.color,
@@ -302,6 +329,8 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceEditionId: bookings.serviceEditionId,
 			serviceEditionStartDate: serviceEditions.startDate,
 			serviceEditionEndDate: serviceEditions.endDate,
+			serviceEditionMaxCapacity: serviceEditions.maxCapacity,
+			sessionId: bookings.sessionId,
 			time: bookings.time,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
@@ -371,6 +400,7 @@ export async function getBookingsForClient(clientId: string): Promise<ClientBook
 			id: bookings.id,
 			date: bookings.date,
 			time: bookings.time,
+			serviceId: bookings.serviceId,
 			serviceName: services.name,
 			status: bookings.status
 		})
@@ -672,4 +702,16 @@ export async function removeCreditsFromEnrollment(bookingClientId: string): Prom
 		.update(bookingClients)
 		.set({ creditSourceId: null, creditCount: 0 })
 		.where(eq(bookingClients.id, bookingClientId));
+}
+
+/**
+ * Recalculate amounts for all active bookings in an edition.
+ * Finds all non-cancelled bookings for the given edition and recalculates their amounts.
+ */
+export async function recalcEditionBookingAmounts(editionId: string): Promise<void> {
+	const editionBookings = await db
+		.select({ id: bookings.id })
+		.from(bookings)
+		.where(and(eq(bookings.serviceEditionId, editionId), ne(bookings.status, 'cancelled')));
+	await Promise.all(editionBookings.map(b => recalcBookingAmounts(b.id)));
 }

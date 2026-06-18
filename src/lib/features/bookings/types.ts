@@ -57,6 +57,8 @@ export interface Booking {
 	serviceEditionId: string | null;
 	serviceEditionStartDate: string | null;
 	serviceEditionEndDate: string | null;
+	serviceEditionMaxCapacity: number | null;
+	sessionId: string | null;
 	time: string | null;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
@@ -73,6 +75,7 @@ export interface Booking {
 
 export interface BookingSummary {
 	id: string;
+	serviceId: string | null;
 	serviceName: string | null;
 	serviceType: string | null;
 	serviceColor: string | null;
@@ -96,6 +99,7 @@ export interface BookingSummary {
 	isFlexible: boolean;
 	status: BookingStatus;
 	clientCount: number;
+	participantCount?: number;
 	firstClientName: string | null;
 }
 
