@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { getService } from '$lib/features/services/queries';
 import {
 	listSessionsForService,
+	listEnrollmentsForSession,
 	listUnassignedEnrollments,
 	assignBookingToSession,
 	createSession,
@@ -18,7 +19,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const service = await getService(params.id);
 	if (!service) error(404, 'Service not found');
 
-	// Guard: must have sessions+roster modules but NOT editions
 	const m = service.modules ?? {};
 	if (!('sessions' in m) || !('roster' in m) || 'editions' in m) {
 		error(404, 'Sessions page not available for this service type');
@@ -32,7 +32,15 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		listInstructors()
 	]);
 
-	// Unassigned enrollments per date (bookings not yet assigned to any session)
+	// Enrolled bookings per session
+	const enrollmentsBySession: Record<string, Awaited<ReturnType<typeof listEnrollmentsForSession>>> = {};
+	await Promise.all(
+		sessions.map(async s => {
+			enrollmentsBySession[s.id] = await listEnrollmentsForSession(s.id);
+		})
+	);
+
+	// Unassigned enrollments per date
 	const sessionDates = [...new Set(sessions.map(s => s.date))];
 	const unassignedByDate: Record<string, Awaited<ReturnType<typeof listUnassignedEnrollments>>> = {};
 	await Promise.all(
@@ -42,7 +50,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		})
 	);
 
-	return { service, sessions, instructors, unassignedByDate };
+	return { service, sessions, instructors, enrollmentsBySession, unassignedByDate };
 };
 
 export const actions: Actions = {
@@ -69,7 +77,6 @@ export const actions: Actions = {
 		const id = form.get('sessionId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'sessionId required' });
 		await updateSession(id, {
-			date: form.get('date')?.toString() || undefined,
 			time: form.get('time')?.toString() || null,
 			durationMinutes: form.get('durationMinutes') ? parseInt(form.get('durationMinutes')!.toString()) : null,
 			notes: form.get('notes')?.toString() || null,
@@ -108,5 +115,14 @@ export const actions: Actions = {
 			return fail(400, { error: (e as Error).message });
 		}
 		return { error: null, message: 'Cliente asignado a sesión' };
+	},
+
+	unassignFromSession: async ({ request, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const bookingId = form.get('bookingId')?.toString() ?? '';
+		if (!bookingId) return fail(400, { error: 'bookingId required' });
+		await assignBookingToSession(bookingId, null);
+		return { error: null, message: 'Cliente desasignado' };
 	}
 };

@@ -1,4 +1,5 @@
 ## In progress / next
+[] - MCP server for telegram bot. Check create mcp servers anthrophic plugin existance
 [] - Cuando en una reserva se añaden items de inventario sin especificar, en la pestaña de inventario no aparece ninguna unidad pedida porqaue no se ha añadido especificamente que variante aun, pero deberia notificarse de alguna forma que una o x reserva requiere tres unidades de x aun por especificar (algun boton para redirigir a la asignacion?)
 [] - A veces en algunas rutas cuando se da a atras o cancelar o algo vuelve a calendario como vsita principal, y si el usuario estava nesteado navegado eso puede ser molesto, siempre poner que la ruta anterior sea la que se muestra si alguna accion o navegacion tiene una redireccion o logica de redireccion posterior o submit que no especifica donde se va
 [] - En las fichas del calendario tanto en los pop ups como en las fichas de todas la vistas aparece participante 1 o algo raro de textos de participantes. Solo quiero que diga x Participantes y el nombre de la reserva es el Servicio + el Cliente. Aunque como manejar cuando sea una session que permite varios clientes?

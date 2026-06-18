@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
 	import type { PageData } from './$types';
+	import type { ServiceEdition } from '$lib/features/services/editions.types';
 	import NotesSection from '$lib/components/bookings/sections/NotesSection.svelte';
 	import ClientSearchInput from '$lib/components/ClientSearchInput.svelte';
 
@@ -12,7 +13,7 @@
 	let loading = $state(false);
 
 	// ── Service selection ─────────────────────────────────────────────────────
-	let selectedServiceId = $state(data.services[0]?.id ?? '');
+	let selectedServiceId = $state(data.defaultServiceId || (data.services[0]?.id ?? ''));
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
 	const modules = $derived(selectedService?.modules ?? {});
 
@@ -30,15 +31,25 @@
 	const showInstructor = $derived(hasInstructor && !hasSessions);
 
 	// ── Editions ──────────────────────────────────────────────────────────────
-	const editions = $derived(
-		selectedService ? (data.editionsByService[selectedService.id] ?? []) : []
+	let editions = $state<ServiceEdition[]>(
+		selectedServiceId ? (data.editionsByService[selectedServiceId] ?? []) : []
 	);
-	let selectedEditionId = $state('');
+	let editionsLoading = $state(false);
+	let selectedEditionId = $state(data.defaultEditionId ?? '');
 	const selectedEdition = $derived(editions.find((e) => e.id === selectedEditionId));
+
+	let _serviceInitialized = false;
 	$effect(() => {
-		void selectedServiceId;
+		const svcId = selectedServiceId;
 		untrack(() => {
+			if (!_serviceInitialized) { _serviceInitialized = true; return; }
 			selectedEditionId = '';
+			if (!svcId) { editions = []; return; }
+			editionsLoading = true;
+			fetch(`/bookings/new?serviceId=${svcId}`)
+				.then(r => r.json())
+				.then((eds: ServiceEdition[]) => { editions = eds; editionsLoading = false; })
+				.catch(() => { editionsLoading = false; });
 		});
 	});
 
@@ -85,6 +96,7 @@
 			name: string;
 			amountDue: string;
 			participantCount: number;
+			alsoParticipates: boolean;
 		}>
 	>([]);
 
@@ -101,7 +113,8 @@
 				clientId: client.id,
 				name: `${client.firstName} ${client.lastName}`.trim(),
 				amountDue: calcAmountDue(),
-				participantCount: 1
+				participantCount: 1,
+				alsoParticipates: false
 			}
 		];
 	}
@@ -175,7 +188,11 @@
 					<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
 						>Edición</label
 					>
-					{#if editions.length > 0}
+					{#if editionsLoading}
+						<div class="flex items-center gap-2 rounded-lg border border-border bg-sand px-3 py-2 text-xs text-muted">
+							<span class="animate-spin">⟳</span> Cargando ediciones…
+						</div>
+					{:else if editions.length > 0}
 						<select
 							name="serviceEditionId"
 							bind:value={selectedEditionId}
@@ -192,11 +209,13 @@
 							{/each}
 						</select>
 						{#if selectedEdition}
-							<div class="mt-1 rounded-lg bg-ocean/5 px-3 py-2 text-xs text-muted">
-								📅 {selectedEdition.startDate} → {selectedEdition.endDate}
-								{#if selectedEdition.maxCapacity}
-									· {selectedEdition.enrolledCount ?? 0}/{selectedEdition.maxCapacity} plazas
-								{/if}
+							<div class="mt-1 flex items-center justify-between rounded-lg bg-ocean/5 px-3 py-2 text-xs text-muted">
+								<span>
+									📅 {selectedEdition.startDate} → {selectedEdition.endDate}
+									{#if selectedEdition.maxCapacity}
+										· {selectedEdition.enrolledCount ?? 0}/{selectedEdition.maxCapacity} plazas
+									{/if}
+								</span>
 							</div>
 							<input type="hidden" name="date" value={selectedEdition.startDate} />
 							<input type="hidden" name="dateEnd" value={selectedEdition.endDate} />
@@ -323,8 +342,10 @@
 
 			{#each selectedClients as c (c.clientId)}
 				<input type="hidden" name="clientId" value={c.clientId} />
+				<input type="hidden" name="clientName" value={c.name} />
 				<input type="hidden" name="amountDue" value={c.amountDue} />
 				<input type="hidden" name="participantCount" value={c.participantCount} />
+				<input type="hidden" name="alsoParticipates" value={c.alsoParticipates ? 'true' : 'false'} />
 			{/each}
 
 			{#if selectedClients.length > 0}
@@ -357,7 +378,14 @@
 										>+</button
 									>
 								</div>
-								<span class="text-[10px] text-muted">part.</span>
+								<label class="flex items-center gap-1 text-[10px] text-muted cursor-pointer">
+									<input
+										type="checkbox"
+										bind:checked={selectedClients[i].alsoParticipates}
+										class="h-3 w-3 accent-ocean"
+									/>
+									también participa
+								</label>
 							{/if}
 							<button
 								type="button"

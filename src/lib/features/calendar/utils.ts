@@ -106,7 +106,7 @@ export interface SessionLike {
 	effectiveDuration: number;
 	instructors: { instructorId: string; instructorName?: string | null }[];
 	serviceName: string | null;
-	bookingStatus: string;
+	bookingStatus: string | null;
 }
 
 export interface InstructorConflict {
@@ -115,7 +115,7 @@ export interface InstructorConflict {
 	serviceName: string | null;
 	startTime: string;         // HH:MM
 	endTime: string;           // HH:MM calculated
-	bookingStatus: string;     // affects visual severity
+	bookingStatus: string | null;     // affects visual severity
 }
 
 /**

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, ne, sql, sum } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lte, ne, or, sql, sum } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	sessions,
@@ -104,8 +104,11 @@ async function attachParticipants<T extends { id: string }>(
 
 export function resolveSessionContext(booking: BookingSessionContext): SessionContext {
 	const m = booking.serviceModules ?? {};
-	if ('editions' in m && booking.serviceEditionId)
-		return { type: 'edition', editionId: booking.serviceEditionId };
+	// Edition service: always resolve as edition even if no specific editionId set
+	if ('editions' in m)
+		return booking.serviceEditionId
+			? { type: 'edition', editionId: booking.serviceEditionId }
+			: { type: 'booking', bookingId: booking.id }; // no edition selected → no sessions
 	if ('roster' in m && booking.serviceId)
 		return { type: 'service', serviceId: booking.serviceId, date: booking.date };
 	return { type: 'booking', bookingId: booking.id };
@@ -811,6 +814,16 @@ export async function listParticipantsForSession(sessionId: string): Promise<Ses
 }
 
 export async function addParticipant(input: CreateParticipantInput): Promise<SessionParticipant | null> {
+	// Deduplicate: if a bookingParticipantId is given, skip if already present on this session
+	if (input.bookingParticipantId) {
+		const [existing] = await db.select({ id: sessionParticipants.id })
+			.from(sessionParticipants)
+			.where(and(
+				eq(sessionParticipants.sessionId, input.sessionId),
+				eq(sessionParticipants.bookingParticipantId, input.bookingParticipantId)
+			));
+		if (existing) return null;
+	}
 	const [row] = await db.insert(sessionParticipants)
 		.values({
 			id: crypto.randomUUID(),
@@ -820,7 +833,6 @@ export async function addParticipant(input: CreateParticipantInput): Promise<Ses
 			notes: input.notes ?? null,
 			sortOrder: input.sortOrder ?? 0
 		})
-		.onConflictDoNothing()
 		.returning();
 	return row ?? null;
 }
@@ -829,12 +841,87 @@ export async function removeParticipant(participantId: string): Promise<void> {
 	await db.delete(sessionParticipants).where(eq(sessionParticipants.id, participantId));
 }
 
+export async function renameSessionParticipant(participantId: string, name: string): Promise<void> {
+	await db.update(sessionParticipants)
+		.set({ name: name.trim() })
+		.where(eq(sessionParticipants.id, participantId));
+}
+
 export async function renameSessionParticipantsByBookingParticipantId(
 	bookingParticipantId: string, name: string
 ): Promise<void> {
 	await db.update(sessionParticipants)
 		.set({ name })
 		.where(eq(sessionParticipants.bookingParticipantId, bookingParticipantId));
+}
+
+export type ParticipantWithContext = SessionParticipant & {
+	bookingId: string | null;
+	clientFirstName: string | null;
+	clientLastName: string | null;
+};
+
+export async function listParticipantsWithContext(sessionId: string): Promise<ParticipantWithContext[]> {
+	return db.select({
+		id: sessionParticipants.id,
+		sessionId: sessionParticipants.sessionId,
+		bookingParticipantId: sessionParticipants.bookingParticipantId,
+		name: sessionParticipants.name,
+		notes: sessionParticipants.notes,
+		sortOrder: sessionParticipants.sortOrder,
+		bookingId: bookings.id,
+		clientFirstName: clients.firstName,
+		clientLastName: clients.lastName
+	})
+	.from(sessionParticipants)
+	.leftJoin(bookingParticipants, eq(bookingParticipants.id, sessionParticipants.bookingParticipantId))
+	.leftJoin(bookingClients, eq(bookingClients.id, bookingParticipants.bookingClientId))
+	.leftJoin(bookings, eq(bookings.id, bookingClients.bookingId))
+	.leftJoin(clients, eq(clients.id, bookingClients.clientId))
+	.where(eq(sessionParticipants.sessionId, sessionId))
+	.orderBy(sessionParticipants.sortOrder);
+}
+
+// All bookings for a service on a date, excluding those already on the given session
+export async function listBookingsForServiceDate(serviceId: string, date: string, excludeSessionId: string) {
+	return db.select({
+		bookingId:   bookings.id,
+		firstName:   clients.firstName,
+		lastName:    clients.lastName,
+		currentSessionId: bookings.sessionId
+	})
+	.from(bookings)
+	.innerJoin(bookingClients, eq(bookingClients.bookingId, bookings.id))
+	.innerJoin(clients, eq(clients.id, bookingClients.clientId))
+	.where(and(
+		eq(bookings.serviceId, serviceId),
+		eq(bookings.date, date),
+		or(isNull(bookings.sessionId), ne(bookings.sessionId, excludeSessionId)),
+		ne(bookings.status, 'cancelled'),
+		eq(bookingClients.status, 'enrolled')
+	))
+	.orderBy(clients.firstName);
+}
+
+// All bookings enrolled in an edition (all attend all sessions)
+export async function listEnrollmentsForEdition(editionId: string): Promise<BookingEnrollment[]> {
+	return db.select({
+		bookingId:  bookings.id,
+		clientId:   bookingClients.clientId,
+		firstName:  clients.firstName,
+		lastName:   clients.lastName,
+		amountDue:  bookingClients.amountDue,
+		amountPaid: bookingClients.amountPaid,
+		status:     bookingClients.status
+	})
+	.from(bookings)
+	.innerJoin(bookingClients, eq(bookingClients.bookingId, bookings.id))
+	.innerJoin(clients, eq(bookingClients.clientId, clients.id))
+	.where(and(
+		eq(bookings.serviceEditionId, editionId),
+		ne(bookings.status, 'cancelled'),
+		eq(bookingClients.status, 'enrolled')
+	));
 }
 
 // ── Unscheduled sessions (calendar strip) ─────────────────────────────────────

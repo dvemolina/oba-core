@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun, Package } from 'lucide-svelte';
+	import { Calendar, BookOpen, Users, UserCheck, LayoutGrid, Settings, Waves, Sun, Package, Timer } from 'lucide-svelte';
 	import { env } from '$env/dynamic/public';
 	const PUBLIC_BUSINESS_NAME = env.PUBLIC_BUSINESS_NAME ?? 'OBA';
 	import * as m from '$lib/paraglide/messages';
@@ -11,6 +11,7 @@
 	const allItems = [
 		{ href: '/agenda',    label: () => m.nav_today(),    icon: Sun,        roles: ['admin','owner','manager','instructor'] },
 		{ href: '/calendar',  label: () => m.nav_calendar(), icon: Calendar,   roles: ['admin','owner','manager','instructor'] },
+		{ href: '/sessions',  label: () => 'Sesiones',       icon: Timer,      roles: ['admin','owner','manager'] },
 		{ href: '/bookings',  label: () => m.nav_bookings(), icon: BookOpen,   roles: ['admin','owner','manager'] },
 		{ href: '/clients',   label: () => m.nav_clients(),  icon: Users,      roles: ['admin','owner','manager'] },
 		{ href: '/staff',     label: () => m.nav_staff(),    icon: UserCheck,  roles: ['admin','owner'] },

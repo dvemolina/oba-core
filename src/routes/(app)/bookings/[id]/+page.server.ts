@@ -57,6 +57,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	]);
 
 	const ctx = showSessionsCard ? resolveSessionContext(booking) : null;
+	// Edition services always show edition UI, even if no specific edition is selected
+	const sessionOwnerType: 'booking' | 'service' | 'edition' | null =
+		hasEditions ? 'edition' : ctx?.type ?? null;
 
 	// Load named participants per enrollment
 	const participantsByEnrollment: Record<string, Awaited<ReturnType<typeof listParticipantsForEnrollment>>> = {};
@@ -113,7 +116,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			: Promise.resolve({} as Record<string, CreditSource[]>)
 	]);
 
-	return { booking, instructors, service: service ?? null, clients, sessions, allDateSessions: [], sessionOwnerType: ctx?.type ?? null, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment, editionEnrolledCount, editionMaxCapacity };
+	return { booking, instructors, service: service ?? null, clients, sessions, allDateSessions: [], sessionOwnerType, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment, editionEnrolledCount, editionMaxCapacity };
 };
 
 export const actions: Actions = {

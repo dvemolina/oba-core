@@ -1,13 +1,13 @@
 <!-- src/lib/components/calendar/SessionCard.svelte -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import Popover from '$lib/components/ui/Popover.svelte';
 	import SessionCardInfo from './SessionCardInfo.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import type { AgendaSession } from '$lib/features/sessions/types';
-	import { sessionDetailLink } from '$lib/features/sessions/link';
 
 	let {
 		session,
@@ -18,6 +18,8 @@
 	} = $props();
 
 	const color = $derived(getServiceColor(session.serviceColor ?? ''));
+	const isGroup = $derived(session.ownerType === 'service');
+	const enrolledCount = $derived((session as { bookingIds?: string[] }).bookingIds?.length ?? 0);
 
 	let cardEl = $state<HTMLElement | null>(null);
 	let popoverOpen = $state(false);
@@ -39,13 +41,26 @@
 		hideTimeout = setTimeout(() => { popoverOpen = false; }, 150);
 	}
 
+	function openDrawer() {
+		const url = new URL($page.url.href);
+		url.searchParams.set('session', session.id);
+		goto(url.toString(), { noScroll: true });
+	}
+
+	function calendarPathWithoutSession(): string {
+		const url = new URL($page.url.href);
+		url.searchParams.delete('session');
+		const search = url.searchParams.toString();
+		return url.pathname + (search ? '?' + search : '');
+	}
+
 	function handleClick(e: MouseEvent) {
 		if (isTouch) {
 			e.preventDefault();
 			if (popoverOpen) popoverOpen = false;
 			else showPopover();
 		} else {
-			goto(sessionDetailLink(session));
+			openDrawer();
 		}
 	}
 </script>
@@ -59,7 +74,11 @@
 		onmouseleave={scheduleHide}
 		onclick={handleClick}
 	>
-		{session.time ? session.time.slice(0, 5) + ' ' : ''}{session.serviceName ?? 'Session'}
+		{#if isGroup}
+			<span class="opacity-75">👥</span>{' '}{session.serviceName ?? 'Clase'}
+		{:else}
+			{session.time ? session.time.slice(0, 5) + ' ' : ''}{session.serviceName ?? 'Session'}
+		{/if}
 	</button>
 {:else}
 	<button
@@ -74,15 +93,27 @@
 			<p class="text-[10px] font-semibold {color.text}">{session.time.slice(0, 5)}</p>
 		{/if}
 		<p class="truncate text-[11px] font-medium text-gray-800">
-			{session.serviceName ?? 'Session'}{session.firstClientName ? ` · ${session.firstClientName}` : ''}
+			{#if isGroup}
+				<span class="text-[9px] opacity-60 mr-0.5">👥</span>{session.serviceName ?? 'Clase'}
+			{:else}
+				{session.serviceName ?? 'Session'}{session.firstClientName ? ` · ${session.firstClientName}` : ''}
+			{/if}
 		</p>
 		<div class="flex items-center gap-1.5 text-[10px] text-muted">
-			{#if session.totalParticipants > 0}
-				<span>{session.totalParticipants} part.</span>
-			{/if}
-			{#if session.instructors.length > 0}
-				{#if session.totalParticipants > 0}<span>·</span>{/if}
-				<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+			{#if isGroup}
+				<span>{enrolledCount} inscritos</span>
+				{#if session.instructors.length > 0}
+					<span>·</span>
+					<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+				{/if}
+			{:else}
+				{#if session.totalParticipants > 0}
+					<span>{session.totalParticipants} part.</span>
+				{/if}
+				{#if session.instructors.length > 0}
+					{#if session.totalParticipants > 0}<span>·</span>{/if}
+					<span class="truncate">{session.instructors.map(i => i.instructorName?.split(' ')[0]).join(', ')}</span>
+				{/if}
 			{/if}
 		</div>
 	</button>
@@ -94,19 +125,21 @@
 			serviceName={session.serviceName}
 			serviceColor={session.serviceColor}
 			time={session.time}
+			ownerType={session.ownerType}
 			firstClientName={session.firstClientName}
+			enrolledCount={enrolledCount}
 			totalParticipants={session.totalParticipants}
-			bookingStatus={session.bookingStatus}
+			bookingStatus={session.bookingStatus ?? ''}
 			date={session.date}
 			totalAmountDue={session.totalAmountDue}
 			totalAmountPaid={session.totalAmountPaid}
 		/>
 		<div class="mt-3 flex gap-2">
 			<a
-				href={sessionDetailLink(session)}
+				href="/sessions/{session.id}?from={encodeURIComponent(calendarPathWithoutSession())}"
 				class="flex-1 rounded-lg bg-ocean py-1.5 text-center text-xs font-semibold text-white hover:bg-ocean/90"
 			>
-				{m.calendar_view_booking()}
+				Ver sesión
 			</a>
 			<a
 				href="/calendar?view=day&date={session.date}"

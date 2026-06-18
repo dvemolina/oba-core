@@ -338,6 +338,7 @@
 												{session.skillLevel === 'beginner' ? 'Principiante' : session.skillLevel === 'intermediate' ? 'Intermedio' : 'Avanzado'}
 											</span>
 										{/if}
+										<a href="/sessions/{session.id}?from=/bookings/{booking.id}" class="text-[10px] text-indigo-500 hover:underline">Abrir</a>
 										{#if booking.status !== 'cancelled'}
 											<button
 												type="button"
@@ -518,9 +519,15 @@
         <p class="text-xs font-semibold uppercase tracking-wider text-muted">⏱ Sesión de grupo</p>
         <p class="mt-0.5 text-[11px] text-slate-500">Las sesiones se gestionan a nivel de servicio</p>
       </div>
-      <a href="/services/{booking.serviceId}/sessions/" class="text-xs font-medium text-indigo-600 hover:underline">
-        Gestionar →
-      </a>
+      {#if 'editions' in modules}
+        <a href="/services/{booking.serviceId}/roster" class="text-xs font-medium text-indigo-600 hover:underline">
+          Ver programa →
+        </a>
+      {:else}
+        <a href="/services/{booking.serviceId}/sessions/" class="text-xs font-medium text-indigo-600 hover:underline">
+          Gestionar →
+        </a>
+      {/if}
     </div>
 
     {#if sessions.length === 0}
@@ -537,7 +544,7 @@
                   <span class="text-xs text-muted">· {s.durationMinutes} min</span>
                 {/if}
               </p>
-              <p class="text-xs text-muted capitalize">{s.status} · {s.participants.length} participantes</p>
+              <p class="text-xs text-muted capitalize">{s.status} · {s.participants.length} participantes · <a href="/sessions/{s.id}?from=/bookings/{booking.id}" class="text-indigo-500 hover:underline">ver sesión</a></p>
             </div>
             {#if isAssigned}
               <div class="flex items-center gap-2 shrink-0">
@@ -567,7 +574,7 @@
         <p class="text-xs font-semibold uppercase tracking-wider text-muted">⏱ Programa del campamento</p>
         <p class="mt-0.5 text-[11px] text-slate-500">{sessions.filter(s => s.status !== 'cancelled').length} sesiones programadas</p>
       </div>
-      <a href="/services/{booking.serviceId}/roster?run={booking.serviceEditionId}" class="text-xs font-medium text-indigo-600 hover:underline">
+      <a href="/services/{booking.serviceId}/roster{booking.serviceEditionId ? `?run=${booking.serviceEditionId}` : ''}" class="text-xs font-medium text-indigo-600 hover:underline">
         Ver programa →
       </a>
     </div>

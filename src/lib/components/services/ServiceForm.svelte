@@ -39,7 +39,7 @@
 			id: 'camp',
 			label: 'Surf camp',
 			icon: '⛺',
-			modules: { sessions: {}, roster: { maxCapacity: 8 }, editions: {}, instructor: { required: true } }
+			modules: { sessions: {}, roster: {}, editions: {}, instructor: { required: true } }
 		},
 		{
 			id: 'rental',
@@ -62,7 +62,7 @@
 
 	function getDefaultConfig(key: string): Record<string, unknown> {
 		switch (key) {
-			case 'roster':     return { maxCapacity: 8 };
+			case 'roster':     return {};
 			case 'sessions':   return { durationMinutes: 90 };
 			case 'instructor': return { required: true };
 			case 'editions':   return {};
@@ -97,6 +97,23 @@
 	const hasEditions  = $derived('editions'    in (modules as Record<string, unknown>));
 	const hasInventory = $derived('inventory'   in (modules as Record<string, unknown>));
 	const hasRoster    = $derived('roster'      in (modules as Record<string, unknown>));
+
+	// Type override: user can pin a label regardless of active modules
+	let typeOverride = $state<string>(service?.type ?? '');
+	// When a preset is applied in create mode, sync type override to the preset
+	$effect(() => {
+		if (appliedPresetId) typeOverride = appliedPresetId;
+	});
+	const effectiveType = $derived(typeOverride || derivedType);
+
+	const SERVICE_TYPES = [
+		{ value: 'lesson',        label: () => m.service_list_type_lesson() },
+		{ value: 'camp',          label: () => m.service_list_type_camp() },
+		{ value: 'rental',        label: () => m.service_list_type_rental() },
+		{ value: 'product',       label: () => m.service_list_type_product() },
+		{ value: 'accommodation', label: () => m.service_list_type_accommodation() },
+		{ value: 'other',         label: () => m.service_list_type_other() },
+	];
 
 	// ── Draft editions (new editions to add, pre-submission) ──────────────────
 	type DraftEdition = { uid: string; startDate: string; endDate: string; maxCapacity: string; notes: string };
@@ -137,8 +154,11 @@
 	}
 	function removeDraftLink(uid: string) { draftLinks = draftLinks.filter(l => l.uid !== uid); }
 
-	// Inline edit state for existing links (edit mode)
+	// Inline edit state for existing links and editions (edit mode)
 	let editingLinkId = $state<string | null>(null);
+	let editingRunId = $state<string | null>(null);
+	type EditRunState = { startDate: string; endDate: string; maxCapacity: string; notes: string };
+	let editRunState = $state<EditRunState>({ startDate: '', endDate: '', maxCapacity: '', notes: '' });
 
 	// Serialised JSON payloads attached as hidden inputs
 	const editionsJson = $derived(
@@ -206,7 +226,7 @@
 >
 	<!-- Hidden state -->
 	<input type="hidden" name="modules" value={JSON.stringify(modules)} />
-	<input type="hidden" name="type" value={derivedType} />
+	<input type="hidden" name="type" value={effectiveType} />
 	<!-- Draft editions + links: always send, server handles empty arrays gracefully -->
 	<input type="hidden" name="newEditions" value={editionsJson} />
 	<input type="hidden" name="newLinks" value={linksJson} />
@@ -241,6 +261,23 @@
 		<input id="svc-name" name="name" required
 			value={formValues?.name ?? service?.name ?? ''}
 			class="input" placeholder="Ej. Clase de surf — principiantes" />
+	</div>
+
+	<!-- ── Categoría ────────────────────────────────────────────────────── -->
+	<div>
+		<label class="label" for="svc-type">Categoría</label>
+		<select id="svc-type" class="input"
+			bind:value={typeOverride}
+		>
+			{#each SERVICE_TYPES as t}
+				<option value={t.value} selected={effectiveType === t.value}>{t.label()}</option>
+			{/each}
+		</select>
+		{#if typeOverride !== derivedType && derivedType}
+			<p class="mt-1 text-[11px] text-muted">
+				Sugerido por módulos activos: <strong>{SERVICE_TYPES.find(t => t.value === derivedType)?.label() ?? derivedType}</strong>
+			</p>
+		{/if}
 	</div>
 
 	<!-- ── Módulos del servicio ───────────────────────────────────────────── -->
@@ -291,11 +328,19 @@
 							<!-- Roster config -->
 							{:else if mod.key === 'roster'}
 								<div class="max-w-xs">
-									<label class="mb-1 block text-xs font-medium text-gray-600">{m.service_detail_max_capacity()}</label>
-									<input name="maxCapacity" type="number" min="1" step="1" required
-										value={(modules as any).roster?.maxCapacity ?? service?.maxCapacity ?? 8}
+									<label class="mb-1 block text-xs font-medium text-gray-600">
+										{hasEditions ? 'Capacidad por defecto' : m.service_detail_max_capacity()}
+									</label>
+									<input name="maxCapacity" type="number" min="1" step="1"
+										value={service?.maxCapacity ?? ''}
 										class="input" placeholder="8" />
-									<p class="mt-1 text-[11px] text-muted">{m.service_form_roster_capacity_help()}</p>
+									<p class="mt-1 text-[11px] text-muted">
+										{#if hasEditions}
+											Se aplica a ediciones sin capacidad propia. Cada edición puede fijar la suya en el módulo Ediciones.
+										{:else}
+											{m.service_form_roster_capacity_help()}
+										{/if}
+									</p>
 								</div>
 
 							<!-- Editions: config + edition list ─────────────────────────── -->
@@ -307,23 +352,70 @@
 									{#if !isCreate && existingRuns.length > 0}
 										<div class="space-y-1.5">
 											{#each existingRuns as run (run.id)}
-												<div class="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
-													<div class="flex-1 min-w-0">
-														<p class="text-sm font-medium text-gray-800">{run.startDate} → {run.endDate}</p>
-														<p class="text-xs text-muted">
-															{#if run.maxCapacity}{run.enrolledCount}/{run.maxCapacity} plazas{/if}
-															{#if run.notes} · {run.notes}{/if}
-														</p>
+												<div class="overflow-hidden rounded-lg border border-border bg-surface">
+													<div class="flex items-center gap-3 px-3 py-2.5">
+														<div class="flex-1 min-w-0">
+															<p class="text-sm font-medium text-gray-800">{run.startDate} → {run.endDate}</p>
+															<p class="text-xs text-muted">
+																{#if run.maxCapacity}{run.enrolledCount}/{run.maxCapacity} plazas{:else}{run.enrolledCount} inscritos{/if}
+																{#if run.notes} · {run.notes}{/if}
+															</p>
+														</div>
+														<div class="flex shrink-0 gap-1">
+															<button type="button"
+																onclick={() => {
+																	if (editingRunId === run.id) { editingRunId = null; return; }
+																	editingRunId = run.id;
+																	editRunState = {
+																		startDate: run.startDate,
+																		endDate: run.endDate,
+																		maxCapacity: run.maxCapacity?.toString() ?? '',
+																		notes: run.notes ?? ''
+																	};
+																}}
+																class="rounded px-2 py-1 text-xs text-ocean hover:bg-ocean/5">
+																{editingRunId === run.id ? 'Cerrar' : 'Editar'}
+															</button>
+															{#if run.enrolledCount === 0}
+																<button type="submit" form="del-run-{run.id}"
+																	class="rounded p-1 text-gray-400 hover:text-red-500 transition-colors"
+																	onclick={(e) => { if (!confirm('¿Eliminar esta edición?')) e.preventDefault(); }}>
+																	<Trash2 size={13} />
+																</button>
+															{/if}
+														</div>
 													</div>
-													<span class="shrink-0 rounded-full bg-ocean/10 px-2 py-0.5 text-[10px] font-medium text-ocean">
-														{run.enrolledCount} inscritos
-													</span>
-													{#if run.enrolledCount === 0}
-														<button type="submit" form="del-run-{run.id}"
-															class="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 transition-colors"
-															onclick={(e) => { if (!confirm('¿Eliminar esta edición?')) e.preventDefault(); }}>
-															<Trash2 size={13} />
-														</button>
+													{#if editingRunId === run.id}
+														<div class="border-t border-border/50 bg-sand/40 px-3 py-3 space-y-2">
+															<input form="upd-run-{run.id}" type="hidden" name="runId" value={run.id} />
+															<div class="grid grid-cols-2 gap-2">
+																<div>
+																	<label class="mb-1 block text-[11px] font-medium text-gray-600">Inicio</label>
+																	<input form="upd-run-{run.id}" type="date" name="startDate"
+																		bind:value={editRunState.startDate} class="input" />
+																</div>
+																<div>
+																	<label class="mb-1 block text-[11px] font-medium text-gray-600">Fin</label>
+																	<input form="upd-run-{run.id}" type="date" name="endDate"
+																		bind:value={editRunState.endDate} class="input" />
+																</div>
+																<div>
+																	<label class="mb-1 block text-[11px] font-medium text-gray-600">Capacidad <span class="text-border">(opcional)</span></label>
+																	<input form="upd-run-{run.id}" type="number" min="1" name="maxCapacity"
+																		bind:value={editRunState.maxCapacity} class="input"
+																		placeholder={service?.maxCapacity ? `— (usa ${service.maxCapacity} del grupo)` : '—'} />
+																</div>
+																<div>
+																	<label class="mb-1 block text-[11px] font-medium text-gray-600">Notas <span class="text-border">(opcional)</span></label>
+																	<input form="upd-run-{run.id}" type="text" name="notes"
+																		bind:value={editRunState.notes} class="input" placeholder="Camp julio" />
+																</div>
+															</div>
+															<button type="submit" form="upd-run-{run.id}"
+																class="rounded-lg bg-ocean px-3 py-1.5 text-xs font-semibold text-white">
+																Guardar
+															</button>
+														</div>
 													{/if}
 												</div>
 											{/each}
@@ -368,7 +460,8 @@
 											</div>
 											<div>
 												<label class="mb-1 block text-[11px] font-medium text-gray-600">Capacidad <span class="text-border">(opcional)</span></label>
-												<input type="number" min="1" bind:value={newEd.maxCapacity} class="input" placeholder="—" />
+												<input type="number" min="1" bind:value={newEd.maxCapacity} class="input"
+													placeholder={service?.maxCapacity ? `— (usa ${service.maxCapacity} del grupo)` : '—'} />
 												<p class="mt-0.5 text-[10px] text-muted">{m.service_form_edition_capacity_help()}</p>
 											</div>
 											<div>
@@ -705,6 +798,11 @@
 				<input type="hidden" name="runId" value={run.id} />
 			</form>
 		{/if}
+		<form id="upd-run-{run.id}" method="POST" action="?/updateRun"
+			use:enhance={() => async ({ result, update }) => {
+				if (result.type === 'success') editingRunId = null;
+				await update();
+			}}></form>
 	{/each}
 	{#each existingLinks as link (link.id)}
 		<form id="rem-link-{link.id}" method="POST" action="?/removeInventoryLink" use:enhance>

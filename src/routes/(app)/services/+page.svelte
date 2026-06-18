@@ -54,7 +54,7 @@
 										<p class="text-xs text-muted">{run.startDate} → {run.endDate}{run.maxCapacity ? ` · ${run.enrolledCount}/${run.maxCapacity}` : ''}</p>
 									{/each}
 								{/if}
-								{#if service.maxCapacity}
+								{#if service.maxCapacity && !data.runsByService[service.id]?.length}
 									<p class="text-xs text-muted">{m.common_max()} {service.maxCapacity}</p>
 								{/if}
 							</div>
@@ -68,7 +68,7 @@
 						{#if service.modules?.roster && data.runsByService[service.id]?.length}
 							<div class="border-t border-border/50 px-4 py-2">
 								<a
-									href="/bookings/camp/{service.id}"
+									href="/services/{service.id}/roster"
 									class="text-xs font-medium text-ocean hover:underline"
 								>{m.service_list_open_roster()}</a>
 							</div>

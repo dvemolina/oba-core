@@ -10,10 +10,20 @@
 	import type { BookingSummary } from '$lib/features/bookings/types';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
+	import { page } from '$app/stores';
 	import SessionCard from '$lib/components/calendar/SessionCard.svelte';
+	import SessionDrawer from '$lib/components/sessions/SessionDrawer.svelte';
 	import { sessionDetailLink } from '$lib/features/sessions/link';
 
 	let { data }: { data: PageData } = $props();
+
+	const selectedSession = $derived(
+		(() => {
+			const id = $page.url.searchParams.get('session');
+			if (!id) return null;
+			return data.rangedSessions.find(s => s.id === id) ?? null;
+		})()
+	);
 
 	// Scheduling board: track which session is being inline-edited
 	let assigningSessionId = $state<string | null>(null);
@@ -236,8 +246,11 @@
 		const lastDay = [...weekDates].filter(d => d !== null).at(-1);
 		if (!firstDay || !lastDay) return [];
 
+		// Only include bookings that will actually render a spanning pill
+		// (same condition as the template: serviceHasRoster, no edition, service not covered by edition pills)
 		const inWeek = multiDayBookings.filter(b =>
-			b.date <= lastDay && (b.dateEnd ?? b.date) >= firstDay
+			b.date <= lastDay && (b.dateEnd ?? b.date) >= firstDay &&
+			b.serviceHasRoster && !b.serviceEditionId && !editionServiceIds.has(b.serviceId ?? '')
 		);
 
 		// Assign each booking to a stack row (greedy, left-to-right)
@@ -269,12 +282,12 @@
 		return `position:absolute; left:calc(${left}% + 2px); width:calc(${width}% - 4px); top:${top}px; height:${PILL_H}px; z-index:10;`;
 	}
 
-	// Padding-top for single-day chips (clears the spanning pills)
+	// Padding-top for single-day chips (clears the spanning pills).
+	// Spanning pills start at DAY_NUM_H=22px from cell top; day-number div is ~24px tall,
+	// so the chips container only needs clearance for what extends beyond that div.
 	function cellPt(maxRows: number): string {
-		const DAY_NUM_H = 22;
-		const PILL_H = 18;
-		const PILL_GAP = 2;
-		const pt = maxRows > 0 ? DAY_NUM_H + maxRows * (PILL_H + PILL_GAP) : DAY_NUM_H;
+		if (maxRows === 0) return 'padding-top:4px;';
+		const pt = Math.max(2, maxRows * 20 - 2); // rows * (PILL_H+PILL_GAP) - (dayNumDiv - DAY_NUM_H)
 		return `padding-top:${pt}px;`;
 	}
 
@@ -567,7 +580,7 @@
 			</div>
 
 			<!-- Weeks -->
-			<div class="flex flex-1 flex-col overflow-hidden">
+			<div class="flex flex-1 flex-col overflow-y-auto">
 				{#each weeks() as weekDates}
 					{@const layout = weekSpanLayout(weekDates)}
 					{@const maxRows = layout.length > 0 ? Math.max(...layout.map(l => l.row)) + 1 : 0}
@@ -575,7 +588,9 @@
 					{@const editionRows = editionLayout.length > 0 ? Math.max(...editionLayout.map(l => l.row - maxRows)) + 1 : 0}
 					{@const totalRows = maxRows + editionRows}
 
-					<div class="relative flex-1 border-b border-border/60 last:border-b-0">
+					<!-- min-height ensures chips are visible even when spanning pills consume most of the row -->
+					<div class="relative flex-1 border-b border-border/60 last:border-b-0"
+						style="min-height:{28 + totalRows * 22 + 22}px">
 
 						<!-- Background + day numbers + single-day chips — one cell per column -->
 						<div class="absolute inset-0 grid grid-cols-7">
@@ -600,7 +615,7 @@
 										</div>
 
 										<!-- Events banner + session count dot -->
-										<div class="relative z-10 flex flex-col items-center gap-px overflow-hidden px-0.5 pb-0.5 pt-1">
+										<div class="relative z-10 flex flex-1 flex-col items-start gap-px overflow-hidden px-0.5 pb-0.5" style={cellPt(totalRows)}>
 											<!-- surf events -->
 											{#each data.events.filter(e => e.startDate <= dateStr && e.endDate >= dateStr) as event}
 												<a href="/events/{event.id}"
@@ -610,7 +625,7 @@
 												</a>
 											{/each}
 											<!-- session compact cards (exclude sessions belonging to roster camp bookings) -->
-											{#each [data.rangedSessions.filter(s => s.date === dateStr && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))] as cellSessions}
+											{#each [data.rangedSessions.filter(s => s.date === dateStr && s.ownerType !== 'edition' && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))] as cellSessions}
 												{#each cellSessions.slice(0, 3) as session}
 													<SessionCard {session} size="compact" />
 												{/each}
@@ -706,7 +721,7 @@
 				<div class="grid min-h-full w-full grid-cols-7 divide-x divide-border/40">
 					{#each data.weekDays as weekDay}
 						{@const isToday = weekDay === today}
-						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))}
+						{@const daySessions = data.rangedSessions.filter(s => s.date === weekDay && s.ownerType !== 'edition' && !s.bookingIds.some(id => rosterMultiDayBookingIds.has(id)))}
 						{@const dayEditions = data.serviceEditions.filter(e => e.startDate <= weekDay && e.endDate >= weekDay)}
 						<div class="flex flex-col gap-1 p-1 {isToday ? 'bg-ocean/5' : 'bg-surface'}">
 							{#each dayEditions as ed}
@@ -906,7 +921,7 @@
 											{/if}
 											<div class="flex gap-2 pt-1">
 												<button type="submit" class="flex-1 rounded-lg bg-ocean py-2 text-xs font-semibold text-white hover:bg-ocean/90">{m.calendar_schedule()}</button>
-												<a href={sessionDetailLink(session)} class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">{m.calendar_view_booking()}</a>
+												<a href={sessionDetailLink(session)} class="rounded-lg border border-border px-3 py-2 text-xs text-muted hover:bg-sand">Ver sesión</a>
 											</div>
 										</form>
 									{/if}
@@ -1091,7 +1106,7 @@
 															onclick={(e) => { e.stopPropagation(); assigningSessionId = us.id; editFormTime = slot; closeSlotPopover(); }}
 															class="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors">
 															<span class="text-sm">⏱</span>
-															<span class="truncate">{us.serviceName}{us.firstClientName ? ` · ${us.firstClientName}` : ''}</span>
+															<span class="truncate">{us.serviceName}{us.participantNames[0] ? ` · ${us.participantNames[0]}` : ''}</span>
 														</button>
 													{/each}
 												</div>
@@ -1131,9 +1146,12 @@
 	{/key}
 </div>
 
+{#if selectedSession}
+	<SessionDrawer session={selectedSession} />
+{/if}
+
 <a href="/bookings/new{data.view === 'day' ? '?date=' + data.dayDate : data.view === 'week' ? '?date=' + data.weekDays[0] : ''}"
 	class="bottom-nav fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ocean text-white shadow-lg shadow-ocean/30 transition-all hover:bg-blue-700 hover:shadow-ocean/40 active:scale-95"
 	aria-label="New booking">
 	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 </a>
-

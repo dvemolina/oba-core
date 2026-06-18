@@ -13,7 +13,7 @@ const db = drizzle(client)
 
 // Mapping based on production data snapshot 2026-06-13
 const SERVICE_MODULES: Record<string, ServiceModules> = {
-	'Clase grupal':                 { roster: { maxCapacity: 8 }, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
+	'Clase grupal':                 { roster: {}, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
 	'Clase Privada':                { sessions: { durationMinutes: 90 }, inventory: { perParticipant: true }, instructor: { required: true } },
 	'Bono 5x clases surf grupales': { credits: { creditsIncluded: 5, validityMode: 'range', compatibleServiceIds: [] } },
 	'Bono 5x clases surf privadas': { credits: { creditsIncluded: 5, validityMode: 'range', compatibleServiceIds: [] } },
@@ -23,9 +23,9 @@ const SERVICE_MODULES: Record<string, ServiceModules> = {
 	'Neopreno Día entero':          { inventory: { perParticipant: true } },
 	'Tabla Día entero':             { inventory: { perParticipant: true } },
 	'Tabla + Neopreno Día entero':  { inventory: { perParticipant: true } },
-	'Helena Kazmier Collab':        { roster: { maxCapacity: 8 }, editions: {}, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
-	'Collab Rebelarte':             { roster: { maxCapacity: 8 }, editions: {}, sessions: {}, instructor: { required: true } },
-	'Tipiti Surf camp':             { roster: { maxCapacity: 8 }, editions: {}, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
+	'Helena Kazmier Collab':        { roster: {}, editions: {}, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
+	'Collab Rebelarte':             { roster: {}, editions: {}, sessions: {}, instructor: { required: true } },
+	'Tipiti Surf camp':             { roster: {}, editions: {}, sessions: {}, inventory: { perParticipant: true }, instructor: { required: true } },
 }
 
 async function main() {

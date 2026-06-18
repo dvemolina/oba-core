@@ -3,9 +3,7 @@ export type SessionsModuleConfig = {
 	defaultCount?: number
 }
 
-export type RosterModuleConfig = {
-	maxCapacity: number
-}
+export type RosterModuleConfig = Record<string, never>
 
 export type EditionsModuleConfig = Record<string, never>
 

@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, lte, gte, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, lte, gte, ne, or, isNull, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { serviceEditions, services, bookings, bookingClients } from '$lib/server/db/schema';
 import type { CreateServiceEditionInput, ServiceEdition, UpdateServiceEditionInput } from './editions.types';
@@ -40,29 +40,26 @@ export async function listEditionsForDateRange(from: string, to: string): Promis
 
 	if (rows.length === 0) return [];
 
-	const ids = rows.map(r => r.id);
-	const counts = await db
-		.select({
-			serviceEditionId: bookings.serviceEditionId,
-			total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)`
-		})
-		.from(bookingClients)
-		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
-		.where(
-			and(
-				inArray(bookings.serviceEditionId, ids as string[]),
+	// Count enrolled participants per edition:
+	// match by direct serviceEditionId link OR by serviceId + date overlap (for bookings not linked to a specific edition)
+	const enrolledByEdition: Record<string, number> = {};
+	await Promise.all(rows.map(async (edition) => {
+		const [row] = await db
+			.select({ total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)` })
+			.from(bookingClients)
+			.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
+			.where(and(
+				eq(bookings.serviceId, edition.serviceId),
 				ne(bookings.status, 'cancelled'),
-				eq(bookingClients.status, 'enrolled')
-			)
-		)
-		.groupBy(bookings.serviceEditionId);
+				eq(bookingClients.status, 'enrolled'),
+				// booking date range overlaps edition date range
+				lte(bookings.date, edition.endDate),
+				gte(sql`COALESCE(${bookings.dateEnd}, ${bookings.date})`, edition.startDate)
+			));
+		enrolledByEdition[edition.id] = parseInt(row?.total ?? '0');
+	}));
 
-	const countByEdition: Record<string, number> = {};
-	for (const c of counts) {
-		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = parseInt(c.total);
-	}
-
-	return rows.map(r => ({ ...r, enrolledCount: countByEdition[r.id] ?? 0 }));
+	return rows.map(r => ({ ...r, enrolledCount: enrolledByEdition[r.id] ?? 0 }));
 }
 
 export async function listEditionsForService(serviceId: string): Promise<ServiceEdition[]> {
@@ -74,30 +71,25 @@ export async function listEditionsForService(serviceId: string): Promise<Service
 
 	if (rows.length === 0) return [];
 
-	const ids = rows.map((r) => r.id);
-
-	const counts = await db
-		.select({
-			serviceEditionId: bookings.serviceEditionId,
-			total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)`
-		})
-		.from(bookingClients)
-		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
-		.where(
-			and(
-				inArray(bookings.serviceEditionId, ids as string[]),
+	// Count by service+date overlap (same logic as listEditionsForDateRange)
+	// so bookings with serviceEditionId=NULL are still counted
+	const enrolledByEdition: Record<string, number> = {};
+	await Promise.all(rows.map(async (edition) => {
+		const [row] = await db
+			.select({ total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)` })
+			.from(bookingClients)
+			.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
+			.where(and(
+				eq(bookings.serviceId, edition.serviceId),
 				ne(bookings.status, 'cancelled'),
-				eq(bookingClients.status, 'enrolled')
-			)
-		)
-		.groupBy(bookings.serviceEditionId);
+				eq(bookingClients.status, 'enrolled'),
+				lte(bookings.date, edition.endDate),
+				gte(sql`COALESCE(${bookings.dateEnd}, ${bookings.date})`, edition.startDate)
+			));
+		enrolledByEdition[edition.id] = parseInt(row?.total ?? '0');
+	}));
 
-	const countByEdition: Record<string, number> = {};
-	for (const c of counts) {
-		if (c.serviceEditionId) countByEdition[c.serviceEditionId] = parseInt(c.total);
-	}
-
-	return rows.map((r) => ({ ...r, enrolledCount: countByEdition[r.id] ?? 0 }));
+	return rows.map((r) => ({ ...r, enrolledCount: enrolledByEdition[r.id] ?? 0 }));
 }
 
 export async function getServiceEdition(id: string): Promise<ServiceEdition | undefined> {
@@ -131,6 +123,28 @@ export async function updateServiceEdition(
 
 export async function deleteServiceEdition(id: string): Promise<void> {
 	await db.delete(serviceEditions).where(eq(serviceEditions.id, id));
+}
+
+/** Count total enrolled participants for a specific edition by service+date overlap.
+ *  Matches the same logic used in listEditionsForDateRange / listEditionsForService
+ *  so the number is consistent with what calendar chips show. */
+export async function countEnrolledForEditionOverlap(
+	serviceId: string,
+	startDate: string,
+	endDate: string
+): Promise<number> {
+	const [row] = await db
+		.select({ total: sql<string>`COALESCE(SUM(${bookingClients.participantCount}), 0)` })
+		.from(bookingClients)
+		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
+		.where(and(
+			eq(bookings.serviceId, serviceId),
+			ne(bookings.status, 'cancelled'),
+			eq(bookingClients.status, 'enrolled'),
+			lte(bookings.date, endDate),
+			gte(sql`COALESCE(${bookings.dateEnd}, ${bookings.date})`, startDate)
+		));
+	return parseInt(row?.total ?? '0');
 }
 
 export async function countEnrolledClientsForEdition(editionId: string): Promise<number> {

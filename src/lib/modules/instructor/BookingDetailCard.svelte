@@ -13,7 +13,7 @@
         booking: { id: string; instructorId: string | null; instructorName: string | null; status: string; date?: string; isFlexible?: boolean };
         modules: ServiceModules;
         instructors: Array<{ id: string; name: string }>;
-        sessions: Array<{ id: string; date: string; time: string | null; instructorId?: string | null; instructorName?: string | null }>;
+        sessions: Array<{ id: string; date: string; time: string | null; durationMinutes: number | null; instructors?: Array<{ instructorId: string; instructorName: string | null }> }>;
     } = $props();
 
     const hasSessions = $derived('sessions' in modules);
@@ -56,19 +56,30 @@
                 </span>
             {/if}
         {:else}
-            <!-- Read-only summary — instructor assignment is managed in the sessions card -->
+            <!-- Per-session instructor breakdown -->
             {#if sessions.length === 0}
                 <p class="text-sm text-muted">Los instructores se asignan por sesión.</p>
             {:else}
-                {@const assignedNames = [...new Set(
-                    sessions.flatMap(s => (s as any).instructors ?? []).map((i: any) => i.instructorName).filter(Boolean)
-                )]}
-                {#if assignedNames.length > 0}
-                    <p class="text-sm text-gray-800">{assignedNames.join(', ')}</p>
-                {:else}
-                    <p class="text-sm text-muted">Sin asignar</p>
-                {/if}
-                <p class="mt-1 text-[10px] text-muted">Gestiona los instructores en el módulo de sesiones.</p>
+                {@const activeSessions = sessions.filter(s => (s as any).status !== 'cancelled')}
+                <div class="space-y-1.5">
+                    {#each activeSessions as s (s.id)}
+                        {@const sessionInstructors = s.instructors ?? []}
+                        {@const timeStr = s.time ? s.time.slice(0, 5) : null}
+                        <div class="flex items-center justify-between gap-2 rounded-lg bg-green-50/60 px-2.5 py-1.5 ring-1 ring-green-100">
+                            <div class="min-w-0">
+                                <p class="text-xs font-medium text-gray-800">
+                                    {s.date}{timeStr ? ' · ' + timeStr : ''}
+                                </p>
+                                {#if sessionInstructors.length > 0}
+                                    <p class="text-[11px] text-green-700">{sessionInstructors.map(i => i.instructorName).filter(Boolean).join(', ')}</p>
+                                {:else}
+                                    <p class="text-[11px] text-amber-600">⚠ Sin asignar</p>
+                                {/if}
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+                <p class="mt-2 text-[10px] text-muted">Gestiona los instructores en el módulo de sesiones.</p>
             {/if}
         {/if}
     </div>

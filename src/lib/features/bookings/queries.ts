@@ -238,7 +238,15 @@ export async function listBookingsForRun(runId: string): Promise<BookingSummary[
 	})) as BookingSummary[];
 }
 
-export async function listAllBookings(): Promise<BookingListItem[]> {
+export async function listAllBookings(opts?: {
+	from?: string; to?: string; serviceFilter?: string; statusFilter?: string;
+}): Promise<BookingListItem[]> {
+	const conditions = [];
+	if (opts?.from)           conditions.push(gte(bookings.date, opts.from));
+	if (opts?.to)             conditions.push(lte(bookings.date, opts.to));
+	if (opts?.statusFilter && opts.statusFilter !== 'all')
+		conditions.push(eq(bookings.status, opts.statusFilter as 'confirmed' | 'pending' | 'cancelled'));
+
 	const rows = await db
 		.select({
 			id: bookings.id,
@@ -262,6 +270,7 @@ export async function listAllBookings(): Promise<BookingListItem[]> {
 		.from(bookings)
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.leftJoin(serviceEditions, eq(bookings.serviceEditionId, serviceEditions.id))
+		.where(conditions.length > 0 ? and(...conditions) : undefined)
 		.orderBy(desc(bookings.date));
 
 	const withInstructors = await attachInstructorsToBookings(rows);

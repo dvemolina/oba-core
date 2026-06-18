@@ -178,6 +178,10 @@
 									<span class="text-xs text-muted">{s.instructors[0].instructorName}</span>
 								{/if}
 								<span class="text-xs capitalize text-muted ml-auto">{s.status}</span>
+								<a
+									href="/sessions/{s.id}?from={encodeURIComponent('/services/' + data.service.id + '/roster?run=' + activeEditionId)}"
+									class="rounded-lg bg-ocean/10 px-2.5 py-1 text-xs font-semibold text-ocean hover:bg-ocean/20 transition-colors"
+								>Ver →</a>
 								{#if s.status !== 'cancelled'}
 									<form method="POST" action="?/cancelEditionSession" use:enhance={withToast()}>
 										<input type="hidden" name="sessionId" value={s.id} />

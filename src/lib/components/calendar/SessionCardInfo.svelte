@@ -6,9 +6,11 @@
 		serviceName,
 		serviceColor,
 		time,
+		ownerType = 'booking',
 		firstClientName = null,
+		enrolledCount = 0,
 		totalParticipants = 0,
-		bookingStatus,
+		bookingStatus = '',
 		date,
 		totalAmountDue = 0,
 		totalAmountPaid = 0
@@ -16,9 +18,11 @@
 		serviceName: string | null;
 		serviceColor: string | null;
 		time: string | null;
+		ownerType?: 'booking' | 'service' | 'edition';
 		firstClientName?: string | null;
+		enrolledCount?: number;
 		totalParticipants?: number;
-		bookingStatus: string;
+		bookingStatus?: string;
 		date: string;
 		totalAmountDue?: number;
 		totalAmountPaid?: number;
@@ -26,10 +30,15 @@
 
 	const color = $derived(getServiceColor(serviceColor ?? ''));
 
+	const isGroup = $derived(ownerType === 'service');
+	const isEdition = $derived(ownerType === 'edition');
+
 	const title = $derived(
-		firstClientName
-			? `${serviceName ?? '—'} · ${firstClientName}`
-			: (serviceName ?? '—')
+		isGroup || isEdition
+			? (serviceName ?? '—')
+			: firstClientName
+				? `${serviceName ?? '—'} · ${firstClientName}`
+				: (serviceName ?? '—')
 	);
 
 	const paymentStatus = $derived(
@@ -68,19 +77,36 @@
 		{new Date(date + 'T00:00:00').toLocaleDateString('default', { weekday: 'short', day: 'numeric', month: 'short' })}
 		{#if time} · {time.slice(0, 5)}{/if}
 	</p>
-	{#if totalParticipants > 0}
+	{#if isGroup}
 		<p class="text-xs text-gray-700">
-			{totalParticipants} participante{totalParticipants !== 1 ? 's' : ''}
+			{#if enrolledCount > 0}
+				<span class="font-medium">{enrolledCount} alumno{enrolledCount !== 1 ? 's' : ''} inscritos</span>
+			{:else}
+				Sin inscritos aún
+			{/if}
+			{#if totalParticipants > 0}
+				· {totalParticipants} participante{totalParticipants !== 1 ? 's' : ''}
+			{/if}
 		</p>
-	{/if}
-	<div class="flex flex-wrap gap-1.5">
-		<span class="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium {bookingStatus === 'confirmed' ? 'bg-emerald-50 text-emerald-700' : bookingStatus === 'cancelled' ? 'bg-gray-100 text-gray-400' : 'bg-amber-50 text-amber-700'}">
-			{bookingStatus}
-		</span>
-		{#if paymentStatus}
-			<span class="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium {paymentClass}">
-				{paymentLabel}
-			</span>
+	{:else if isEdition}
+		{#if totalParticipants > 0}
+			<p class="text-xs text-gray-700">{totalParticipants} participante{totalParticipants !== 1 ? 's' : ''}</p>
 		{/if}
-	</div>
+	{:else}
+		{#if totalParticipants > 0}
+			<p class="text-xs text-gray-700">{totalParticipants} participante{totalParticipants !== 1 ? 's' : ''}</p>
+		{/if}
+		{#if bookingStatus}
+			<div class="flex flex-wrap gap-1.5">
+				<span class="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium {bookingStatus === 'confirmed' ? 'bg-emerald-50 text-emerald-700' : bookingStatus === 'cancelled' ? 'bg-gray-100 text-gray-400' : 'bg-amber-50 text-amber-700'}">
+					{bookingStatus}
+				</span>
+				{#if paymentStatus}
+					<span class="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium {paymentClass}">
+						{paymentLabel}
+					</span>
+				{/if}
+			</div>
+		{/if}
+	{/if}
 </div>

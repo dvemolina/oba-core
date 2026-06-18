@@ -28,7 +28,11 @@
     interface Booking {
         id: string;
         status: string;
+        serviceId: string | null;
+        serviceEditionId: string | null;
+        date: string;
         serviceMaxCapacity: number | null;
+        serviceEditionMaxCapacity: number | null;
         serviceBasePrice: string | null;
         clients: Enrollment[];
     }
@@ -47,7 +51,9 @@
         clients = [],
         participantsByEnrollment = {},
         canSeeFinancials,
-        availableCreditsPerEnrollment = {}
+        availableCreditsPerEnrollment = {},
+        editionEnrolledCount = null,
+        editionMaxCapacity = null
     }: {
         booking: Booking;
         modules: ServiceModules;
@@ -55,21 +61,41 @@
         participantsByEnrollment: Record<string, BookingParticipant[]>;
         canSeeFinancials: boolean;
         availableCreditsPerEnrollment?: Record<string, CreditSource[]>;
+        editionEnrolledCount?: number | null;
+        editionMaxCapacity?: number | null;
     } = $props();
 
     const hasRoster = $derived('roster' in modules);
     const hasSessions = $derived('sessions' in modules);
 
+    const newBookingUrl = $derived((() => {
+        const p = new URLSearchParams();
+        if (booking.serviceId) p.set('serviceId', booking.serviceId);
+        if (booking.date) p.set('date', booking.date);
+        if (booking.serviceEditionId) p.set('editionId', booking.serviceEditionId);
+        return `/bookings/new?${p.toString()}`;
+    })());
+
     const activeClients = $derived(booking.clients.filter(c => c.status !== 'cancelled'));
     const cancelledClients = $derived(booking.clients.filter(c => c.status === 'cancelled'));
-    const enrolled = $derived(activeClients.reduce((s, c) => s + (c.participantCount ?? 1), 0));
-    const maxCapacity = $derived(booking.serviceMaxCapacity);
+    // For edition-based roster services: use service-wide edition enrollment (matches calendar chips).
+    // For non-edition roster (e.g. weekly group class): this booking IS the group, use its own count.
+    const hasEdition = $derived(!!booking.serviceEditionId);
+    const enrolled = $derived(
+        hasEdition && editionEnrolledCount != null
+            ? editionEnrolledCount
+            : activeClients.reduce((s, c) => s + (c.participantCount ?? 1), 0)
+    );
+    const maxCapacity = $derived(
+        hasEdition
+            ? (editionMaxCapacity ?? booking.serviceEditionMaxCapacity ?? booking.serviceMaxCapacity)
+            : booking.serviceMaxCapacity
+    );
     const slotsLeft = $derived(maxCapacity != null ? maxCapacity - enrolled : null);
     const fillPct = $derived(maxCapacity ? (enrolled / maxCapacity) * 100 : 0);
     const enrolledIds = $derived(new Set(booking.clients.map(c => c.clientId)));
 
     let showCancelled = $state(false);
-    let expandedParticipants = $state(new Set<string>());
     let editingParticipantId = $state<string | null>(null);
     let editingParticipantName = $state('');
     let addingParticipantFor = $state<string | null>(null);
@@ -85,11 +111,6 @@
         pending: 'bg-gray-100 text-muted'
     };
 
-    function toggleParticipants(bcId: string) {
-        const next = new Set(expandedParticipants);
-        next.has(bcId) ? next.delete(bcId) : next.add(bcId);
-        expandedParticipants = next;
-    }
 </script>
 
 <div class="rounded-(--radius-card) overflow-hidden border border-blue-100 bg-white">
@@ -98,24 +119,33 @@
         <div class="flex items-center gap-2">
             <span class="text-xs font-semibold uppercase tracking-wide text-blue-700">
                 👥 Clientes
-                {#if hasRoster && maxCapacity != null}
-                    · {enrolled}/{maxCapacity} plazas
+                {#if hasRoster && maxCapacity != null && slotsLeft != null}
+                    {#if hasEdition}
+                        · {slotsLeft > 0 ? `${slotsLeft} libres` : 'Aforo completo'}
+                    {:else}
+                        · {enrolled}/{maxCapacity}
+                    {/if}
                 {/if}
             </span>
         </div>
-        {#if hasRoster && booking.status !== 'cancelled'}
-            <span class="text-xs text-blue-500">+ Añadir cliente</span>
+        {#if booking.status !== 'cancelled'}
+            <a href="#client-search" class="text-xs font-medium text-blue-600 hover:underline">+ Añadir al grupo</a>
         {/if}
     </div>
 
     <!-- Capacity bar (roster only) -->
     {#if hasRoster && maxCapacity != null}
         <div class="h-1 bg-gray-100">
-            <div class="h-1 bg-ocean transition-all" style="width: {Math.min(100, fillPct)}%"></div>
+            <div class="h-1 transition-all {fillPct >= 100 ? 'bg-red-500' : fillPct >= 75 ? 'bg-amber-400' : 'bg-ocean'}"
+                style="width: {Math.min(100, fillPct)}%"></div>
         </div>
-        {#if slotsLeft != null && slotsLeft <= 2}
-            <p class="bg-amber-50 px-4 py-1 text-xs text-amber-700">
-                {slotsLeft > 0 ? `${slotsLeft} plaza${slotsLeft !== 1 ? 's' : ''} libre${slotsLeft !== 1 ? 's' : ''}` : 'Aforo completo'}
+        {#if slotsLeft != null}
+            <p class="px-4 py-1 text-xs {slotsLeft <= 0 ? 'bg-red-50 text-red-700 font-semibold' : slotsLeft <= 3 ? 'bg-amber-50 text-amber-700' : 'text-muted'}">
+                {#if slotsLeft <= 0}
+                    Aforo completo — {enrolled}/{maxCapacity} plazas ocupadas
+                {:else}
+                    {slotsLeft} plaza{slotsLeft !== 1 ? 's' : ''} libre{slotsLeft !== 1 ? 's' : ''}{hasEdition ? ' en esta edición' : ''} · {enrolled}/{maxCapacity}
+                {/if}
             </p>
         {/if}
     {/if}
@@ -124,7 +154,8 @@
     <div class="divide-y divide-border/40">
         {#each activeClients as bc (bc.id)}
             {@const participants = participantsByEnrollment[bc.id] ?? []}
-            {@const isExpanded = expandedParticipants.has(bc.id)}
+            {@const clientFullName = `${bc.clientFirstName} ${bc.clientLastName}`.trim()}
+            {@const clientAlreadyParticipant = participants.some(p => p.name === clientFullName)}
             <div class="px-4 py-3 space-y-2">
                 <!-- Client row -->
                 <div class="flex items-center gap-2">
@@ -199,103 +230,76 @@
                     <ContactButtons phone={bc.clientPhone} email={bc.clientEmail} />
                 {/if}
 
-                <!-- Participant count stepper -->
-                <form method="POST" action="?/setParticipantCount" use:enhance={withToast()} class="flex items-center gap-2">
-                    <input type="hidden" name="bookingClientId" value={bc.id} />
-                    <span class="text-xs text-muted shrink-0">Participantes:</span>
-                    <div class="flex items-center gap-1">
-                        <button type="button" form=""
-                            onclick={(e) => {
-                                const inp = e.currentTarget.closest('form')?.querySelector('input[name=count]') as HTMLInputElement;
-                                if (inp) inp.value = String(Math.max(1, parseInt(inp.value) - 1));
-                            }}
-                            class="h-6 w-6 rounded-full border border-border text-xs hover:bg-gray-50">−</button>
-                        <input name="count" type="number" min="1" value={bc.participantCount ?? 1}
-                            class="w-10 rounded border border-border px-1 py-0.5 text-center text-sm font-semibold focus:border-ocean focus:outline-none" />
-                        <button type="button"
-                            onclick={(e) => {
-                                const inp = e.currentTarget.closest('form')?.querySelector('input[name=count]') as HTMLInputElement;
-                                if (inp) inp.value = String(parseInt(inp.value) + 1);
-                            }}
-                            class="h-6 w-6 rounded-full border border-border text-xs hover:bg-gray-50">+</button>
-                    </div>
-                    <button type="submit" class="btn-secondary btn-sm text-xs">Set</button>
-                </form>
+                <!-- Named participants — always visible -->
+                <div class="space-y-1.5">
+                    {#each participants as p (p.id)}
+                        <div class="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5 ring-1 ring-border/60">
+                            {#if editingParticipantId === p.id}
+                                <form method="POST" action="?/renameParticipant" use:enhance={withToast(() => { editingParticipantId = null; })}
+                                    class="flex flex-1 items-center gap-1">
+                                    <input type="hidden" name="participantId" value={p.id} />
+                                    <input name="name" type="text" bind:value={editingParticipantName}
+                                        class="flex-1 rounded border border-border px-2 py-0.5 text-xs focus:border-ocean focus:outline-none" />
+                                    <button type="submit" class="text-xs text-ocean hover:underline">✓</button>
+                                    <button type="button" onclick={() => editingParticipantId = null} class="text-xs text-muted hover:text-gray-700">✕</button>
+                                </form>
+                            {:else}
+                                <span class="flex-1 text-xs font-medium text-gray-800">{p.name}</span>
+                                <button type="button"
+                                    onclick={() => { editingParticipantId = p.id; editingParticipantName = p.name; }}
+                                    class="text-[10px] text-muted hover:text-ocean">✎</button>
+                                <form method="POST" action="?/removeBookingParticipant" use:enhance={withToast()}>
+                                    <input type="hidden" name="participantId" value={p.id} />
+                                    <input type="hidden" name="bookingClientId" value={bc.id} />
+                                    <button type="submit" class="text-[10px] text-red-400 hover:text-red-600">✕</button>
+                                </form>
+                            {/if}
+                        </div>
+                    {/each}
 
-                <!-- Named participants toggle + list -->
-                <button type="button" onclick={() => toggleParticipants(bc.id)}
-                    class="flex items-center gap-1 text-xs text-ocean hover:underline">
-                    {#if isExpanded}▾{:else}▸{/if}
-                    {participants.length > 0 ? `${participants.length} nombre${participants.length !== 1 ? 's' : ''}` : 'Nombrar participantes'}
-                </button>
+                    <!-- Mark client as participant (replaces first placeholder if present) -->
+                    {#if !clientAlreadyParticipant}
+                        <form method="POST" action="?/addBookingParticipant" use:enhance={withToast()}>
+                            <input type="hidden" name="bookingClientId" value={bc.id} />
+                            <input type="hidden" name="name" value={clientFullName} />
+                            <input type="hidden" name="addToSessions" value={hasSessions ? 'true' : 'false'} />
+                            <input type="hidden" name="substituteIfPlaceholder" value="true" />
+                            <button type="submit"
+                                class="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-blue-200 px-2.5 py-1.5 text-xs text-blue-600 hover:bg-blue-50">
+                                <span class="text-sm leading-none">＋</span>{clientFullName} también participa
+                            </button>
+                        </form>
+                    {/if}
 
-                {#if isExpanded}
-                    {@const clientFullName = `${bc.clientFirstName} ${bc.clientLastName}`.trim()}
-                    {@const clientAlreadyParticipant = participants.some(p => p.name === clientFullName)}
-                    <div class="ml-2 space-y-1">
-                        {#each participants as p (p.id)}
-                            <div class="flex items-center gap-2">
-                                {#if editingParticipantId === p.id}
-                                    <form method="POST" action="?/renameParticipant" use:enhance={withToast(() => { editingParticipantId = null; })}
-                                        class="flex flex-1 items-center gap-1">
-                                        <input type="hidden" name="participantId" value={p.id} />
-                                        <input name="name" type="text" bind:value={editingParticipantName}
-                                            class="flex-1 rounded border border-border px-2 py-0.5 text-xs focus:border-ocean focus:outline-none" />
-                                        <button type="submit" class="text-xs text-ocean hover:underline">✓</button>
-                                        <button type="button" onclick={() => editingParticipantId = null} class="text-xs text-muted hover:text-gray-700">✕</button>
-                                    </form>
-                                {:else}
-                                    <span class="flex-1 text-xs text-gray-700">{p.name}</span>
-                                    <button type="button"
-                                        onclick={() => { editingParticipantId = p.id; editingParticipantName = p.name; }}
-                                        class="text-[10px] text-muted hover:text-ocean">editar</button>
-                                    <form method="POST" action="?/removeBookingParticipant" use:enhance={withToast()}>
-                                        <input type="hidden" name="participantId" value={p.id} />
-                                        <button type="submit" class="text-[10px] text-red-400 hover:text-red-600">✕</button>
-                                    </form>
-                                {/if}
-                            </div>
-                        {/each}
+                    <!-- Add participant inline form -->
+                    {#if addingParticipantFor === bc.id}
+                        <form method="POST" action="?/addBookingParticipant"
+                            use:enhance={withToast(() => { addingParticipantFor = null; newParticipantName = ''; })}
+                            class="flex items-center gap-1">
+                            <input type="hidden" name="bookingClientId" value={bc.id} />
+                            <input type="hidden" name="addToSessions" value="true" />
+                            <input name="name" type="text" bind:value={newParticipantName} placeholder="Nombre del participante..."
+                                class="flex-1 rounded border border-border px-2 py-1 text-xs focus:border-ocean focus:outline-none" autofocus />
+                            <button type="submit" class="btn-primary btn-sm text-xs">Añadir</button>
+                            <button type="button" onclick={() => addingParticipantFor = null} class="text-xs text-muted">✕</button>
+                        </form>
+                    {:else}
+                        <button type="button" onclick={() => addingParticipantFor = bc.id}
+                            class="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted hover:border-ocean hover:text-ocean">
+                            <span class="text-sm leading-none">＋</span>Añadir participante
+                        </button>
+                    {/if}
 
-                        <!-- Quick-add client as own participant -->
-                        {#if !clientAlreadyParticipant}
-                            <form method="POST" action="?/addBookingParticipant" use:enhance={withToast()}>
-                                <input type="hidden" name="bookingClientId" value={bc.id} />
-                                <input type="hidden" name="name" value={clientFullName} />
-                                <input type="hidden" name="addToSessions" value={hasSessions ? 'true' : 'false'} />
-                                <button type="submit" class="text-xs text-muted hover:text-ocean">
-                                    ← {clientFullName} también participa
-                                </button>
-                            </form>
-                        {/if}
-
-                        <!-- Add participant inline form -->
-                        {#if addingParticipantFor === bc.id}
-                            <form method="POST" action="?/addBookingParticipant"
-                                use:enhance={withToast(() => { addingParticipantFor = null; newParticipantName = ''; })}
-                                class="flex items-center gap-1">
-                                <input type="hidden" name="bookingClientId" value={bc.id} />
-                                <input type="hidden" name="addToSessions" value="true" />
-                                <input name="name" type="text" bind:value={newParticipantName} placeholder="Nombre..."
-                                    class="flex-1 rounded border border-border px-2 py-0.5 text-xs focus:border-ocean focus:outline-none" />
-                                <button type="submit" class="text-xs text-ocean hover:underline">+ Añadir</button>
-                                <button type="button" onclick={() => addingParticipantFor = null} class="text-xs text-muted">✕</button>
-                            </form>
-                        {:else}
-                            <button type="button" onclick={() => addingParticipantFor = bc.id}
-                                class="text-xs text-ocean hover:underline">+ Nombrar participante</button>
-                        {/if}
-
-                        <!-- Sync all named participants to all sessions -->
-                        {#if hasSessions && participants.length > 0}
-                            <form method="POST" action="?/syncParticipantsToSessions" use:enhance={withToast()}>
-                                <button type="submit" class="text-xs text-muted hover:text-purple-600">
-                                    ↕ Sincronizar todos a sesiones
-                                </button>
-                            </form>
-                        {/if}
-                    </div>
-                {/if}
+                    <!-- Sync all named participants to all sessions -->
+                    {#if hasSessions && participants.length > 0}
+                        <form method="POST" action="?/syncParticipantsToSessions" use:enhance={withToast()}>
+                            <button type="submit"
+                                class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100">
+                                ↕ Sincronizar participantes a sesiones
+                            </button>
+                        </form>
+                    {/if}
+                </div>
 
                 <!-- Per-enrollment payment and actions -->
                 {#if canSeeFinancials}
@@ -324,25 +328,31 @@
         {/each}
     </div>
 
-    <!-- Add client search (roster only) -->
-    {#if hasRoster && booking.status !== 'cancelled'}
-        <div class="border-t border-border/40 px-4 py-3">
+    <!-- Add client to group -->
+    {#if booking.status !== 'cancelled'}
+        <div id="client-search" class="border-t border-border/40 px-4 py-3 space-y-2">
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-muted">Añadir al grupo</p>
             <form method="POST" action="?/enroll" use:enhance={withToast(() => { selectedEnroll = null; })} class="space-y-2">
                 <input type="hidden" name="clientId" value={selectedEnroll?.clientId ?? ''} />
                 <input type="hidden" name="amountDue" value={booking.serviceBasePrice ?? '0'} />
                 <ClientSearchInput
                     {clients}
                     excludeIds={[...enrolledIds]}
-                    placeholder="Buscar cliente para añadir..."
+                    placeholder="Buscar cliente..."
                     onSelect={(c) => selectedEnroll = { clientId: c.id, name: `${c.firstName} ${c.lastName}`.trim() }}
                 />
                 {#if selectedEnroll}
                     <div class="flex items-center justify-between rounded-lg bg-ocean/5 px-3 py-1.5">
                         <span class="text-sm font-medium text-ocean">{selectedEnroll.name}</span>
-                        <button type="submit" class="btn-primary btn-sm text-xs">Apuntar</button>
+                        <button type="submit" class="btn-primary btn-sm text-xs">Añadir</button>
                     </div>
                 {/if}
             </form>
+            {#if hasRoster}
+                <p class="text-[10px] text-muted">
+                    ¿Inscripción independiente? <a href={newBookingUrl} class="text-ocean hover:underline">Nueva reserva →</a>
+                </p>
+            {/if}
         </div>
     {/if}
 
