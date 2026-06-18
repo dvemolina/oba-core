@@ -49,6 +49,17 @@
 		editing = true;
 	}
 
+	let editingNotes = $state(false);
+	let editNotesValue = $state(data.booking.notes ?? '');
+
+	// Short booking ID for display (first 8 chars)
+	const shortId = $derived(data.booking.id.slice(0, 8).toUpperCase());
+
+	function fmtDateShort(d: Date | string): string {
+		const date = typeof d === 'string' ? new Date(d) : d;
+		return date.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+	}
+
 	const isNewBooking = $derived($page.url.searchParams.get('new') === '1');
 	let confirmationDismissed = $state(false);
 
@@ -136,44 +147,54 @@
 		</span>
 	</div>
 
-	<!-- Booking details card -->
-	{#if !editing}
-		<div class="space-y-2.5 rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
-			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Detalles</p>
-				<button type="button" onclick={openEdit} class="text-xs text-ocean hover:underline">Editar</button>
-			</div>
-			{#if !hasSessions && data.booking.instructorName}
-				<div class="flex items-center justify-between">
-					<span class="text-xs text-muted">Instructor</span>
-					<span class="flex items-center gap-1.5 text-sm text-gray-800"
-						><Waves size={13} class="shrink-0 text-ocean/60" />{data.booking.instructorName}</span
-					>
-				</div>
-			{/if}
-			{#if data.booking.sessionsIncluded != null}
-				<div class="flex items-center justify-between">
-					<span class="text-xs text-muted">Sesiones contratadas</span>
-					<span class="text-sm text-gray-800">{data.booking.sessionsIncluded}</span>
-				</div>
-			{/if}
-			{#if data.booking.spotNotes}
-				<div class="flex items-center justify-between">
-					<span class="text-xs text-muted">Spot</span>
-					<span class="text-sm text-gray-800">{data.booking.spotNotes}</span>
-				</div>
-			{/if}
-			{#if data.booking.notes}
-				<div>
-					<p class="text-xs text-muted">Notas</p>
-					<p class="mt-0.5 text-sm text-gray-700">{data.booking.notes}</p>
-				</div>
+	<!-- Meta strip: booking ID, created, source -->
+	<div class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-(--radius-card) bg-sand px-4 py-2.5">
+		<span class="font-mono text-[11px] font-semibold tracking-widest text-muted">#{shortId}</span>
+		<span class="text-[10px] text-border">·</span>
+		<span class="text-[11px] text-muted">Creada {fmtDateShort(data.booking.createdAt)}</span>
+		{#if data.booking.updatedAt && data.booking.updatedAt.getTime() - data.booking.createdAt.getTime() > 60000}
+			<span class="text-[10px] text-border">·</span>
+			<span class="text-[11px] text-muted">Editada {fmtDateShort(data.booking.updatedAt)}</span>
+		{/if}
+		<span class="text-[10px] text-border">·</span>
+		<span class="text-[11px] text-muted capitalize">{data.booking.source === 'whatsapp_bot' ? '🤖 WhatsApp bot' : '👤 Admin'}</span>
+		<button type="button" onclick={openEdit}
+			class="ml-auto text-[11px] font-medium text-ocean hover:underline">Editar reserva</button>
+	</div>
+
+	<!-- Notes card — always visible, inline edit -->
+	<div class="rounded-(--radius-card) border border-border bg-surface">
+		<div class="flex items-center justify-between px-4 py-2.5">
+			<p class="text-xs font-semibold uppercase tracking-wider text-muted">📝 Notas internas</p>
+			{#if !editingNotes}
+				<button type="button" onclick={() => { editNotesValue = data.booking.notes ?? ''; editingNotes = true; }}
+					class="text-xs text-ocean hover:underline">{data.booking.notes ? 'Editar' : '+ Añadir'}</button>
 			{/if}
 		</div>
-	{:else}
-		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border">
+		{#if editingNotes}
+			<form method="post" action="?/updateNotes"
+				use:enhance={withToast(() => { editingNotes = false; })}
+				class="border-t border-border/40 px-4 pb-3 pt-3">
+				<textarea name="notes" rows="3" bind:value={editNotesValue} autofocus
+					placeholder="Notas internas sobre esta reserva..."
+					class="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:border-ocean focus:outline-none"></textarea>
+				<div class="mt-2 flex gap-2">
+					<button type="submit" class="btn-primary btn-sm text-xs">Guardar</button>
+					<button type="button" onclick={() => editingNotes = false} class="text-xs text-muted hover:text-gray-700">Cancelar</button>
+				</div>
+			</form>
+		{:else if data.booking.notes}
+			<p class="border-t border-border/40 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">{data.booking.notes}</p>
+		{:else}
+			<p class="border-t border-border/40 px-4 py-3 text-xs italic text-border">Sin notas. Toca "+ Añadir" para agregar.</p>
+		{/if}
+	</div>
+
+	<!-- Operational details (spot, instructor, date) — edit form -->
+	{#if editing}
+		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-ocean/40">
 			<div class="mb-3 flex items-center justify-between">
-				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Editar detalles</p>
+				<p class="text-xs font-semibold uppercase tracking-wider text-muted">Editar reserva</p>
 				<button type="button" onclick={() => (editing = false)} class="text-xs text-muted hover:text-gray-700">Cancelar</button>
 			</div>
 			<form method="post" action="?/update" use:enhance={withToast(() => { editing = false; })} class="space-y-3">
@@ -235,18 +256,31 @@
 						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none"
 					/>
 				</div>
-				<div>
-					<label class="mb-1 block text-xs text-muted" for="edit-notes">Notas internas</label>
-					<textarea
-						id="edit-notes"
-						name="notes"
-						rows="2"
-						class="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ocean focus:outline-none"
-						>{data.booking.notes ?? ''}</textarea
-					>
-				</div>
 				<button type="submit" class="btn-primary btn-block">Guardar</button>
 			</form>
+		</div>
+	{:else if data.booking.spotNotes || (!hasSessions && data.booking.instructorName) || data.booking.sessionsIncluded != null}
+		<!-- Read-only operational details — only shown if there's content -->
+		<div class="space-y-2 rounded-(--radius-card) bg-surface px-4 py-3 ring-1 ring-border">
+			{#if !hasSessions && data.booking.instructorName}
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-muted">Instructor</span>
+					<span class="flex items-center gap-1.5 text-sm text-gray-800"
+						><Waves size={13} class="shrink-0 text-ocean/60" />{data.booking.instructorName}</span>
+				</div>
+			{/if}
+			{#if data.booking.sessionsIncluded != null}
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-muted">Sesiones contratadas</span>
+					<span class="text-sm text-gray-800">{data.booking.sessionsIncluded}</span>
+				</div>
+			{/if}
+			{#if data.booking.spotNotes}
+				<div class="flex items-center justify-between">
+					<span class="text-xs text-muted">Spot</span>
+					<span class="text-sm text-gray-800">{data.booking.spotNotes}</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -259,6 +293,8 @@
 		participantsByEnrollment={data.participantsByEnrollment}
 		{canSeeFinancials}
 		availableCreditsPerEnrollment={data.availableCreditsPerEnrollment}
+		editionEnrolledCount={data.editionEnrolledCount}
+		editionMaxCapacity={data.editionMaxCapacity}
 	/>
 
 	{#if hasSessions}
@@ -267,6 +303,7 @@
 			{modules}
 			sessions={data.sessions}
 			allDateSessions={data.allDateSessions}
+			sessionOwnerType={data.sessionOwnerType}
 			instructors={data.instructors}
 			participantsByEnrollment={data.participantsByEnrollment}
 		/>

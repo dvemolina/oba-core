@@ -12,23 +12,25 @@ import {
 	removeClientFromBooking
 } from '$lib/features/bookings/queries';
 import {
-	listSessionsForBooking,
-	listSessionsForDate,
+	listSessionsForContext,
+	resolveSessionContext,
+	assignBookingToSession,
+	syncAllParticipantsToEditionSessions,
 	createSession,
 	updateSession,
 	cancelSession,
 	deleteSession,
 	deleteSessionsForBooking,
-	linkSessionToBooking,
-	unlinkSessionFromBooking,
 	addParticipant,
-	removeParticipant
+	removeParticipant,
+	renameSessionParticipantsByBookingParticipantId
 } from '$lib/features/sessions/queries';
-import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount, listParticipantsForEnrollment } from '$lib/features/bookings/participants.queries';
-import { recalcBookingAmounts, applyCreditsToEnrollment, removeCreditsFromEnrollment } from '$lib/features/bookings/queries';
+import { addParticipant as addEnrollmentParticipant, removeParticipant as removeEnrollmentParticipant, renameParticipant, setEnrollmentParticipantCount, listParticipantsForEnrollment, syncParticipantCount } from '$lib/features/bookings/participants.queries';
+import { recalcBookingAmounts, applyCreditsToEnrollment, removeCreditsFromEnrollment, recalcEditionBookingAmounts } from '$lib/features/bookings/queries';
 import { getAvailableCreditsForClient, getCreditsUsedFromBooking } from '$lib/features/credits/queries';
 import type { CreditSource } from '$lib/features/credits/queries';
 import { getService } from '$lib/features/services/queries';
+import { countEnrolledForEditionOverlap, getServiceEdition } from '$lib/features/services/editions.queries';
 import { listInstructors } from '$lib/features/instructors/queries';
 import { listClients } from '$lib/features/clients/queries';
 import type { BookingStatus } from '$lib/features/bookings/types';
@@ -45,18 +47,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!booking) error(404, 'Booking not found');
 
 	const hasSessions = booking.serviceHasSessions;
-	const [service, clients, sessions, allDateSessions] = await Promise.all([
+	const [service, clients, sessions] = await Promise.all([
 		booking.serviceId ? getService(booking.serviceId) : Promise.resolve(undefined),
 		booking.serviceHasRoster ? listClients() : Promise.resolve([]),
-		hasSessions ? listSessionsForBooking(params.id) : Promise.resolve([]),
-		// For "link to existing session": sessions on booking's start date from other bookings
-		hasSessions ? listSessionsForDate(booking.date) : Promise.resolve([])
+		hasSessions ? listSessionsForContext(booking) : Promise.resolve([]),
+		Promise.resolve([])  // allDateSessions no longer used
 	]);
 
-	// Sessions on the same date not already linked to this booking
-	const linkableSessions = allDateSessions.filter(
-		s => !sessions.some(owned => owned.id === s.id) && s.status !== 'cancelled'
-	);
+	const ctx = hasSessions ? resolveSessionContext(booking) : null;
 
 	// Load named participants per enrollment
 	const participantsByEnrollment: Record<string, Awaited<ReturnType<typeof listParticipantsForEnrollment>>> = {};
@@ -83,6 +81,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		})
 	);
 
+	// Edition-level enrollment + capacity: fetched separately to avoid JOIN alias issues.
+	// Used to show real-time service availability in the clients card, same number as calendar chips.
+	const [editionEnrolledCount, editionMaxCapacity] = await (async () => {
+		if (!booking.serviceEditionId || !booking.serviceId) return [null, null];
+		const [edition, enrolled] = await Promise.all([
+			getServiceEdition(booking.serviceEditionId),
+			(booking.serviceEditionStartDate && booking.serviceEditionEndDate)
+				? countEnrolledForEditionOverlap(booking.serviceId, booking.serviceEditionStartDate, booking.serviceEditionEndDate)
+				: Promise.resolve(null)
+		]);
+		return [enrolled, edition?.maxCapacity ?? null];
+	})();
+
 	const hasCreditsModule = 'credits' in (booking.serviceModules ?? {});
 
 	const [creditsUsedFromThisBooking, availableCreditsPerEnrollment] = await Promise.all([
@@ -100,7 +111,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			: Promise.resolve({} as Record<string, CreditSource[]>)
 	]);
 
-	return { booking, instructors, service: service ?? null, clients, sessions, linkableSessions, allDateSessions, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment };
+	return { booking, instructors, service: service ?? null, clients, sessions, allDateSessions: [], sessionOwnerType: ctx?.type ?? null, canSeeFinancials: canSeeFinancials(locals), userRole: locals.user?.role ?? '', itemsByAllocType, allocTypeTracking, serviceInventoryLinks, participantsByEnrollment, creditsUsedFromThisBooking, availableCreditsPerEnrollment, editionEnrolledCount, editionMaxCapacity };
 };
 
 export const actions: Actions = {
@@ -127,6 +138,13 @@ export const actions: Actions = {
 		return { error: null, message };
 	},
 
+	updateNotes: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		await updateBooking(params.id, { notes: form.get('notes')?.toString() || null });
+		return { error: null, message: 'Notas guardadas' };
+	},
+
 	updatePayment: async ({ request, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
@@ -151,7 +169,8 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Booking not found' });
 
 		const max = booking.serviceMaxCapacity ?? Infinity;
-		if (booking.clients.length >= max) return fail(400, { error: 'Camp is full' });
+		const activeCount = booking.clients.filter(c => c.status !== 'cancelled').reduce((s, c) => s + (c.participantCount ?? 1), 0);
+		if (activeCount >= max) return fail(400, { error: 'Camp is full' });
 
 		const alreadyEnrolled = booking.clients.some((c) => c.clientId === clientId);
 		if (alreadyEnrolled) return fail(400, { error: 'Client already enrolled' });
@@ -225,7 +244,11 @@ export const actions: Actions = {
 		const notes = form.get('sessionNotes')?.toString() || undefined;
 		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
 		if (!date) return fail(400, { error: 'Session date required' });
-		await createSession({ bookingId: params.id, date, time, durationMinutes, notes, instructorIds });
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Booking not found' });
+		const ctx = resolveSessionContext(booking);
+		if (ctx.type !== 'booking') return fail(400, { error: 'Sessions are managed at the service level for this booking type' });
+		await createSession({ ownerType: 'booking', bookingId: params.id, date, time, durationMinutes, notes, instructorIds });
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Session added' };
 	},
@@ -266,24 +289,23 @@ export const actions: Actions = {
 		return { error: null, message: 'Session deleted' };
 	},
 
-	linkToSession: async ({ request, params, locals }) => {
+	assignToSession: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const sessionId = form.get('sessionId')?.toString() ?? '';
-		if (!sessionId) return fail(400, { error: 'Missing session id' });
-		await linkSessionToBooking(sessionId, params.id);
-		await recalcBookingAmounts(params.id);
-		return { error: null, message: 'Linked to session' };
+		if (!sessionId) return fail(400, { error: 'sessionId required' });
+		try {
+			await assignBookingToSession(params.id, sessionId);
+		} catch (e) {
+			return fail(400, { error: (e as Error).message });
+		}
+		return { error: null, message: 'Asignado a sesión' };
 	},
 
-	unlinkFromSession: async ({ request, params, locals }) => {
+	unassignFromSession: async ({ params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
-		const form = await request.formData();
-		const sessionId = form.get('sessionId')?.toString() ?? '';
-		if (!sessionId) return fail(400, { error: 'Missing session id' });
-		await unlinkSessionFromBooking(sessionId, params.id);
-		await recalcBookingAmounts(params.id);
-		return { error: null, message: 'Unlinked from session' };
+		await assignBookingToSession(params.id, null);
+		return { error: null, message: 'Desasignado' };
 	},
 
 	addParticipant: async ({ request, locals }) => {
@@ -313,6 +335,8 @@ export const actions: Actions = {
 		if (!booking) return fail(404, { error: 'Booking not found' });
 		if (!booking.dateEnd) return fail(400, { error: 'Booking has no end date' });
 		if (!booking.serviceHasSessions) return fail(400, { error: 'Service does not use sessions' });
+		const ctx = resolveSessionContext(booking);
+		if (ctx.type !== 'booking') return fail(400, { error: 'Bulk generate only supported for private lesson bookings' });
 
 		const sessionsPerDay = Math.min(6, Math.max(1, parseInt(form.get('sessionsPerDay')?.toString() ?? '1')));
 		const times = Array.from({ length: sessionsPerDay }, (_, i) =>
@@ -320,19 +344,21 @@ export const actions: Actions = {
 		);
 		const weekdaysOnly = form.get('weekdaysOnly') === 'on';
 		const clearExisting = form.get('clearExisting') === 'on';
+		const durRaw = form.get('sessionDuration')?.toString();
+		const durationMinutes = durRaw ? parseInt(durRaw) : undefined;
 
 		if (clearExisting) await deleteSessionsForBooking(params.id);
 
 		const start = new Date(booking.date + 'T00:00:00');
 		const end = new Date(booking.dateEnd + 'T00:00:00');
-		const toCreate: { bookingId: string; date: string; time?: string; sortOrder: number }[] = [];
+		const toCreate: { ownerType: 'booking'; bookingId: string; date: string; time?: string; durationMinutes?: number; sortOrder: number }[] = [];
 
 		for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
 			const dow = d.getDay();
 			if (weekdaysOnly && (dow === 0 || dow === 6)) continue;
 			const dateStr = d.toISOString().slice(0, 10);
 			for (let i = 0; i < sessionsPerDay; i++) {
-				toCreate.push({ bookingId: params.id, date: dateStr, time: times[i], sortOrder: i });
+				toCreate.push({ ownerType: 'booking', bookingId: params.id, date: dateStr, time: times[i], durationMinutes, sortOrder: i });
 			}
 		}
 
@@ -346,14 +372,33 @@ export const actions: Actions = {
 		const name = form.get('name')?.toString().trim() ?? '';
 		const addToSessions = form.get('addToSessions') === 'true';
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
+		const substituteIfPlaceholder = form.get('substituteIfPlaceholder') === 'true';
 		if (!name) return fail(400, { error: 'Name is required' });
 		if (!bookingClientId) return fail(400, { error: 'Booking client id is required' });
-		await addEnrollmentParticipant(bookingClientId, name);
-		if (addToSessions) {
-			const sessions = await listSessionsForBooking(params.id);
-			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name })));
+
+		if (substituteIfPlaceholder) {
+			// Replace the first auto-generated placeholder name with the real name
+			const existing = await listParticipantsForEnrollment(bookingClientId);
+			const placeholder = existing.find(p => /^Participante \d+/.test(p.name));
+			if (placeholder) {
+				await renameParticipant(placeholder.id, name);
+				await renameSessionParticipantsByBookingParticipantId(placeholder.id, name);
+				await recalcBookingAmounts(params.id);
+				return { error: null, message: 'Participante actualizado' };
+			}
 		}
+
+		const booking = await getBooking(params.id);
+		const bp = await addEnrollmentParticipant(bookingClientId, name);
+		if (addToSessions && booking) {
+			const sessions = await listSessionsForContext(booking);
+			await Promise.all(sessions.map(s => addParticipant({ sessionId: s.id, name, bookingParticipantId: bp.id })));
+		}
+		await syncParticipantCount(bookingClientId);
 		await recalcBookingAmounts(params.id);
+		if (booking?.serviceEditionId) {
+			await syncAllParticipantsToEditionSessions(booking.serviceEditionId);
+		}
 		return { error: null, message: 'Participant added' };
 	},
 
@@ -361,8 +406,10 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();
 		const id = form.get('participantId')?.toString() ?? '';
+		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (!id) return fail(400, { error: 'Missing participant id' });
 		await removeEnrollmentParticipant(id);
+		if (bookingClientId) await syncParticipantCount(bookingClientId);
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Participant removed' };
 	},
@@ -444,9 +491,31 @@ export const actions: Actions = {
 		const bookingClientId = form.get('bookingClientId')?.toString() ?? '';
 		if (isNaN(count) || count < 0) return fail(400, { error: 'Invalid count' });
 		if (!bookingClientId) return fail(400, { error: 'Booking client id is required' });
-		await setEnrollmentParticipantCount(bookingClientId, count);
+
+		// Look up client name for meaningful default participant names
+		const booking = await getBooking(params.id);
+		const bc = booking?.clients.find(c => c.id === bookingClientId);
+		const clientFirstName = bc?.clientFirstName ?? undefined;
+
+		await setEnrollmentParticipantCount(bookingClientId, count, clientFirstName);
+
+		// Auto-sync newly created participants to all existing sessions
+		if (booking?.serviceEditionId) {
+			await syncAllParticipantsToEditionSessions(booking.serviceEditionId);
+		} else if (booking) {
+			const allParticipants = await listParticipantsForEnrollment(bookingClientId);
+			const sessions = await listSessionsForContext(booking);
+			if (sessions.length > 0 && allParticipants.length > 0) {
+				await Promise.all(
+					sessions.map(s => Promise.all(
+						allParticipants.map(p => addParticipant({ sessionId: s.id, name: p.name, bookingParticipantId: p.id }))
+					))
+				);
+			}
+		}
+
 		await recalcBookingAmounts(params.id);
-		return { error: null, message: `${count} participant${count !== 1 ? 's' : ''} set` };
+		return { error: null, message: `${count} participante${count !== 1 ? 's' : ''} configurado${count !== 1 ? 's' : ''}` };
 	},
 
 	renameParticipant: async ({ request, locals }) => {
@@ -464,7 +533,13 @@ export const actions: Actions = {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const booking = await getBooking(params.id);
 		if (!booking) return fail(404, { error: 'Booking not found' });
-		const sessions = await listSessionsForBooking(params.id);
+
+		if (booking.serviceEditionId) {
+			await syncAllParticipantsToEditionSessions(booking.serviceEditionId);
+			return { error: null, message: 'Participantes sincronizados' };
+		}
+
+		const sessions = await listSessionsForContext(booking);
 		if (sessions.length === 0) return { error: null, message: 'No sessions to sync' };
 
 		const participantRows = await Promise.all(
