@@ -42,6 +42,14 @@
 	function handleMousedown(e: MouseEvent) {
 		if (popoverEl && !popoverEl.contains(e.target as Node)) onclose();
 	}
+
+	// Portal: moves node to document.body to escape overflow/stacking context on mobile Safari
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return {
+			destroy() { node.remove(); }
+		};
+	}
 </script>
 
 <svelte:document onkeydown={handleKeydown} onmousedown={handleMousedown} />
@@ -49,6 +57,7 @@
 {#if open}
 	<div
 		bind:this={popoverEl}
+		use:portal
 		style="position:fixed;top:{top}px;left:{left}px"
 		class="z-50 min-w-52 rounded-xl border border-border bg-white p-3 shadow-lg"
 		role="tooltip"
