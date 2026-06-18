@@ -1,4 +1,22 @@
-export type SessionStatus = 'unscheduled' | 'scheduled' | 'completed' | 'cancelled';
+import type { ServiceModules } from '$lib/features/services/modules';
+
+export type SessionStatus    = 'unscheduled' | 'scheduled' | 'completed' | 'cancelled';
+export type SkillLevel       = 'beginner' | 'intermediate' | 'advanced';
+export type SessionOwnerType = 'booking' | 'service' | 'edition';
+
+export type SessionContext =
+	| { type: 'booking'; bookingId: string }
+	| { type: 'service'; serviceId: string; date: string }
+	| { type: 'edition'; editionId: string }
+
+// Minimal shape needed by resolveSessionContext — full Booking satisfies this structurally
+export interface BookingSessionContext {
+	id: string;
+	date: string;
+	serviceId: string | null;
+	serviceEditionId: string | null;
+	serviceModules: ServiceModules | null;
+}
 
 export interface SessionInstructor {
 	id: string;
@@ -16,14 +34,17 @@ export interface SessionParticipant {
 	sortOrder: number;
 }
 
-// Pure session row — no booking context.
 export interface Session {
 	id: string;
+	ownerType: SessionOwnerType;
+	bookingId: string | null;         // set when ownerType='booking'
+	serviceId: string | null;         // set when ownerType='service'
+	serviceEditionId: string | null;  // set when ownerType='edition'
 	date: string;
 	time: string | null;
 	durationMinutes: number | null;
 	notes: string | null;
-	skillLevel: 'beginner' | 'intermediate' | 'advanced' | null;
+	skillLevel: SkillLevel | null;
 	status: SessionStatus;
 	sortOrder: number;
 	instructors: SessionInstructor[];
@@ -32,59 +53,59 @@ export interface Session {
 	updatedAt: Date;
 }
 
-// Session enriched with booking context for the calendar day view.
+// Calendar day view — enriched with booking/service context
 export interface SessionForDay extends Session {
-	bookingId: string;
+	primaryBookingId: string | null;  // null for edition sessions
 	bookingIds: string[];
-	bookingStatus: string;
+	editionId: string | null;
+	bookingStatus: string | null;
 	serviceName: string | null;
 	serviceColor: string | null;
 	serviceHasSessions: boolean;
 	serviceDurationMinutes: number | null;
 	effectiveDuration: number;
-	// Who attends: from session_participants if set, otherwise booking client names
 	participantNames: string[];
 	totalParticipants: number;
-	// Payment totals across all enrolled clients for this session's bookings
 	totalAmountDue: number;
 	totalAmountPaid: number;
 }
 
-// Session enriched for the Today/Agenda view.
+// Agenda view — enriched with full booking/client context
 export interface AgendaSession extends Session {
-	bookingId: string;
+	primaryBookingId: string | null;
 	bookingIds: string[];
+	editionId: string | null;
 	serviceName: string | null;
 	serviceColor: string | null;
 	serviceHasRoster: boolean;
 	serviceDurationMinutes: number | null;
 	effectiveDuration: number;
 	sessionsIncluded: number | null;
-	bookingStatus: string;
+	bookingStatus: string | null;
 	bookingDate: string;
 	bookingDateEnd: string | null;
 	isFlexible: boolean;
-	// First enrolled client name (for card title — "[Service] · [Client]")
 	firstClientName: string | null;
-	// Who attends: from session_participants if set, otherwise first booking client
 	participantNames: string[];
-	// Total participant count across all enrolled clients
 	totalParticipants: number;
-	// For camps (roster): enrollment aggregate
 	enrolledCount: number;
 	maxCapacity: number | null;
-	// Payment totals across all enrolled clients
 	totalAmountDue: number;
 	totalAmountPaid: number;
 }
 
-export interface CreateSessionInput {
-	bookingId: string;
+// Discriminated union — ownerType drives which FK is set
+export type CreateSessionInput =
+	| ({ ownerType: 'booking'; bookingId: string } & BaseSessionInput)
+	| ({ ownerType: 'service'; serviceId: string } & BaseSessionInput)
+	| ({ ownerType: 'edition'; editionId: string } & BaseSessionInput)
+
+export interface BaseSessionInput {
 	date: string;
 	time?: string;
 	durationMinutes?: number;
 	notes?: string;
-	skillLevel?: 'beginner' | 'intermediate' | 'advanced';
+	skillLevel?: SkillLevel;
 	instructorIds?: string[];
 	sortOrder?: number;
 }
@@ -94,7 +115,7 @@ export interface UpdateSessionInput {
 	time?: string | null;
 	durationMinutes?: number | null;
 	notes?: string | null;
-	skillLevel?: 'beginner' | 'intermediate' | 'advanced' | null;
+	skillLevel?: SkillLevel | null;
 	status?: SessionStatus;
 	instructorIds?: string[];
 	sortOrder?: number;
@@ -106,4 +127,27 @@ export interface CreateParticipantInput {
 	bookingParticipantId?: string;
 	notes?: string;
 	sortOrder?: number;
+}
+
+export interface BulkGenOptions {
+	sessionsPerDay: number;
+	times: (string | undefined)[];
+	weekdaysOnly: boolean;
+	durationMinutes?: number;
+	clearExisting: boolean;
+}
+
+// Type guards
+export const isBookingSession  = (s: Session): s is Session & { bookingId: string }        => s.ownerType === 'booking';
+export const isServiceSession  = (s: Session): s is Session & { serviceId: string }        => s.ownerType === 'service';
+export const isEditionSession  = (s: Session): s is Session & { serviceEditionId: string } => s.ownerType === 'edition';
+
+export interface BookingEnrollment {
+	bookingId: string;
+	clientId: string;
+	firstName: string | null;
+	lastName: string | null;
+	amountDue: string;
+	amountPaid: string;
+	status: 'enrolled' | 'cancelled';
 }
