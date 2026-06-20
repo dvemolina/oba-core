@@ -60,6 +60,7 @@ export interface Booking {
 	serviceEditionMaxCapacity: number | null;
 	sessionId: string | null;
 	time: string | null;
+	quantity: number;
 	sessionsIncluded: number | null;
 	isFlexible: boolean;
 	status: BookingStatus;
@@ -119,6 +120,7 @@ export interface ClientBookingSummary {
 
 export interface CreateBookingInput {
 	serviceId: string;
+	quantity?: number;
 	/** For non-session services (rentals, products, accommodation) only */
 	instructorId?: string;
 	allocations?: CreateAllocationInput[];
@@ -141,6 +143,7 @@ export interface CreateBookingInput {
 }
 
 export interface UpdateBookingInput {
+	quantity?: number;
 	/** For non-session services only */
 	instructorId?: string | null;
 	date?: string;

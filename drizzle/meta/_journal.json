@@ -239,6 +239,13 @@
       "when": 1781769600000,
       "tag": "0039_session_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781952344804,
+      "tag": "0040_useful_cammi",
+      "breakpoints": true
     }
   ]
 }

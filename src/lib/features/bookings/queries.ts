@@ -341,6 +341,7 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
 			serviceEditionMaxCapacity: serviceEditions.maxCapacity,
 			sessionId: bookings.sessionId,
 			time: bookings.time,
+			quantity: bookings.quantity,
 			sessionsIncluded: bookings.sessionsIncluded,
 			isFlexible: bookings.isFlexible,
 			status: bookings.status,
@@ -426,6 +427,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 		.insert(bookings)
 		.values({
 			serviceId: input.serviceId,
+			quantity: input.quantity ?? 1,
 			serviceEditionId: input.serviceEditionId,
 			date: input.date,
 			dateEnd: input.dateEnd,

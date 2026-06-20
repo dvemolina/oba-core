@@ -74,7 +74,7 @@
 	<!-- Profile (phone/bio/active) -->
 	<section class="mb-4 rounded-(--radius-card) bg-surface p-5 ring-1 ring-border">
 		<h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{m.staff_detail_profile()}</h2>
-		<form method="POST" action="?/updateProfile" use:enhance class="space-y-4">
+		<form method="POST" action="?/updateProfile" use:enhance={() => async ({ update }) => update({ reset: false })} class="space-y-4">
 			<div>
 				<label for="phone" class="mb-1 block text-sm font-medium text-gray-700">{m.common_phone()}</label>
 				<input id="phone" name="phone" type="tel" value={data.member.phone ?? ''} class="input w-full" placeholder="+34 600 000 000" />

@@ -755,5 +755,22 @@ export const actions: Actions = {
 		await removeCreditsFromEnrollment(bookingClientId);
 		await recalcBookingAmounts(params.id);
 		return { error: null, message: 'Credits removed' };
+	},
+
+	updateQuantity: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const quantity = Math.max(1, parseInt(form.get('quantity')?.toString() ?? '1') || 1);
+		const booking = await getBooking(params.id);
+		if (!booking) return fail(404, { error: 'Not found' });
+		await updateBooking(params.id, { quantity });
+		const basePrice = parseFloat(booking.serviceBasePrice ?? '0');
+		if (basePrice > 0) {
+			const newAmount = (basePrice * quantity).toFixed(2);
+			for (const bc of booking.clients.filter(c => c.status === 'enrolled')) {
+				await updateBookingClientAmountDue(bc.id, newAmount);
+			}
+		}
+		return { message: 'Cantidad actualizada' };
 	}
 };

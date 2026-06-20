@@ -57,7 +57,7 @@
 	let addAllocQty = $state(1);
 	$effect(() => { if (!addAllocTypeId && serviceInventoryLinks.length > 0) addAllocTypeId = serviceInventoryLinks[0].itemTypeId; });
 	let addAllocSelectedGroup = $state<string | null>(null);
-	let addFuzzy = $state(false);
+	let addFuzzy = $state(true);
 	let reassigningAllocId = $state<string | null>(null);
 
 	const missingLinks = $derived(
@@ -108,7 +108,7 @@
 					addAllocTypeId = serviceInventoryLinks[0]?.itemTypeId ?? '';
 					addAllocQty = 1;
 					addAllocSelectedGroup = null;
-					addFuzzy = false;
+					addFuzzy = true;
 				}}
 				class="text-xs text-orange-600 hover:underline"
 			>
@@ -127,7 +127,7 @@
 	<form
 		method="POST"
 		action="?/addAlloc"
-		use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; addFuzzy = false; })}
+		use:enhance={withToast(() => { addingAlloc = false; addAllocSelectedGroup = null; addAllocQty = 1; addFuzzy = true; })}
 		class="border-b border-orange-100 bg-orange-50/40 p-4 space-y-3"
 	>
 		<!-- Type selector -->
@@ -243,7 +243,7 @@
 						⚠ {totalParticipants}× <strong>{link.itemType.name}</strong> pendiente de asignar
 					</span>
 					<button type="button"
-						onclick={() => { addingAlloc = true; addAllocTypeId = link.itemTypeId; addAllocQty = totalParticipants; addAllocSelectedGroup = null; addFuzzy = false; }}
+						onclick={() => { addingAlloc = true; addAllocTypeId = link.itemTypeId; addAllocQty = totalParticipants; addAllocSelectedGroup = null; addFuzzy = true; }}
 						class="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-200">
 						Asignar
 					</button>

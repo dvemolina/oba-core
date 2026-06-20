@@ -120,6 +120,8 @@
 	let draftEditions = $state<DraftEdition[]>([]);
 	let newEd = $state({ startDate: '', endDate: '', maxCapacity: '', notes: '' });
 	let edError = $state('');
+	// Open add-form by default only when no editions exist yet
+	let addingEdition = $state(isCreate || existingRuns.length === 0);
 
 	function addDraftEdition() {
 		edError = '';
@@ -208,6 +210,7 @@
 			modules = structuredClone((service.modules as ServiceModules) ?? {});
 			draftEditions = [];
 			draftLinks = [];
+			addingEdition = existingRuns.length === 0;
 		}
 	});
 </script>
@@ -221,7 +224,7 @@
 	class="space-y-6"
 	use:enhance={() => {
 		loading = true;
-		return async ({ update }) => { loading = false; update(); };
+		return async ({ update }) => { loading = false; await update({ reset: false }); };
 	}}
 >
 	<!-- Hidden state -->
@@ -446,35 +449,48 @@
 										</div>
 									{/if}
 
-									<!-- Add new edition form -->
-									<div class="rounded-lg border border-dashed border-border/70 p-3 space-y-2.5">
-										<p class="text-[11px] font-semibold uppercase tracking-wide text-muted">{m.service_form_edition_add_section()}</p>
-										<div class="grid grid-cols-2 gap-2">
-											<div>
-												<label class="mb-1 block text-[11px] font-medium text-gray-600">Inicio</label>
-												<input type="date" bind:value={newEd.startDate} class="input" />
+									<!-- Add new edition — toggle -->
+									{#if addingEdition}
+										<div class="rounded-lg border border-dashed border-border/70 p-3 space-y-2.5">
+											<div class="flex items-center justify-between">
+												<p class="text-[11px] font-semibold uppercase tracking-wide text-muted">{m.service_form_edition_add_section()}</p>
+												{#if existingRuns.length > 0 || draftEditions.length > 0}
+													<button type="button" onclick={() => { addingEdition = false; edError = ''; newEd = { startDate: '', endDate: '', maxCapacity: '', notes: '' }; }}
+														class="text-[10px] text-muted hover:text-gray-600">Cerrar</button>
+												{/if}
 											</div>
-											<div>
-												<label class="mb-1 block text-[11px] font-medium text-gray-600">Fin</label>
-												<input type="date" bind:value={newEd.endDate} class="input" />
+											<div class="grid grid-cols-2 gap-2">
+												<div>
+													<label class="mb-1 block text-[11px] font-medium text-gray-600">Inicio</label>
+													<input type="date" bind:value={newEd.startDate} class="input" />
+												</div>
+												<div>
+													<label class="mb-1 block text-[11px] font-medium text-gray-600">Fin</label>
+													<input type="date" bind:value={newEd.endDate} class="input" />
+												</div>
+												<div>
+													<label class="mb-1 block text-[11px] font-medium text-gray-600">Capacidad <span class="text-border">(opcional)</span></label>
+													<input type="number" min="1" bind:value={newEd.maxCapacity} class="input"
+														placeholder={service?.maxCapacity ? `— (usa ${service.maxCapacity} del grupo)` : '—'} />
+													<p class="mt-0.5 text-[10px] text-muted">{m.service_form_edition_capacity_help()}</p>
+												</div>
+												<div>
+													<label class="mb-1 block text-[11px] font-medium text-gray-600">Notas <span class="text-border">(opcional)</span></label>
+													<input type="text" bind:value={newEd.notes} class="input" placeholder="Camp julio" />
+												</div>
 											</div>
-											<div>
-												<label class="mb-1 block text-[11px] font-medium text-gray-600">Capacidad <span class="text-border">(opcional)</span></label>
-												<input type="number" min="1" bind:value={newEd.maxCapacity} class="input"
-													placeholder={service?.maxCapacity ? `— (usa ${service.maxCapacity} del grupo)` : '—'} />
-												<p class="mt-0.5 text-[10px] text-muted">{m.service_form_edition_capacity_help()}</p>
-											</div>
-											<div>
-												<label class="mb-1 block text-[11px] font-medium text-gray-600">Notas <span class="text-border">(opcional)</span></label>
-												<input type="text" bind:value={newEd.notes} class="input" placeholder="Camp julio" />
-											</div>
+											{#if edError}<p class="text-xs text-red-600">{edError}</p>{/if}
+											<button type="button" onclick={addDraftEdition}
+												class="rounded-lg bg-ocean/10 px-3 py-1.5 text-xs font-semibold text-ocean hover:bg-ocean/20 transition-colors">
+												Añadir edición
+											</button>
 										</div>
-										{#if edError}<p class="text-xs text-red-600">{edError}</p>{/if}
-										<button type="button" onclick={addDraftEdition}
-											class="rounded-lg bg-ocean/10 px-3 py-1.5 text-xs font-semibold text-ocean hover:bg-ocean/20 transition-colors">
-											Añadir edición
+									{:else}
+										<button type="button" onclick={() => addingEdition = true}
+											class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 py-2 text-xs font-medium text-muted hover:border-ocean/40 hover:text-ocean transition-colors">
+											+ Nueva edición
 										</button>
-									</div>
+									{/if}
 								</div>
 
 							<!-- Instructor config -->
@@ -671,7 +687,21 @@
 							{:else if mod.key === 'credits'}
 								{@const credConfig = { creditsIncluded: 5, validityMode: 'range' as 'range'|'days', compatibleServiceIds: [] as string[], ...((modules as any).credits ?? {}) }}
 								<div class="space-y-3">
-									<div class="grid grid-cols-2 gap-3">
+									<div>
+									<label class="mb-1 block text-xs font-medium text-gray-600">Tipo de recurso</label>
+									<select class="input"
+										onchange={(e) => {
+											const v = (e.target as HTMLSelectElement).value;
+											modules = { ...modules, credits: { ...credConfig, creditType: v || undefined } } as any;
+										}}>
+										<option value="" selected={!credConfig.creditType}>Cualquier servicio</option>
+										<option value="sessions" selected={credConfig.creditType === 'sessions'}>🏄 Sesiones</option>
+										<option value="inventory" selected={credConfig.creditType === 'inventory'}>🎒 Alquiler / inventario</option>
+										<option value="accommodation" selected={credConfig.creditType === 'accommodation'}>🏠 Alojamiento</option>
+									</select>
+									<p class="mt-1 text-[11px] text-muted">Informativo — ayuda al staff a identificar para qué sirve el bono.</p>
+								</div>
+								<div class="grid grid-cols-2 gap-3">
 										<div>
 											<label class="mb-1 block text-xs font-medium text-gray-600">{m.service_form_credits_count()}</label>
 											<input type="number" min="1" step="1" class="input" placeholder="5"

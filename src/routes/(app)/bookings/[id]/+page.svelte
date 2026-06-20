@@ -325,8 +325,24 @@
 
 	{#if hasCredits}
 		<CreditsCard booking={data.booking} {modules}
+			quantity={data.booking.quantity}
 			creditsUsed={data.creditsUsedFromThisBooking}
 			bookingDate={data.booking.date} />
+		{#if data.booking.status !== 'cancelled'}
+			<form method="POST" action="?/updateQuantity" use:enhance={withToast()} class="flex items-center gap-2 px-1">
+				<span class="text-xs text-muted">Bonos:</span>
+				<button type="button"
+					onclick={(e) => { const inp = e.currentTarget.nextElementSibling as HTMLInputElement; inp.value = String(Math.max(1, parseInt(inp.value) - 1)); }}
+					class="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-xs text-gray-600 hover:bg-gray-100">−</button>
+				<input name="quantity" type="number" min="1"
+					value={data.booking.quantity}
+					class="w-12 rounded border border-border px-1 py-0.5 text-center text-sm font-semibold focus:border-purple-400 focus:outline-none" />
+				<button type="button"
+					onclick={(e) => { const inp = e.currentTarget.previousElementSibling as HTMLInputElement; inp.value = String(parseInt(inp.value) + 1); }}
+					class="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-xs text-gray-600 hover:bg-gray-100">+</button>
+				<button type="submit" class="text-xs text-purple-600 hover:underline">Guardar</button>
+			</form>
+		{/if}
 	{/if}
 
 	<PaymentCard booking={data.booking} {modules} {canSeeFinancials}

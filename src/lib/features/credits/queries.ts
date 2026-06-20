@@ -7,10 +7,13 @@ export interface CreditSource {
 	bookingId: string;
 	serviceName: string;
 	creditsIncluded: number;
+	quantity: number;
+	totalCredits: number;
 	creditsUsed: number;
 	creditsRemaining: number;
 	validTo: string | null;
 	expired: boolean;
+	creditType?: string;
 }
 
 export async function getAvailableCreditsForClient(
@@ -24,6 +27,7 @@ export async function getAvailableCreditsForClient(
 			serviceId: bookings.serviceId,
 			serviceName: services.name,
 			serviceModules: services.modules,
+			bookingQuantity: bookings.quantity,
 			bookingCreatedAt: bookings.createdAt
 		})
 		.from(bookingClients)
@@ -75,17 +79,22 @@ export async function getAvailableCreditsForClient(
 			.from(bookingClients)
 			.where(eq(bookingClients.creditSourceId, row.bookingId));
 
+		const quantity = row.bookingQuantity ?? 1;
+		const totalCredits = config.creditsIncluded * quantity;
 		const creditsUsed = parseInt(usedRow?.total ?? '0');
-		const creditsRemaining = Math.max(0, config.creditsIncluded - creditsUsed);
+		const creditsRemaining = Math.max(0, totalCredits - creditsUsed);
 
 		sources.push({
 			bookingId: row.bookingId,
 			serviceName: row.serviceName ?? 'Servicio',
 			creditsIncluded: config.creditsIncluded,
+			quantity,
+			totalCredits,
 			creditsUsed,
 			creditsRemaining,
 			validTo,
-			expired
+			expired,
+			creditType: config.creditType
 		});
 	}
 

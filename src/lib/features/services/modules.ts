@@ -15,6 +15,8 @@ export type InstructorModuleConfig = {
 	required: boolean
 }
 
+export type CreditType = 'sessions' | 'inventory' | 'accommodation'
+
 export type CreditsModuleConfig = {
 	creditsIncluded: number
 	validityMode: 'range' | 'days'
@@ -22,6 +24,7 @@ export type CreditsModuleConfig = {
 	validFrom?: string     // ISO date, used when validityMode === 'range'
 	validTo?: string       // ISO date, used when validityMode === 'range'
 	compatibleServiceIds: string[]
+	creditType?: CreditType  // informational: what resource/module these credits unlock
 }
 
 export type ServiceModules = {

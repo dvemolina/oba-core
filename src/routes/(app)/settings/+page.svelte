@@ -30,7 +30,7 @@
 			class="space-y-3"
 			use:enhance={() => {
 				savingName = true;
-				return async ({ update }) => { savingName = false; update(); };
+				return async ({ update }) => { savingName = false; await update({ reset: false }); };
 			}}
 		>
 			<div>

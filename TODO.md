@@ -1,4 +1,5 @@
 ## In progress / next
+[] - On the editions module, the add edition and linked editions, is a bit confusing. Adding a edition shouldn't be so prominent on the UI, at least not as a default state, specially when there are already linked editions.
 [] - MCP server for telegram bot. Check create mcp servers anthrophic plugin existance
 [] - Cuando en una reserva se añaden items de inventario sin especificar, en la pestaña de inventario no aparece ninguna unidad pedida porqaue no se ha añadido especificamente que variante aun, pero deberia notificarse de alguna forma que una o x reserva requiere tres unidades de x aun por especificar (algun boton para redirigir a la asignacion?)
 [] - A veces en algunas rutas cuando se da a atras o cancelar o algo vuelve a calendario como vsita principal, y si el usuario estava nesteado navegado eso puede ser molesto, siempre poner que la ruta anterior sea la que se muestra si alguna accion o navegacion tiene una redireccion o logica de redireccion posterior o submit que no especifica donde se va

@@ -26,7 +26,7 @@
 			loading = true;
 			return async ({ update }) => {
 				loading = false;
-				update();
+				await update({ reset: false });
 			};
 		}}
 	>

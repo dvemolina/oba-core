@@ -137,6 +137,7 @@ export const bookings = pgTable('bookings', {
 	isFlexible: boolean('is_flexible').notNull().default(false),
 	status: bookingStatusEnum('status').notNull().default('pending'),
 	source: text('source').notNull().default('admin'),
+	quantity: integer('quantity').notNull().default(1),
 	spotNotes: text('spot_notes'),
 	notes: text('notes'),
 	sessionId: text('session_id')

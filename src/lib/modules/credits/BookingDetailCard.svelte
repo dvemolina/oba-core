@@ -2,20 +2,29 @@
     import type { ServiceModules } from '$lib/features/services/modules';
     import type { CreditsModuleConfig } from '$lib/features/services/modules';
 
+    const CREDIT_TYPE_LABELS: Record<string, string> = {
+        sessions: '🏄 Sesiones',
+        inventory: '🎒 Alquiler',
+        accommodation: '🏠 Alojamiento'
+    };
+
     let {
         booking,
         modules,
+        quantity = 1,
         creditsUsed = 0,
         bookingDate = ''
     }: {
         booking: { id: string };
         modules: ServiceModules;
+        quantity?: number;
         creditsUsed?: number;
         bookingDate?: string;
     } = $props();
 
     const config = $derived(modules.credits as CreditsModuleConfig | undefined);
-    const creditsRemaining = $derived(Math.max(0, (config?.creditsIncluded ?? 0) - creditsUsed));
+    const totalCredits = $derived((config?.creditsIncluded ?? 0) * quantity);
+    const creditsRemaining = $derived(Math.max(0, totalCredits - creditsUsed));
 
     function fmtDate(iso: string): string {
         const [y, m, d] = iso.split('-');
@@ -50,9 +59,14 @@
 
 <div class="rounded-(--radius-card) overflow-hidden border border-purple-100 bg-white">
     <div class="flex items-center justify-between bg-purple-50 px-4 py-2.5">
-        <span class="text-xs font-semibold uppercase tracking-wide text-purple-700">
-            🎟 Créditos
-        </span>
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wide text-purple-700">
+                🎟 Créditos
+            </span>
+            {#if config?.creditType}
+                <span class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-600">{CREDIT_TYPE_LABELS[config.creditType] ?? config.creditType}</span>
+            {/if}
+        </div>
         {#if isExpired()}
             <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">Caducados</span>
         {:else if creditsRemaining === 0 && creditsUsed > 0}
@@ -65,7 +79,13 @@
     <div class="divide-y divide-border/40">
         <div class="flex items-center justify-between px-4 py-2.5">
             <span class="text-xs text-muted">Incluidos</span>
-            <span class="text-sm font-semibold text-gray-800">{config?.creditsIncluded ?? 0}</span>
+            <span class="text-sm font-semibold text-gray-800">
+                {#if quantity > 1}
+                    {quantity}× {config?.creditsIncluded ?? 0} = {totalCredits}
+                {:else}
+                    {config?.creditsIncluded ?? 0}
+                {/if}
+            </span>
         </div>
         {#if creditsUsed > 0}
             <div class="flex items-center justify-between px-4 py-2.5">

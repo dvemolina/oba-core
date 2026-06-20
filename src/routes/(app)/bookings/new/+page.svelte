@@ -23,7 +23,12 @@
 	const hasSessions = $derived('sessions' in modules);
 	const hasInventory = $derived('inventory' in modules);
 	const hasInstructor = $derived('instructor' in modules);
+	const hasCredits = $derived('credits' in modules);
 	const needsParticipantCount = $derived(hasRoster || hasSessions);
+
+	// ── Credits pack quantity ─────────────────────────────────────────────────
+	let packQuantity = $state(1);
+	$effect(() => { if (!hasCredits) packQuantity = 1; });
 
 	// ── UX flags ──────────────────────────────────────────────────────────────
 	const showEditionPicker = $derived(hasEditions);
@@ -102,6 +107,8 @@
 
 	function calcAmountDue(): string {
 		if (showDateRange) return invCalculatedAmount;
+		if (hasCredits && packQuantity > 1)
+			return (parseFloat(selectedService?.basePrice ?? '0') * packQuantity).toFixed(2);
 		return selectedService?.basePrice ?? '0';
 	}
 
@@ -126,6 +133,18 @@
 	$effect(() => {
 		if (showDateRange) {
 			const amt = invCalculatedAmount;
+			untrack(() => {
+				selectedClients = selectedClients.map((c) => ({ ...c, amountDue: amt }));
+			});
+		}
+	});
+
+	// Keep credits client amounts in sync when pack quantity changes
+	$effect(() => {
+		if (hasCredits) {
+			const qty = packQuantity;
+			const base = selectedService?.basePrice ?? '0';
+			const amt = qty > 1 ? (parseFloat(base) * qty).toFixed(2) : base;
 			untrack(() => {
 				selectedClients = selectedClients.map((c) => ({ ...c, amountDue: amt }));
 			});
@@ -335,6 +354,24 @@
 				{/if}
 			{/if}
 		</div>
+
+		<!-- Credits pack quantity (only for credits services) -->
+		{#if hasCredits}
+			<input type="hidden" name="quantity" value={packQuantity} />
+			<div class="rounded-(--radius-card) bg-purple-50 p-4 ring-1 ring-purple-200 space-y-2">
+				<p class="text-xs font-semibold uppercase tracking-wide text-purple-700">🎟 Bonos a comprar</p>
+				<div class="flex items-center gap-3">
+					<button type="button" onclick={() => packQuantity = Math.max(1, packQuantity - 1)}
+						class="flex h-8 w-8 items-center justify-center rounded-full border border-purple-300 text-sm text-purple-700 hover:bg-purple-100">−</button>
+					<span class="w-8 text-center text-lg font-bold text-purple-800">{packQuantity}</span>
+					<button type="button" onclick={() => packQuantity = packQuantity + 1}
+						class="flex h-8 w-8 items-center justify-center rounded-full border border-purple-300 text-sm text-purple-700 hover:bg-purple-100">+</button>
+					<span class="text-xs text-purple-600">
+						{packQuantity > 1 ? `${packQuantity}× €${selectedService?.basePrice} = €${(parseFloat(selectedService?.basePrice ?? '0') * packQuantity).toFixed(2)}` : `€${selectedService?.basePrice}`}
+					</span>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Clients section -->
 		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border space-y-2">

@@ -47,6 +47,9 @@ export const actions: Actions = {
 		const clientIds = form.getAll('clientId').map(String).filter(Boolean);
 		if (clientIds.length === 0) return fail(400, { error: 'At least one client is required' });
 
+		const quantityRaw = form.get('quantity')?.toString();
+		const quantity = Math.max(1, parseInt(quantityRaw ?? '1') || 1);
+
 		const participantCounts = form.getAll('participantCount').map((v) => parseInt(v as string) || 1);
 		const clientNames = form.getAll('clientName').map(String);
 		const alsoParticipatesFlags = form.getAll('alsoParticipates').map((v) => v === 'true');
@@ -54,7 +57,10 @@ export const actions: Actions = {
 		// Calculate initial amountDue from pricingMode.
 		// 1 participant assumed at creation — recalculated when participants are set from detail page.
 		const _svc = service!;
+		const isCreditsService = 'credits' in (_svc.modules ?? {});
 		function initialAmountDue(days = 1): string {
+			if (isCreditsService && quantity > 1)
+				return (parseFloat(_svc.basePrice) * quantity).toFixed(2);
 			const base = parseFloat(_svc.basePrice);
 			const sessions = _svc.defaultSessionsIncluded ?? 1;
 			return calculateAmount(base, _svc.pricingMode, { participants: 1, sessions, days }).toFixed(2);
@@ -109,6 +115,7 @@ export const actions: Actions = {
 
 			const booking = await createBooking({
 				serviceId,
+				quantity,
 				date: checkIn,
 				dateEnd: checkOut ?? undefined,
 				isFlexible: false,
@@ -159,7 +166,7 @@ export const actions: Actions = {
 			const sessionsIncluded = service.defaultSessionsIncluded ?? 1;
 
 			const booking = await createBooking({
-				serviceId, serviceEditionId, date,
+				serviceId, quantity, serviceEditionId, date,
 				isFlexible: true,
 				status: 'confirmed',
 				sessionsIncluded,
@@ -189,7 +196,7 @@ export const actions: Actions = {
 		const status       = isFlexible ? 'pending' : 'confirmed';
 
 		const booking = await createBooking({
-			serviceId, instructorId, serviceEditionId, date, dateEnd, time,
+			serviceId, quantity, instructorId, serviceEditionId, date, dateEnd, time,
 			isFlexible, status, spotNotes, notes,
 			clients: bookingClients
 		});

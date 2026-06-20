@@ -201,9 +201,18 @@
                                         class="w-full rounded border border-purple-200 bg-white px-2 py-1 text-xs focus:outline-none">
                                         <option value="">Seleccionar bono...</option>
                                         {#each nonExpired as s (s.bookingId)}
-                                            <option value={s.bookingId}>{s.serviceName} · {s.creditsRemaining} disponibles{s.validTo ? ` · hasta ${s.validTo}` : ''}</option>
+                                            {@const mismatch = (s.creditType === 'sessions' && !hasSessions) || (s.creditType === 'inventory' && !('inventory' in modules))}
+                                            <option value={s.bookingId}>{mismatch ? '⚠ ' : ''}{s.serviceName} · {s.creditsRemaining} disponibles{s.validTo ? ` · hasta ${s.validTo}` : ''}</option>
                                         {/each}
                                     </select>
+                                    {#if selectedCreditSource}
+                                        {@const sel = nonExpired.find(s => s.bookingId === selectedCreditSource)}
+                                        {#if sel?.creditType === 'sessions' && !hasSessions}
+                                            <p class="text-[10px] text-amber-600">⚠ Bono para sesiones — esta reserva no tiene sesiones.</p>
+                                        {:else if sel?.creditType === 'inventory' && !('inventory' in modules)}
+                                            <p class="text-[10px] text-amber-600">⚠ Bono para alquiler — esta reserva no tiene inventario.</p>
+                                        {/if}
+                                    {/if}
                                     <div class="flex items-center gap-2">
                                         <label class="text-[10px] text-muted shrink-0">Cantidad:</label>
                                         <input name="creditCount" type="number" min="1"
