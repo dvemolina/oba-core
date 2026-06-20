@@ -577,6 +577,7 @@
 			serviceInventoryLinks={data.serviceInventoryLinks}
 			itemsByAllocType={data.itemsByAllocType}
 			allocTypeTracking={data.allocTypeTracking}
+			{participants}
 		/>
 	{/if}
 
