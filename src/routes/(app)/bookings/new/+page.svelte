@@ -17,23 +17,23 @@
 	const selectedService = $derived(data.services.find((s) => s.id === selectedServiceId));
 	const modules = $derived(selectedService?.modules ?? {});
 
-	// ── Module flags (pure module checks, no type names) ──────────────────────
-	const hasEditions = $derived('editions' in modules);
-	const hasRoster = $derived('roster' in modules);
-	const hasSessions = $derived('sessions' in modules);
-	const hasInventory = $derived('inventory' in modules);
-	const hasInstructor = $derived('instructor' in modules);
-	const hasCredits = $derived('credits' in modules);
-	const needsParticipantCount = $derived(hasRoster || hasSessions);
+	// ── Module flags ──────────────────────────────────────────────────────────
+	const hasEditions    = $derived('editions' in modules);
+	const hasSessions    = $derived('sessions' in modules);
+	const hasInventory   = $derived('inventory' in modules);
+	const hasInstructor  = $derived('instructor' in modules);
+	const hasCredits     = $derived('credits' in modules);
+
+	// Sessions: date is set per-session on the detail page — no date field here
+	// Editions: date comes from the edition — no date field here
+	// Simple services: show date (and time if no sessions)
+	const showDateField = $derived(!hasSessions && !hasEditions);
+	const showTimeField = $derived(!hasSessions && !hasEditions && !hasInventory);
+	const showInstructor = $derived(hasInstructor && !hasSessions);
 
 	// ── Credits pack quantity ─────────────────────────────────────────────────
 	let packQuantity = $state(1);
 	$effect(() => { if (!hasCredits) packQuantity = 1; });
-
-	// ── UX flags ──────────────────────────────────────────────────────────────
-	const showEditionPicker = $derived(hasEditions);
-	const showDateRange = $derived(hasInventory && !hasEditions && !hasSessions);
-	const showInstructor = $derived(hasInstructor && !hasSessions);
 
 	// ── Editions ──────────────────────────────────────────────────────────────
 	let editions = $state<ServiceEdition[]>(
@@ -59,7 +59,8 @@
 	});
 
 	// ── Dates ─────────────────────────────────────────────────────────────────
-	let date = $state(data.defaultDate ?? '');
+	const today = new Date().toISOString().slice(0, 10);
+	let date = $state(data.defaultDate ?? today);
 	let time = $state(data.defaultTime ?? '');
 	let isFlexible = $state((data.defaultTime ?? '') === '');
 	let invCheckIn = $state('');
@@ -69,9 +70,9 @@
 	const inventoryPricingMode = $derived(selectedService?.pricingMode ?? null);
 	const inventoryNeedsDateRange = $derived(
 		inventoryPricingMode === 'per_night' ||
-			inventoryPricingMode === 'per_day' ||
-			inventoryPricingMode === 'per_unit_per_day' ||
-			inventoryPricingMode === 'per_person_per_day'
+		inventoryPricingMode === 'per_day'   ||
+		inventoryPricingMode === 'per_unit_per_day' ||
+		inventoryPricingMode === 'per_person_per_day'
 	);
 	function calcInventoryUnits(): number {
 		if (!inventoryNeedsDateRange || !invCheckIn || !invCheckOut) return 1;
@@ -86,78 +87,38 @@
 			: (selectedService?.basePrice ?? '0')
 	);
 
-	// ── Instructor ────────────────────────────────────────────────────────────
-	let instructorId = $state('');
+	// ── Client (single, contract holder) ─────────────────────────────────────
+	let selectedClient = $state<{ clientId: string; name: string } | null>(null);
+
+	// ── Participants ──────────────────────────────────────────────────────────
+	let participantCount = $state(1);
+	let clientAlsoParticipates = $state(true);
 
 	// ── Notes ─────────────────────────────────────────────────────────────────
 	let notesOpen = $state(false);
 	let spotNotes = $state('');
 	let notes = $state('');
 
-	// ── Clients ───────────────────────────────────────────────────────────────
-	let selectedClients = $state<
-		Array<{
-			clientId: string;
-			name: string;
-			amountDue: string;
-			participantCount: number;
-			alsoParticipates: boolean;
-		}>
-	>([]);
-
+	// amountDue calculation
 	function calcAmountDue(): string {
-		if (showDateRange) return invCalculatedAmount;
+		if (hasInventory && inventoryNeedsDateRange) return invCalculatedAmount;
 		if (hasCredits && packQuantity > 1)
 			return (parseFloat(selectedService?.basePrice ?? '0') * packQuantity).toFixed(2);
 		return selectedService?.basePrice ?? '0';
 	}
 
-	function addClient(client: { id: string; firstName: string; lastName: string }) {
-		if (selectedClients.some((c) => c.clientId === client.id)) return;
-		selectedClients = [
-			...selectedClients,
-			{
-				clientId: client.id,
-				name: `${client.firstName} ${client.lastName}`.trim(),
-				amountDue: calcAmountDue(),
-				participantCount: 1,
-				alsoParticipates: false
-			}
-		];
-	}
-	function removeClient(clientId: string) {
-		selectedClients = selectedClients.filter((c) => c.clientId !== clientId);
-	}
-
-	// Keep inventory client amounts in sync when dates change
+	// Keep inventory amount in sync when dates change
 	$effect(() => {
-		if (showDateRange) {
-			const amt = invCalculatedAmount;
-			untrack(() => {
-				selectedClients = selectedClients.map((c) => ({ ...c, amountDue: amt }));
-			});
-		}
-	});
-
-	// Keep credits client amounts in sync when pack quantity changes
-	$effect(() => {
-		if (hasCredits) {
-			const qty = packQuantity;
-			const base = selectedService?.basePrice ?? '0';
-			const amt = qty > 1 ? (parseFloat(base) * qty).toFixed(2) : base;
-			untrack(() => {
-				selectedClients = selectedClients.map((c) => ({ ...c, amountDue: amt }));
-			});
-		}
+		// reactive deps
+		const _amt = invCalculatedAmount;
+		// no-op: amount is read at submit time via calcAmountDue()
+		void _amt;
 	});
 </script>
 
-<div class="mx-auto max-w-lg p-4 md:p-6">
+<div class="mx-auto max-w-xl p-4 md:p-6">
 	<div class="mb-6 flex items-center gap-3">
-		<a
-			href="/calendar"
-			class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a
-		>
+		<a href="/calendar" class="btn-ghost btn-sm flex h-8 w-8 items-center justify-center rounded-lg p-0">←</a>
 		<h1 class="text-xl font-bold text-navy">Nueva reserva</h1>
 	</div>
 
@@ -169,12 +130,7 @@
 			return async ({ result, update }) => {
 				loading = false;
 				if (result.type === 'success' && result.data) {
-					const d = result.data as {
-						bookingId?: string;
-						multiDay?: boolean;
-						date?: string;
-						message?: string;
-					};
+					const d = result.data as { bookingId?: string; multiDay?: boolean; date?: string; message?: string };
 					toast(d.message ?? 'Reserva creada');
 					if (d.multiDay) await goto(`/calendar?date=${d.date}`);
 					else if (d.bookingId) await goto(`/bookings/${d.bookingId}?new=1`);
@@ -188,12 +144,10 @@
 			};
 		}}
 	>
-		<!-- Service selector -->
+		<!-- ── SERVICE + SCHEDULING ────────────────────────────────────────────── -->
 		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border space-y-4">
 			<div>
-				<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-					>Servicio</label
-				>
+				<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Servicio</label>
 				<select name="serviceId" bind:value={selectedServiceId} required class="input w-full">
 					{#each data.services as s (s.id)}
 						<option value={s.id}>{s.name} — €{s.basePrice}</option>
@@ -201,39 +155,27 @@
 				</select>
 			</div>
 
-			<!-- Date section: driven by modules -->
-			{#if showEditionPicker}
+			<!-- Edition picker -->
+			{#if hasEditions}
 				<div>
-					<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-						>Edición</label
-					>
+					<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Edición</label>
 					{#if editionsLoading}
 						<div class="flex items-center gap-2 rounded-lg border border-border bg-sand px-3 py-2 text-xs text-muted">
 							<span class="animate-spin">⟳</span> Cargando ediciones…
 						</div>
 					{:else if editions.length > 0}
-						<select
-							name="serviceEditionId"
-							bind:value={selectedEditionId}
-							required
-							class="input w-full"
-						>
+						<select name="serviceEditionId" bind:value={selectedEditionId} required class="input w-full">
 							<option value="">Seleccionar edición...</option>
 							{#each editions as ed (ed.id)}
 								<option value={ed.id} disabled={!ed.active}>
-									{ed.startDate} → {ed.endDate}{ed.maxCapacity
-										? ` (${ed.enrolledCount ?? 0}/${ed.maxCapacity})`
-										: ''}{ed.notes ? ` · ${ed.notes}` : ''}
+									{ed.startDate} → {ed.endDate}{ed.maxCapacity ? ` (${ed.enrolledCount ?? 0}/${ed.maxCapacity})` : ''}{ed.notes ? ` · ${ed.notes}` : ''}
 								</option>
 							{/each}
 						</select>
 						{#if selectedEdition}
 							<div class="mt-1 flex items-center justify-between rounded-lg bg-ocean/5 px-3 py-2 text-xs text-muted">
-								<span>
-									📅 {selectedEdition.startDate} → {selectedEdition.endDate}
-									{#if selectedEdition.maxCapacity}
-										· {selectedEdition.enrolledCount ?? 0}/{selectedEdition.maxCapacity} plazas
-									{/if}
+								<span>📅 {selectedEdition.startDate} → {selectedEdition.endDate}
+									{#if selectedEdition.maxCapacity}· {selectedEdition.enrolledCount ?? 0}/{selectedEdition.maxCapacity} plazas{/if}
 								</span>
 							</div>
 							<input type="hidden" name="date" value={selectedEdition.startDate} />
@@ -243,104 +185,72 @@
 						{/if}
 					{:else}
 						<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-							Sin ediciones disponibles.
-							<a href="/services/{selectedService?.id}" class="underline">Añadir edición</a>
+							Sin ediciones disponibles. <a href="/services/{selectedService?.id}" class="underline">Añadir edición</a>
 						</p>
 					{/if}
 				</div>
-			{:else if showDateRange}
-				{#if inventoryNeedsDateRange}
-					<div class="grid grid-cols-2 gap-3">
-						<div>
-							<label
-								class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-								>Check-in</label
-							>
-							<input
-								name="date"
-								type="date"
-								required
-								bind:value={invCheckIn}
-								class="input w-full"
-							/>
-						</div>
-						<div>
-							<label
-								class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-								>Check-out</label
-							>
-							<input
-								name="dateEnd"
-								type="date"
-								required
-								bind:value={invCheckOut}
-								class="input w-full"
-							/>
-						</div>
-					</div>
-					{#if invCheckIn && invCheckOut && invCheckIn < invCheckOut}
-						<div class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 text-sm">
-							<span class="text-gray-600"
-								>{calcInventoryUnits()}
-								{inventoryPricingMode === 'per_night' ? 'noches' : 'días'} × €{selectedService?.basePrice}</span
-							>
-							<span class="ml-auto font-semibold text-gray-900">= €{invCalculatedAmount}</span>
-						</div>
-					{/if}
-				{:else}
+
+			<!-- Inventory: check-in / check-out -->
+			{:else if hasInventory && inventoryNeedsDateRange}
+				<div class="grid grid-cols-2 gap-3">
 					<div>
-						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-							>Fecha</label
-						>
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Check-in</label>
 						<input name="date" type="date" required bind:value={invCheckIn} class="input w-full" />
 					</div>
-				{/if}
-			{:else}
-				<!-- Default: date (+ time only for non-session services) -->
-				<div class="{hasSessions ? '' : 'grid grid-cols-2 gap-3'}">
 					<div>
-						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-							>Fecha</label
-						>
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Check-out</label>
+						<input name="dateEnd" type="date" required bind:value={invCheckOut} class="input w-full" />
+					</div>
+				</div>
+				{#if invCheckIn && invCheckOut && invCheckIn < invCheckOut}
+					<div class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 text-sm">
+						<span class="text-gray-600">{calcInventoryUnits()} {inventoryPricingMode === 'per_night' ? 'noches' : 'días'} × €{selectedService?.basePrice}</span>
+						<span class="ml-auto font-semibold text-gray-900">= €{invCalculatedAmount}</span>
+					</div>
+				{/if}
+
+			<!-- Simple inventory (no date-range pricing) -->
+			{:else if hasInventory}
+				<div>
+					<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Fecha</label>
+					<input name="date" type="date" required bind:value={invCheckIn} class="input w-full" />
+				</div>
+
+			<!-- Sessions: date auto = today, scheduled per-session from detail page -->
+			{:else if hasSessions}
+				<input type="hidden" name="date" value={today} />
+				<input type="hidden" name="isFlexible" value="on" />
+				<p class="text-xs text-muted rounded-lg bg-sand px-3 py-2">
+					📅 Las fechas se configuran sesión a sesión desde el detalle de reserva.
+				</p>
+
+			<!-- Default: date + optional time -->
+			{:else}
+				<div class="{showTimeField ? 'grid grid-cols-2 gap-3' : ''}">
+					<div>
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Fecha</label>
 						<input type="date" name="date" bind:value={date} required class="input w-full" />
 					</div>
-					{#if !hasSessions}
-					<div>
-						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-							>Hora</label
-						>
-						<input
-							type="time"
-							name="time"
-							bind:value={time}
-							disabled={isFlexible}
-							class="input w-full disabled:opacity-40"
-						/>
-					</div>
+					{#if showTimeField}
+						<div>
+							<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Hora</label>
+							<input type="time" name="time" bind:value={time} disabled={isFlexible} class="input w-full disabled:opacity-40" />
+						</div>
 					{/if}
 				</div>
-				{#if !hasSessions}
+				{#if showTimeField}
 					<label class="flex cursor-pointer items-center gap-3 rounded-lg bg-pending/10 p-3">
-						<input
-							type="checkbox"
-							name="isFlexible"
-							bind:checked={isFlexible}
-							class="h-4 w-4 accent-ocean"
-						/>
+						<input type="checkbox" name="isFlexible" bind:checked={isFlexible} class="h-4 w-4 accent-ocean" />
 						<div>
-							<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800">
-								<Zap size={14} /> Horario flexible
-							</p>
+							<p class="flex items-center gap-1.5 text-sm font-medium text-gray-800"><Zap size={14} /> Horario flexible</p>
 							<p class="text-xs text-muted">Se confirmará más tarde</p>
 						</div>
 					</label>
 				{/if}
 				{#if showInstructor}
 					<div>
-						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted"
-							>Instructor</label
-						>
-						<select name="instructorId" bind:value={instructorId} class="input w-full">
+						<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Instructor</label>
+						<select name="instructorId" class="input w-full">
 							<option value="">Sin asignar</option>
 							{#each data.instructors as inst (inst.id)}
 								<option value={inst.id}>{inst.name}</option>
@@ -348,14 +258,10 @@
 						</select>
 					</div>
 				{/if}
-				{#if hasSessions}
-					<p class="text-xs text-muted">Las sesiones se programan desde el detalle de reserva.</p>
-					<input type="hidden" name="isFlexible" value="on" />
-				{/if}
 			{/if}
 		</div>
 
-		<!-- Credits pack quantity (only for credits services) -->
+		<!-- ── CREDITS PACK QUANTITY ─────────────────────────────────────────────── -->
 		{#if hasCredits}
 			<input type="hidden" name="quantity" value={packQuantity} />
 			<div class="rounded-(--radius-card) bg-purple-50 p-4 ring-1 ring-purple-200 space-y-2">
@@ -373,105 +279,79 @@
 			</div>
 		{/if}
 
-		<!-- Clients section -->
-		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border space-y-2">
-			<p class="text-xs font-semibold uppercase tracking-wide text-muted">Clientes</p>
+		<!-- ── CLIENT + PARTICIPANTS ─────────────────────────────────────────────── -->
+		<div class="rounded-(--radius-card) bg-surface p-4 ring-1 ring-border space-y-4">
 
-			{#each selectedClients as c (c.clientId)}
-				<input type="hidden" name="clientId" value={c.clientId} />
-				<input type="hidden" name="clientName" value={c.name} />
-				<input type="hidden" name="amountDue" value={c.amountDue} />
-				<input type="hidden" name="participantCount" value={c.participantCount} />
-				<input type="hidden" name="alsoParticipates" value={c.alsoParticipates ? 'true' : 'false'} />
-			{/each}
-
-			{#if selectedClients.length > 0}
-				<div class="space-y-2">
-					{#each selectedClients as c, i (c.clientId)}
-						<div
-							class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2 ring-1 ring-ocean/20"
-						>
-							<span class="flex-1 text-sm font-medium text-ocean">{c.name}</span>
-							{#if needsParticipantCount}
-								<div class="flex items-center gap-1">
-									<button
-										type="button"
-										onclick={() =>
-											(selectedClients[i].participantCount = Math.max(
-												1,
-												c.participantCount - 1
-											))}
-										class="h-5 w-5 rounded-full border border-ocean/30 text-center text-xs text-ocean hover:bg-ocean/10"
-										>−</button
-									>
-									<span class="w-5 text-center text-xs font-semibold text-ocean"
-										>{c.participantCount}</span
-									>
-									<button
-										type="button"
-										onclick={() =>
-											(selectedClients[i].participantCount = c.participantCount + 1)}
-										class="h-5 w-5 rounded-full border border-ocean/30 text-center text-xs text-ocean hover:bg-ocean/10"
-										>+</button
-									>
-								</div>
-								<label class="flex items-center gap-1 text-[10px] text-muted cursor-pointer">
-									<input
-										type="checkbox"
-										bind:checked={selectedClients[i].alsoParticipates}
-										class="h-3 w-3 accent-ocean"
-									/>
-									también participa
-								</label>
-							{/if}
-							<button
-								type="button"
-								onclick={() => removeClient(c.clientId)}
-								class="ml-1 text-ocean/40 hover:text-ocean">✕</button
-							>
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			<ClientSearchInput
-				clients={data.clients}
-				excludeIds={selectedClients.map((c) => c.clientId)}
-				placeholder="Buscar cliente..."
-				onSelect={(c) => addClient({ id: c.id, firstName: c.firstName, lastName: c.lastName })}
-			/>
-		</div>
-
-		<!-- Notes (collapsed) -->
-		<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
-				<button
-					type="button"
-					onclick={() => (notesOpen = !notesOpen)}
-					class="flex w-full items-center justify-between px-4 py-3 text-left"
-				>
-					<span class="text-xs font-semibold uppercase tracking-wide text-muted">Notas</span>
-					<svg
-						class="h-4 w-4 text-muted transition-transform {notesOpen ? 'rotate-90' : ''}"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
-				{#if notesOpen}
-					<div class="border-t border-border px-4 pb-4 pt-3">
-						<NotesSection bind:spotNotes bind:notes />
+			<!-- Contract holder -->
+			<div>
+				<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Cliente (titular)</p>
+				{#if selectedClient}
+					<input type="hidden" name="clientId" value={selectedClient.clientId} />
+					<input type="hidden" name="clientName" value={selectedClient.name} />
+					<input type="hidden" name="amountDue" value={calcAmountDue()} />
+					<input type="hidden" name="participantCount" value={participantCount} />
+					<input type="hidden" name="alsoParticipates" value={clientAlsoParticipates ? 'true' : 'false'} />
+					<div class="flex items-center gap-2 rounded-lg bg-ocean/5 px-3 py-2.5 ring-1 ring-ocean/20">
+						<span class="flex-1 font-medium text-ocean">{selectedClient.name}</span>
+						<button type="button" onclick={() => { selectedClient = null; participantCount = 1; clientAlsoParticipates = true; }}
+							class="text-ocean/40 hover:text-red-400">✕</button>
 					</div>
+				{:else}
+					<ClientSearchInput
+						clients={data.clients}
+						excludeIds={[]}
+						placeholder="Buscar cliente..."
+						onSelect={(c) => {
+							selectedClient = { clientId: c.id, name: `${c.firstName} ${c.lastName}`.trim() };
+						}}
+					/>
 				{/if}
 			</div>
 
-		<button
-			type="submit"
-			disabled={loading || selectedClients.length === 0}
-			class="btn-primary btn-block mt-2"
-		>
+			<!-- Participants (only if relevant) -->
+			{#if selectedClient && (hasSessions || 'roster' in modules)}
+				<div class="border-t border-border pt-3">
+					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Participantes</p>
+					<div class="space-y-3">
+						<!-- Count -->
+						<div class="flex items-center gap-3">
+							<span class="text-sm text-gray-700">¿Cuántas personas?</span>
+							<button type="button" onclick={() => participantCount = Math.max(1, participantCount - 1)}
+								class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-100">−</button>
+							<span class="w-6 text-center font-bold text-gray-900">{participantCount}</span>
+							<button type="button" onclick={() => participantCount = participantCount + 1}
+								class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-sm hover:bg-gray-100">+</button>
+						</div>
+						<!-- Client participates -->
+						<label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+							<input type="checkbox" bind:checked={clientAlsoParticipates} class="h-4 w-4 accent-ocean" />
+							El titular también participa (usar su nombre como participante)
+						</label>
+						<p class="text-[11px] text-muted">Los nombres específicos se añaden desde el detalle de la reserva.</p>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<!-- ── NOTES ─────────────────────────────────────────────────────────────── -->
+		<div class="rounded-(--radius-card) bg-surface ring-1 ring-border overflow-hidden">
+			<button type="button" onclick={() => notesOpen = !notesOpen}
+				class="flex w-full items-center justify-between px-4 py-3 text-left">
+				<span class="text-xs font-semibold uppercase tracking-wide text-muted">Notas</span>
+				<svg class="h-4 w-4 text-muted transition-transform {notesOpen ? 'rotate-90' : ''}"
+					fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+				</svg>
+			</button>
+			{#if notesOpen}
+				<div class="border-t border-border px-4 pb-4 pt-3">
+					<NotesSection bind:spotNotes bind:notes />
+				</div>
+			{/if}
+		</div>
+
+		<button type="submit" disabled={loading || !selectedClient}
+			class="btn-primary btn-block mt-2">
 			{loading ? 'Guardando...' : 'Crear reserva'}
 		</button>
 	</form>

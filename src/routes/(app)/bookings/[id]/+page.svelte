@@ -115,7 +115,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-5xl space-y-4 p-3 md:p-6">
+<div class="w-full space-y-4 p-3 md:p-6">
 
 	<!-- WA confirmation banner -->
 	{#if isNewBooking && !confirmationDismissed && data.booking.clients.length > 0}
