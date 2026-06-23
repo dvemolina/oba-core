@@ -4,20 +4,29 @@
 		| 'confirmed' | 'pending' | 'cancelled'
 		| 'paid' | 'partial'
 		| 'active' | 'completed' | 'unscheduled'
-		| 'beginner' | 'intermediate' | 'advanced';
+		| 'beginner' | 'intermediate' | 'advanced'
+		| 'admin' | 'owner' | 'manager' | 'instructor' | 'banned'
+		| 'pool' | 'specific';
 
 	const COLORS: Record<StatusVariant, string> = {
 		confirmed:    'bg-green-100 text-green-700',
 		paid:         'bg-green-100 text-green-700',
 		advanced:     'bg-green-100 text-green-700',
 		completed:    'bg-green-100 text-green-700',
+		instructor:   'bg-green-100 text-green-700',
 		pending:      'bg-amber-100 text-amber-700',
 		partial:      'bg-amber-100 text-amber-700',
 		intermediate: 'bg-amber-100 text-amber-700',
 		unscheduled:  'bg-amber-100 text-amber-700',
 		cancelled:    'bg-red-100 text-red-600',
+		banned:       'bg-red-100 text-red-600',
+		admin:        'bg-red-100 text-red-700',
 		active:       'bg-blue-100 text-blue-700',
 		beginner:     'bg-blue-100 text-blue-700',
+		owner:        'bg-blue-100 text-blue-700',
+		pool:         'bg-blue-100 text-blue-700',
+		manager:      'bg-purple-100 text-purple-700',
+		specific:     'bg-emerald-100 text-emerald-700',
 	};
 
 	const DEFAULT_LABELS: Record<StatusVariant, string> = {
@@ -32,6 +41,13 @@
 		beginner:     'principiante',
 		intermediate: 'intermedio',
 		advanced:     'avanzado',
+		admin:        'administrador',
+		owner:        'propietario',
+		manager:      'gestor',
+		instructor:   'instructor',
+		banned:       'bloqueado',
+		pool:         'piscina',
+		specific:     'específico',
 	};
 
 	let {
