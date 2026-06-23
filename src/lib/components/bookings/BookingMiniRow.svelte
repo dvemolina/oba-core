@@ -29,6 +29,11 @@
 		const paid = parseFloat(amountPaid);
 		return isNaN(due) || isNaN(paid) ? 0 : due - paid;
 	});
+	function fmtDate(d: string) {
+		return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
+			day: 'numeric', month: 'short', year: 'numeric'
+		});
+	}
 </script>
 
 <a
@@ -42,7 +47,7 @@
 	<div class="min-w-0 flex-1">
 		<p class="truncate text-sm font-semibold text-gray-900">{serviceName ?? '—'}</p>
 		<p class="text-xs text-muted">
-			{date}
+			{fmtDate(date)}
 			{#if participantCount > 1}· {participantCount} participantes{/if}
 		</p>
 	</div>
