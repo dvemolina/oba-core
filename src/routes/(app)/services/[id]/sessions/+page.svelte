@@ -3,6 +3,7 @@
 	import { withToast } from '$lib/utils/enhance';
 	import { getServiceColor } from '$lib/features/services/colors';
 	import SessionListCard from '$lib/components/sessions/SessionListCard.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -212,11 +213,11 @@
 																	{e.firstName ?? ''} {e.lastName ?? ''}
 																</a>
 																{#if paidAmt >= dueAmt && dueAmt > 0}
-																	<span class="shrink-0 rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] text-green-700">Pagado</span>
+																	<StatusBadge variant="paid" />
 																{:else if paidAmt > 0}
-																	<span class="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] text-amber-700">Parcial</span>
+																	<StatusBadge variant="partial" />
 																{:else}
-																	<span class="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] text-gray-500">Pendiente</span>
+																	<StatusBadge variant="pending" />
 																{/if}
 															</div>
 															{#if s.status !== 'cancelled'}

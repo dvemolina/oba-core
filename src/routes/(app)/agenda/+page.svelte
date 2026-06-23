@@ -4,6 +4,7 @@
 	import { getLocale } from '$lib/paraglide/runtime';
 	import { User, Waves } from 'lucide-svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,20 +17,12 @@
 		return t ? t.slice(0, 5) : null;
 	}
 
-	// Color map for session status
-	const statusColors: Record<string, string> = {
-		scheduled: 'bg-green-100 text-green-700',
-		completed: 'bg-gray-100 text-gray-600',
-		cancelled: 'bg-red-100 text-red-600',
-		unscheduled: 'bg-amber-100 text-amber-700'
-	};
-
-	const statusLabels: Record<string, string> = {
-		scheduled: 'Programada',
-		completed: 'Completada',
-		cancelled: 'Cancelada',
-		unscheduled: 'Sin hora'
-	};
+	function sessionStatusVariant(status: string): 'active' | 'completed' | 'cancelled' | 'unscheduled' {
+		if (status === 'completed') return 'completed';
+		if (status === 'cancelled') return 'cancelled';
+		if (status === 'unscheduled') return 'unscheduled';
+		return 'active';
+	}
 </script>
 
 <div class="flex flex-1 flex-col overflow-hidden">
@@ -119,9 +112,7 @@
 							<div class="min-w-0 flex-1">
 								<div class="flex flex-wrap items-center gap-2">
 									<p class="font-medium text-gray-800">{session.serviceName ?? 'Sesión'}</p>
-									<span class="rounded-full px-2 py-0.5 text-xs font-medium {statusColors[session.status] ?? 'bg-gray-100 text-gray-600'}">
-										{statusLabels[session.status] ?? session.status}
-									</span>
+									<StatusBadge variant={sessionStatusVariant(session.status)} />
 								</div>
 
 								{#if session.instructors?.length}

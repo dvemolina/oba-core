@@ -3,6 +3,7 @@
 	import { User, Waves, Calendar } from 'lucide-svelte';
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -10,17 +11,6 @@
 
 	const sortedDates = $derived(Object.keys(data.byDate).sort());
 	const totalCount = $derived(Object.values(data.byDate).reduce((acc, b) => acc + b.length, 0));
-
-	const statusColors: Record<string, string> = {
-		confirmed: 'bg-green-100 text-green-700',
-		pending:   'bg-amber-100 text-amber-700',
-		cancelled: 'bg-red-100 text-red-600'
-	};
-	const statusLabels: Record<string, string> = {
-		confirmed: 'Confirmado',
-		pending:   'Pendiente',
-		cancelled: 'Cancelado'
-	};
 
 	function typeLabel(b: Booking) {
 		if (b.serviceHasDateRange) return 'Campamento';
@@ -137,9 +127,7 @@
 
 										<!-- Badges -->
 										<div class="flex shrink-0 flex-col items-end gap-1">
-											<span class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold {statusColors[b.status] ?? ''}">
-												{statusLabels[b.status] ?? b.status}
-											</span>
+											<StatusBadge variant={b.status} />
 											<span class="rounded-full px-1.5 py-0.5 text-[9px] font-medium {typeBadge(b)}">
 												{typeLabel(b)}
 											</span>
