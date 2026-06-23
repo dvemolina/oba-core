@@ -48,6 +48,6 @@
 	const displayLabel = $derived(label ?? DEFAULT_LABELS[variant as StatusVariant] ?? variant);
 </script>
 
-<span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold capitalize {colorClass} {className}">
+<span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-semibold {colorClass} {className}">
 	{displayLabel}
 </span>
