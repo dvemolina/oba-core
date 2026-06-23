@@ -18,6 +18,7 @@ import type {
 	BookingEnrollment,
 	BookingSessionContext,
 	BulkGenOptions,
+	ClientGroup,
 	CreateParticipantInput,
 	CreateSessionInput,
 	Session,
@@ -27,6 +28,7 @@ import type {
 	SessionInstructor,
 	SessionOwnerType,
 	SessionParticipant,
+	SessionWithGroups,
 	UpdateSessionInput
 } from './types';
 
@@ -111,6 +113,82 @@ async function attachParticipants<T extends { id: string }>(
 	const bySession: Record<string, SessionParticipant[]> = {};
 	for (const r of rows) (bySession[r.sessionId] ??= []).push(r);
 	return sessionRows.map((s) => ({ ...s, participants: bySession[s.id] ?? [] }));
+}
+
+async function attachClientGroups<T extends { id: string; participants: SessionParticipant[] }>(
+	sessionRows: T[]
+): Promise<(T & { clientGroups: ClientGroup[]; participantNames: string[] })[]> {
+	if (sessionRows.length === 0)
+		return sessionRows.map((s) => ({ ...s, clientGroups: [], participantNames: [] }));
+
+	// Collect all bookingParticipantIds that are linked
+	const linkedPairs: { sessionId: string; bpId: string }[] = [];
+	for (const s of sessionRows) {
+		for (const p of s.participants) {
+			if (p.bookingParticipantId) linkedPairs.push({ sessionId: s.id, bpId: p.bookingParticipantId });
+		}
+	}
+
+	const bpIds = [...new Set(linkedPairs.map((lp) => lp.bpId))];
+
+	if (bpIds.length === 0) {
+		return sessionRows.map((s) => ({
+			...s,
+			clientGroups: [],
+			participantNames: s.participants.map((p) => p.name).filter(Boolean)
+		}));
+	}
+
+	const rows = await db
+		.select({
+			bookingParticipantId: bookingParticipants.id,
+			bookingId: bookingClients.bookingId,
+			clientFirstName: clients.firstName,
+			clientLastName: clients.lastName
+		})
+		.from(bookingParticipants)
+		.innerJoin(bookingClients, eq(bookingParticipants.bookingClientId, bookingClients.id))
+		.innerJoin(clients, eq(bookingClients.clientId, clients.id))
+		.where(inArray(bookingParticipants.id, bpIds));
+
+	// Map: bookingParticipantId → { bookingId, clientName }
+	const bpMeta = new Map<string, { bookingId: string; clientName: string }>();
+	for (const row of rows) {
+		bpMeta.set(row.bookingParticipantId, {
+			bookingId: row.bookingId,
+			clientName: [row.clientFirstName, row.clientLastName].filter(Boolean).join(' ') || 'Desconocido'
+		});
+	}
+
+	return sessionRows.map((s) => {
+		// Group participants by bookingId
+		const byBooking = new Map<string, { clientName: string; participants: { id: string; name: string }[] }>();
+		const unlinkedNames: string[] = [];
+
+		for (const p of s.participants) {
+			if (p.bookingParticipantId && bpMeta.has(p.bookingParticipantId)) {
+				const meta = bpMeta.get(p.bookingParticipantId)!;
+				const group = byBooking.get(meta.bookingId) ?? { clientName: meta.clientName, participants: [] };
+				group.participants.push({ id: p.id, name: p.name });
+				byBooking.set(meta.bookingId, group);
+			} else {
+				unlinkedNames.push(p.name);
+			}
+		}
+
+		const clientGroups: ClientGroup[] = [...byBooking.entries()].map(([bookingId, group]) => ({
+			clientName: group.clientName,
+			bookingId,
+			participants: group.participants
+		}));
+
+		const participantNames = [
+			...clientGroups.flatMap((g) => g.participants.map((p) => p.name)),
+			...unlinkedNames
+		].filter(Boolean);
+
+		return { ...s, clientGroups, participantNames };
+	});
 }
 
 type BookingClientRow = {
@@ -275,7 +353,7 @@ export async function listSessionsForService(
 	serviceId: string,
 	from?: string,
 	to?: string
-): Promise<Session[]> {
+): Promise<SessionWithGroups[]> {
 	const conditions = [eq(sessions.serviceId, serviceId), eq(sessions.ownerType, 'service')];
 	if (from) conditions.push(gte(sessions.date, from));
 	if (to) conditions.push(lte(sessions.date, to));
@@ -285,17 +363,19 @@ export async function listSessionsForService(
 		.where(and(...conditions))
 		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
 	const wi = await attachInstructors(rows as Omit<Session, 'instructors' | 'participants'>[]);
-	return attachParticipants(wi);
+	const wb = await attachParticipants(wi);
+	return attachClientGroups(wb);
 }
 
-export async function listSessionsForEdition(editionId: string): Promise<Session[]> {
+export async function listSessionsForEdition(editionId: string): Promise<SessionWithGroups[]> {
 	const rows = await db
 		.select(SESSION_COLS)
 		.from(sessions)
 		.where(and(eq(sessions.serviceEditionId, editionId), eq(sessions.ownerType, 'edition')))
 		.orderBy(sessions.date, sessions.sortOrder, sessions.time);
 	const wi = await attachInstructors(rows as Omit<Session, 'instructors' | 'participants'>[]);
-	return attachParticipants(wi);
+	const wb = await attachParticipants(wi);
+	return attachClientGroups(wb);
 }
 
 // ── Group class enrollment ────────────────────────────────────────────────────
@@ -672,7 +752,8 @@ async function enrichBookingOwnedForCalendar(rows: Session[]): Promise<SessionFo
 			participantNames: summary.participantNames,
 			totalParticipants: summary.totalParticipants,
 			totalAmountDue: payMap[s.bookingId!]?.due ?? 0,
-			totalAmountPaid: payMap[s.bookingId!]?.paid ?? 0
+			totalAmountPaid: payMap[s.bookingId!]?.paid ?? 0,
+			clientGroups: []
 		} satisfies SessionForDay;
 	});
 }
@@ -756,7 +837,8 @@ async function enrichServiceOwnedForCalendar(rows: Session[]): Promise<SessionFo
 			participantNames: summary.participantNames,
 			totalParticipants: summary.totalParticipants,
 			totalAmountDue: totals.due,
-			totalAmountPaid: totals.paid
+			totalAmountPaid: totals.paid,
+			clientGroups: []
 		} satisfies SessionForDay;
 	});
 }
@@ -848,7 +930,8 @@ async function enrichEditionOwnedForCalendar(rows: Session[]): Promise<SessionFo
 			participantNames: summary.participantNames,
 			totalParticipants: summary.totalParticipants,
 			totalAmountDue: totals.due,
-			totalAmountPaid: totals.paid
+			totalAmountPaid: totals.paid,
+			clientGroups: []
 		} satisfies SessionForDay;
 	});
 }
@@ -913,12 +996,17 @@ async function enrichBookingOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			: [];
 	const clientsByBooking = groupBookingClients(clientRows);
 
+	const wb = rows as Session[];
+	const wg = await attachClientGroups(wb.map((s) => ({ ...s, participants: s.participants })));
+	const wgMap = new Map(wg.map((s) => [s.id, s]));
+
 	return rows.map((s) => {
 		const booking = bookingMap[s.bookingId!];
 		const service = booking?.serviceId ? svcMap[booking.serviceId] : null;
 		const summary = buildParticipantSummary(s, clientsByBooking[s.bookingId!] ?? [], {
 			fallbackToClientNames: true
 		});
+		const enriched = wgMap.get(s.id)!;
 
 		return {
 			...s,
@@ -942,7 +1030,8 @@ async function enrichBookingOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			enrolledCount: summary.enrolledCount,
 			maxCapacity: service?.maxCapacity ?? null,
 			totalAmountDue: summary.totalAmountDue,
-			totalAmountPaid: summary.totalAmountPaid
+			totalAmountPaid: summary.totalAmountPaid,
+			clientGroups: enriched.clientGroups
 		} satisfies AgendaSession;
 	});
 }
@@ -1007,6 +1096,10 @@ async function enrichServiceOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			: [];
 	const clientsByBooking = groupBookingClients(clientRows);
 
+	const wb = rows as Session[];
+	const wg = await attachClientGroups(wb.map((s) => ({ ...s, participants: s.participants })));
+	const wgMap = new Map(wg.map((s) => [s.id, s]));
+
 	return rows.map((s) => {
 		const service = svcMap[s.serviceId!];
 		const sessionBookings = enrolledBySession[s.id] ?? [];
@@ -1015,6 +1108,7 @@ async function enrichServiceOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			sessionBookings.flatMap((booking) => clientsByBooking[booking.bookingId] ?? []),
 			{ fallbackToClientNames: false }
 		);
+		const enriched = wgMap.get(s.id)!;
 
 		return {
 			...s,
@@ -1038,7 +1132,8 @@ async function enrichServiceOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			enrolledCount: summary.enrolledCount,
 			maxCapacity: service?.maxCapacity ?? null,
 			totalAmountDue: summary.totalAmountDue,
-			totalAmountPaid: summary.totalAmountPaid
+			totalAmountPaid: summary.totalAmountPaid,
+			clientGroups: enriched.clientGroups
 		} satisfies AgendaSession;
 	});
 }
@@ -1118,6 +1213,10 @@ async function enrichEditionOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			: [];
 	const clientsByBooking = groupBookingClients(clientRows);
 
+	const wb = rows as Session[];
+	const wg = await attachClientGroups(wb.map((s) => ({ ...s, participants: s.participants })));
+	const wgMap = new Map(wg.map((s) => [s.id, s]));
+
 	return rows.map((s) => {
 		const edition = edMap[s.serviceEditionId!];
 		const service = edition ? svcMap[edition.serviceId] : null;
@@ -1127,6 +1226,7 @@ async function enrichEditionOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			sessionBookings.flatMap((booking) => clientsByBooking[booking.bookingId] ?? []),
 			{ fallbackToClientNames: false }
 		);
+		const enriched = wgMap.get(s.id)!;
 
 		return {
 			...s,
@@ -1151,7 +1251,8 @@ async function enrichEditionOwnedForAgenda(rows: Session[]): Promise<AgendaSessi
 			enrolledCount: summary.enrolledCount,
 			maxCapacity: service?.maxCapacity ?? null,
 			totalAmountDue: summary.totalAmountDue,
-			totalAmountPaid: summary.totalAmountPaid
+			totalAmountPaid: summary.totalAmountPaid,
+			clientGroups: enriched.clientGroups
 		} satisfies AgendaSession;
 	});
 }
