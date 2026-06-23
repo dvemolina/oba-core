@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, ne, or, sql, sum } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, ne, or, sql, sum } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	sessions,
@@ -1302,6 +1302,39 @@ export async function listParticipantsWithContext(
 		.leftJoin(clients, eq(clients.id, bookingClients.clientId))
 		.where(eq(sessionParticipants.sessionId, sessionId))
 		.orderBy(sessionParticipants.sortOrder);
+}
+
+export async function listSessionsForClient(clientId: string): Promise<{
+	sessionId: string;
+	date: string;
+	status: string;
+	serviceName: string | null;
+}[]> {
+	return db
+		.selectDistinct({
+			sessionId: sessions.id,
+			date: sessions.date,
+			status: sessions.status,
+			serviceName: sql<string | null>`(
+				SELECT name FROM services
+				WHERE id = COALESCE(
+					${sessions.serviceId},
+					(SELECT service_id FROM bookings WHERE id = ${sessions.bookingId}),
+					(SELECT service_id FROM service_editions WHERE id = ${sessions.serviceEditionId})
+				)
+				LIMIT 1
+			)`
+		})
+		.from(sessions)
+		.innerJoin(sessionParticipants, eq(sessionParticipants.sessionId, sessions.id))
+		.innerJoin(
+			bookingParticipants,
+			eq(bookingParticipants.id, sessionParticipants.bookingParticipantId)
+		)
+		.innerJoin(bookingClients, eq(bookingClients.id, bookingParticipants.bookingClientId))
+		.where(eq(bookingClients.clientId, clientId))
+		.orderBy(desc(sessions.date))
+		.limit(20);
 }
 
 // All bookings for a service on a date, excluding those already on the given session

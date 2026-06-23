@@ -412,12 +412,17 @@ export async function getBookingsForClient(clientId: string): Promise<ClientBook
 			time: bookings.time,
 			serviceId: bookings.serviceId,
 			serviceName: services.name,
-			status: bookings.status
+			serviceColor: services.color,
+			status: bookings.status,
+			participantCount: bookingClients.participantCount,
+			amountDue: bookingClients.amountDue,
+			amountPaid: bookingClients.amountPaid,
+			paymentStatus: bookingClients.paymentStatus
 		})
 		.from(bookingClients)
 		.innerJoin(bookings, eq(bookingClients.bookingId, bookings.id))
 		.leftJoin(services, eq(bookings.serviceId, services.id))
-		.where(eq(bookingClients.clientId, clientId))
+		.where(and(eq(bookingClients.clientId, clientId), eq(bookingClients.status, 'enrolled')))
 		.orderBy(desc(bookings.date));
 	return rows as ClientBookingSummary[];
 }

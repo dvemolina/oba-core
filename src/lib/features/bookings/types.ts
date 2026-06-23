@@ -122,8 +122,14 @@ export interface ClientBookingSummary {
 	id: string;
 	date: string;
 	time: string | null;
+	serviceId: string | null;
 	serviceName: string | null;
+	serviceColor: string | null;
 	status: BookingStatus;
+	participantCount: number;
+	amountDue: string;
+	amountPaid: string;
+	paymentStatus: PaymentStatus;
 }
 
 export interface CreateBookingInput {
