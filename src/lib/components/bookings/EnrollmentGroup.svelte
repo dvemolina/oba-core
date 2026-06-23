@@ -37,11 +37,17 @@
 		impactAction?: string;
 	} = $props();
 
+	// Warn at dev time when canEdit=true but actions are missing
+	if (canEdit && (!renameAction || !removeAction || !addAction)) {
+		console.warn('EnrollmentGroup: canEdit=true requires renameAction, removeAction, and addAction');
+	}
+
 	// CRUD state (only used when canEdit=true)
 	let editingId = $state<string | null>(null);
 	let editingName = $state('');
 	let removingId = $state<string | null>(null);
 	let impact = $state<{ sessionCount: number; allocationCount: number } | null>(null);
+	let impactError = $state(false);
 	let addOpen = $state(false);
 	let addValue = $state('');
 
@@ -56,6 +62,7 @@
 		removingId = id;
 		editingId = null;
 		impact = null;
+		impactError = false;
 		if (impactAction) {
 			try {
 				const fd = new FormData();
@@ -64,7 +71,7 @@
 				const json = await res.json();
 				impact = json?.data?.impact ?? null;
 			} catch {
-				impact = { sessionCount: 0, allocationCount: 0 };
+				impactError = true;
 			}
 		}
 	}
@@ -73,6 +80,7 @@
 		editingId = null;
 		removingId = null;
 		impact = null;
+		impactError = false;
 		addOpen = false;
 		addValue = '';
 	}
@@ -136,6 +144,10 @@
 							⚠ Se eliminará de {impact.sessionCount} sesión{impact.sessionCount !== 1 ? 'es' : ''}
 							{impact.allocationCount > 0 ? ` · equipo desasignado (${impact.allocationCount})` : ''}
 						</p>
+					{:else if impactError}
+						<p class="mb-2 rounded bg-red-50 px-2 py-1 text-[9px] text-red-600">
+							No se pudo calcular el impacto. Procede con precaución.
+						</p>
 					{:else if impactAction}
 						<p class="mb-2 text-[9px] text-muted">Calculando impacto…</p>
 					{/if}
@@ -143,7 +155,7 @@
 						<form
 							method="POST"
 							action={removeAction}
-							use:enhance={withToast(() => { removingId = null; impact = null; })}
+							use:enhance={withToast(() => { removingId = null; impact = null; impactError = false; })}
 						>
 							<input type="hidden" name="participantId" value={p.id} />
 							<input type="hidden" name="bookingClientId" value={bookingClientId} />

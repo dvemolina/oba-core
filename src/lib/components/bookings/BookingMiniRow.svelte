@@ -24,7 +24,11 @@
 	} = $props();
 
 	const dotColor = $derived(DOT_COLORS[serviceColor as keyof typeof DOT_COLORS] ?? DOT_COLORS['ocean']);
-	const pending = $derived(parseFloat(amountDue) - parseFloat(amountPaid));
+	const pending = $derived.by(() => {
+		const due = parseFloat(amountDue);
+		const paid = parseFloat(amountPaid);
+		return isNaN(due) || isNaN(paid) ? 0 : due - paid;
+	});
 </script>
 
 <a
