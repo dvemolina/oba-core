@@ -424,7 +424,7 @@ export async function getBookingsForClient(clientId: string): Promise<ClientBook
 		.leftJoin(services, eq(bookings.serviceId, services.id))
 		.where(and(eq(bookingClients.clientId, clientId), eq(bookingClients.status, 'enrolled')))
 		.orderBy(desc(bookings.date));
-	return rows as ClientBookingSummary[];
+	return rows;
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<Booking> {

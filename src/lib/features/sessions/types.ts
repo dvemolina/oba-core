@@ -71,6 +71,13 @@ export interface SessionSurface extends Session {
 	totalAmountPaid: number;
 }
 
+export interface ClientSessionSummary {
+	sessionId: string;
+	date: string;
+	status: string;
+	serviceName: string | null;
+}
+
 // Calendar day view — enriched with booking/service context
 export interface SessionForDay extends SessionSurface {}
 

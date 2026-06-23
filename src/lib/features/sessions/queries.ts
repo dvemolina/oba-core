@@ -22,6 +22,7 @@ import type {
 	CreateSessionInput,
 	Session,
 	SessionContext,
+	ClientSessionSummary,
 	SessionForDay,
 	SessionInstructor,
 	SessionOwnerType,
@@ -1304,12 +1305,7 @@ export async function listParticipantsWithContext(
 		.orderBy(sessionParticipants.sortOrder);
 }
 
-export async function listSessionsForClient(clientId: string): Promise<{
-	sessionId: string;
-	date: string;
-	status: string;
-	serviceName: string | null;
-}[]> {
+export async function listSessionsForClient(clientId: string): Promise<ClientSessionSummary[]> {
 	return db
 		.selectDistinct({
 			sessionId: sessions.id,
