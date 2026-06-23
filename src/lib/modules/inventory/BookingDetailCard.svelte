@@ -54,15 +54,15 @@
 		serviceInventoryLinks.filter(l => !booking.allocations.some(a => a.itemTypeId === l.itemTypeId))
 	);
 
-	// Which column's add-form is open: participantId (string) | 'booking' (unassigned) | null
-	let addingFor = $state<string | null>(null);
+	// Which column's add-form is open: participantId (string) | null (unassigned)
+	let addingFor = $state<string | null | undefined>(undefined); // undefined = closed
 	let addAllocTypeId = $state('');
 	let addAllocQty = $state(1);
 	let addAllocSelectedGroup = $state<string | null>(null);
 	let addFuzzy = $state(true);
 
 	$effect(() => {
-		if (addingFor !== null && !addAllocTypeId && serviceInventoryLinks.length > 0)
+		if (addingFor !== undefined && !addAllocTypeId && serviceInventoryLinks.length > 0)
 			addAllocTypeId = serviceInventoryLinks[0].itemTypeId;
 	});
 
@@ -74,7 +74,7 @@
 		addFuzzy = true;
 	}
 	function closeAdd() {
-		addingFor = null;
+		addingFor = undefined;
 		addAllocSelectedGroup = null;
 		addAllocQty = 1;
 		addFuzzy = true;
@@ -143,7 +143,7 @@
 	<div class="flex gap-3 overflow-x-auto p-4">
 		{#each cols as col (col.id ?? '__booking__')}
 			{@const colAllocs = allocsByParticipant.get(col.id) ?? []}
-			{@const isAddingHere = addingFor === (col.id ?? null)}
+			{@const isAddingHere = addingFor !== undefined && addingFor === col.id}
 
 			<div class="w-44 shrink-0 md:w-52">
 				<!-- Column header -->

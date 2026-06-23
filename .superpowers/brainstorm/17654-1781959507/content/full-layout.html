@@ -1,0 +1,219 @@
+<h2>Full Booking Detail — Layout C with all modules</h2>
+<p class="subtitle">Scroll to see the full page. Top row = info. Sessions full-width. Other modules stack below.</p>
+
+<div class="mockup">
+  <div class="mockup-header">↩ Group Surf Lesson &nbsp;·&nbsp; <span style="background:#dcfce7;color:#166534;border-radius:9999px;padding:2px 8px;font-size:11px">confirmed</span> &nbsp;·&nbsp; <span style="font-size:11px;color:#6b7280">#A3F2B1C0 · Created 18 Jun 2026</span> &nbsp;&nbsp; <span style="font-size:11px;color:#2563eb;cursor:pointer">📝 Notes</span></div>
+  <div class="mockup-body" style="padding:12px;background:#f9fafb">
+
+    <!-- TOP ROW: 3 cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+
+      <!-- Service card -->
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:6px">📋 Service</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:#0ea5e9;display:inline-block"></span>
+          <span style="font-size:13px;font-weight:600;color:#1e293b">Group Surf Lesson</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          <span style="background:#dbeafe;color:#1d4ed8;border-radius:9999px;padding:2px 7px;font-size:9px;font-weight:600">⏱ Sessions</span>
+          <span style="background:#dbeafe;color:#1d4ed8;border-radius:9999px;padding:2px 7px;font-size:9px;font-weight:600">👥 Roster</span>
+          <span style="background:#dbeafe;color:#1d4ed8;border-radius:9999px;padding:2px 7px;font-size:9px;font-weight:600">🏄 Instructor</span>
+          <span style="background:#dbeafe;color:#1d4ed8;border-radius:9999px;padding:2px 7px;font-size:9px;font-weight:600">🎒 Inventory</span>
+        </div>
+      </div>
+
+      <!-- Client card -->
+      <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#1e40af;letter-spacing:.05em;margin-bottom:8px">👥 Client</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#111827">Ana García</div>
+            <div style="font-size:10px;color:#6b7280">+34 612 345 678 · ana@email.com</div>
+          </div>
+          <span style="background:#d1fae5;color:#065f46;border-radius:9999px;padding:1px 6px;font-size:9px">enrolled</span>
+        </div>
+        <div style="border-top:1px solid #e5e7eb;margin-top:6px;padding-top:6px;display:flex;gap:6px">
+          <button style="flex:1;border:1px dashed #93c5fd;background:#f0f9ff;border-radius:5px;padding:4px;font-size:9px;color:#1d4ed8;cursor:pointer">+ New client</button>
+          <button style="flex:1;border:1px dashed #93c5fd;background:#f0f9ff;border-radius:5px;padding:4px;font-size:9px;color:#1d4ed8;cursor:pointer">🔗 Link existing</button>
+        </div>
+      </div>
+
+      <!-- Payment card -->
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:.05em;margin-bottom:8px">💳 Payment</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:11px;color:#374151">Ana García</span>
+          <span style="background:#fef3c7;color:#92400e;border-radius:9999px;padding:1px 7px;font-size:9px;font-weight:600">€120 · partial</span>
+        </div>
+        <div style="font-size:10px;color:#6b7280;margin-bottom:8px">Paid €60 of €120</div>
+        <div style="background:#f9fafb;border-radius:5px;padding:6px;font-size:10px;font-weight:700;color:#374151;display:flex;justify-content:space-between">
+          <span>Total</span><span>€120</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SESSIONS — full width -->
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#166534;letter-spacing:.05em">⏱ Sessions · 2 active</div>
+        <div style="display:flex;gap:6px">
+          <button style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:600;color:#166534;cursor:pointer">+ New session</button>
+          <button style="background:#fff;border:1px solid #86efac;border-radius:6px;padding:5px 10px;font-size:10px;font-weight:600;color:#166534;cursor:pointer">🔗 Link existing</button>
+        </div>
+      </div>
+
+      <!-- Session cards grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+
+        <!-- Session card 1 -->
+        <div style="background:#fff;border:1px solid #d1fae5;border-radius:8px;overflow:hidden">
+          <div style="display:flex">
+            <!-- Left: schedule + client + instructor -->
+            <div style="width:42%;padding:10px;border-right:1px solid #d1fae5">
+              <div style="font-size:11px;font-weight:700;color:#111827;margin-bottom:2px">Wed 18 Jun</div>
+              <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:6px">10:00 – 11:00</div>
+              <div style="font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:2px">Client</div>
+              <div style="font-size:10px;color:#374151;margin-bottom:6px">Ana García</div>
+              <div style="font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:3px">Instructor</div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                  <input type="checkbox" style="accent-color:#059669;width:11px;height:11px" />
+                  <span style="font-size:10px;color:#374151">Marco R.</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                  <input type="checkbox" style="accent-color:#059669;width:11px;height:11px" checked />
+                  <span style="font-size:10px;color:#374151">Sara L.</span>
+                </label>
+              </div>
+            </div>
+            <!-- Right: participants -->
+            <div style="width:58%;padding:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af">Participants</div>
+                <div style="font-size:10px;font-weight:600;color:#374151">2 / 8</div>
+              </div>
+              <div style="background:#f3f4f6;border-radius:3px;height:4px;margin-bottom:6px">
+                <div style="width:25%;background:#059669;height:4px;border-radius:3px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:4px;padding:3px 6px">
+                  <span style="font-size:10px;color:#111827">✓ Ana García</span>
+                  <span style="font-size:9px;color:#9ca3af;cursor:pointer">✕</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:4px;padding:3px 6px">
+                  <span style="font-size:10px;color:#111827">✓ Carlos M.</span>
+                  <span style="font-size:9px;color:#9ca3af;cursor:pointer">✕</span>
+                </div>
+              </div>
+              <!-- Add from client pool -->
+              <div style="border:1px dashed #86efac;border-radius:5px;padding:5px 8px">
+                <div style="font-size:9px;color:#6b7280;margin-bottom:3px">Add from Ana García's group:</div>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-size:10px;color:#374151">Pedro S.</span>
+                  <button style="font-size:9px;color:#059669;border:none;background:none;cursor:pointer;font-weight:600">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #d1fae5;padding:5px 10px;display:flex;justify-content:flex-end;gap:8px;background:#fafffe">
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">Edit</span>
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">Open full →</span>
+            <span style="font-size:9px;color:#ef4444;cursor:pointer">Cancel</span>
+          </div>
+        </div>
+
+        <!-- Session card 2 -->
+        <div style="background:#fff;border:1px solid #d1fae5;border-radius:8px;overflow:hidden">
+          <div style="display:flex">
+            <div style="width:42%;padding:10px;border-right:1px solid #d1fae5">
+              <div style="font-size:11px;font-weight:700;color:#111827;margin-bottom:2px">Thu 19 Jun</div>
+              <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:6px">10:00 – 11:00</div>
+              <div style="font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:2px">Client</div>
+              <div style="font-size:10px;color:#374151;margin-bottom:6px">Ana García</div>
+              <div style="font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:3px">Instructor</div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                  <input type="checkbox" style="accent-color:#059669;width:11px;height:11px" checked />
+                  <span style="font-size:10px;color:#374151">Marco R.</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                  <input type="checkbox" style="accent-color:#059669;width:11px;height:11px" />
+                  <span style="font-size:10px;color:#374151">Sara L.</span>
+                </label>
+              </div>
+            </div>
+            <div style="width:58%;padding:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af">Participants</div>
+                <div style="font-size:10px;font-weight:600;color:#374151">5 / 8</div>
+              </div>
+              <div style="background:#f3f4f6;border-radius:3px;height:4px;margin-bottom:6px">
+                <div style="width:62%;background:#f59e0b;height:4px;border-radius:3px"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:4px;padding:3px 6px">
+                  <span style="font-size:10px;color:#111827">✓ Ana García</span>
+                  <span style="font-size:9px;color:#9ca3af;cursor:pointer">✕</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:4px;padding:3px 6px">
+                  <span style="font-size:10px;color:#111827">✓ Carlos M.</span>
+                  <span style="font-size:9px;color:#9ca3af;cursor:pointer">✕</span>
+                </div>
+                <div style="font-size:9px;color:#6b7280;padding-left:4px">+ 3 more…</div>
+              </div>
+              <div style="border:1px dashed #86efac;border-radius:5px;padding:5px 8px">
+                <div style="font-size:9px;color:#6b7280">All of Ana's group added</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #d1fae5;padding:5px 10px;display:flex;justify-content:flex-end;gap:8px;background:#fafffe">
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">Edit</span>
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">Open full →</span>
+            <span style="font-size:9px;color:#ef4444;cursor:pointer">Cancel</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- INVENTORY — full width -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:.05em;margin-bottom:8px">🎒 Inventory allocations</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:8px">
+          <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:2px">Wetsuit</div>
+          <div style="font-size:9px;color:#6b7280">Size M · #WS-042</div>
+          <div style="margin-top:4px;display:flex;gap:3px">
+            <span style="background:#d1fae5;color:#065f46;border-radius:9999px;padding:1px 6px;font-size:9px">ready</span>
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">change</span>
+          </div>
+        </div>
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:8px">
+          <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:2px">Surfboard</div>
+          <div style="font-size:9px;color:#6b7280">Foam 8ft · #SB-017</div>
+          <div style="margin-top:4px;display:flex;gap:3px">
+            <span style="background:#fef3c7;color:#92400e;border-radius:9999px;padding:1px 6px;font-size:9px">pending</span>
+            <span style="font-size:9px;color:#6b7280;cursor:pointer">change</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px dashed #d1d5db;border-radius:6px;padding:8px;display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <span style="font-size:10px;color:#9ca3af">+ Add item</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTRUCTOR standalone (if no sessions) — shown for reference -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px;opacity:0.6">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:.05em;margin-bottom:4px">🏄 Instructor <span style="font-weight:400;font-size:9px;color:#9ca3af">(only shown if service has no sessions)</span></div>
+      <div style="font-size:11px;color:#374151">Marco Rodríguez <span style="color:#9ca3af">· change</span></div>
+    </div>
+
+    <!-- Cancel / Delete -->
+    <div style="display:flex;gap:6px">
+      <button style="flex:1;border:1px solid #fca5a5;background:#fff5f5;color:#b91c1c;border-radius:6px;padding:7px;font-size:11px;cursor:pointer">Cancel booking</button>
+      <button style="flex:1;border:1px solid #fca5a5;background:#fff5f5;color:#b91c1c;border-radius:6px;padding:7px;font-size:11px;cursor:pointer">Delete booking</button>
+    </div>
+
+  </div>
+</div>

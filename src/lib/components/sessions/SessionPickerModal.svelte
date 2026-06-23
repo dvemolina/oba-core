@@ -26,7 +26,8 @@
 		capacity,
 		availableSessions = [],
 		instructors = [],
-		bookingDate
+		bookingDate,
+		newSessionAction = '?/addSession'
 	}: {
 		open: boolean;
 		bookingId: string;
@@ -36,6 +37,7 @@
 		availableSessions?: ModalSession[];
 		instructors?: Instructor[];
 		bookingDate: string;
+		newSessionAction?: string;
 	} = $props();
 
 	let activeTab = $state<'new' | 'link'>('link');
@@ -95,7 +97,7 @@
 				<!-- New session form -->
 				<form
 					method="post"
-					action="?/addSession"
+					action={newSessionAction}
 					use:enhance={withToast(() => { open = false; })}
 					class="space-y-4 p-5"
 				>

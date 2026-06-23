@@ -1,0 +1,226 @@
+<h2>Session card — compact left + modal for New/Link</h2>
+<p class="subtitle">Scroll down to see the modal. The SessionCard component is reused in both views.</p>
+
+<div class="section">
+  <h3>Revised session cards — tighter left, clearer separation</h3>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px">
+
+    <!-- Session card 1 — compact -->
+    <div style="background:#fff;border:1px solid #d1fae5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
+      <div style="display:flex">
+        <!-- Left: compact — date + time + instructor only -->
+        <div style="width:34%;padding:10px 10px 10px 12px;border-right:1px solid #d1fae5;display:flex;flex-direction:column;gap:6px;background:#fafffe">
+          <div>
+            <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Wed 18 Jun</div>
+            <div style="font-size:15px;font-weight:700;color:#059669;line-height:1.2">10:00</div>
+            <div style="font-size:10px;color:#9ca3af">60 min</div>
+          </div>
+          <div style="border-top:1px solid #d1fae5;padding-top:6px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:4px">Instructor</div>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:3px">
+              <input type="checkbox" style="accent-color:#059669;width:12px;height:12px" checked />
+              <span style="font-size:10px;color:#374151">Marco R.</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" style="accent-color:#059669;width:12px;height:12px" />
+              <span style="font-size:10px;color:#374151">Sara L.</span>
+            </label>
+          </div>
+        </div>
+        <!-- Right: participants -->
+        <div style="width:66%;padding:10px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em">Participants</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <div style="font-size:10px;font-weight:700;color:#374151">3/8</div>
+              <div style="width:48px;height:4px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="width:37%;height:100%;background:#059669;border-radius:3px"></div></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px">
+              <span style="font-size:10px;color:#111827;font-weight:500">✓ Peter</span>
+              <button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px">
+              <span style="font-size:10px;color:#111827;font-weight:500">✓ Emma</span>
+              <button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px">
+              <span style="font-size:10px;color:#111827;font-weight:500">✓ Leon</span>
+              <button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;border-radius:5px;padding:4px 8px">
+              <span style="font-size:10px;color:#9ca3af">○ Sofia</span>
+              <button style="font-size:9px;color:#059669;border:none;background:none;cursor:pointer;font-weight:600">add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Footer -->
+      <div style="border-top:1px solid #d1fae5;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;background:#f7fffe">
+        <span style="font-size:9px;color:#059669;font-weight:600;background:#dcfce7;border-radius:9999px;padding:1px 7px">scheduled</span>
+        <div style="display:flex;gap:10px">
+          <button style="font-size:9px;color:#6b7280;border:none;background:none;cursor:pointer">Edit</button>
+          <button style="font-size:9px;color:#2563eb;border:none;background:none;cursor:pointer">Open →</button>
+          <button style="font-size:9px;color:#ef4444;border:none;background:none;cursor:pointer">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session card 2 -->
+    <div style="background:#fff;border:1px solid #d1fae5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
+      <div style="display:flex">
+        <div style="width:34%;padding:10px 10px 10px 12px;border-right:1px solid #d1fae5;display:flex;flex-direction:column;gap:6px;background:#fafffe">
+          <div>
+            <div style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Thu 19 Jun</div>
+            <div style="font-size:15px;font-weight:700;color:#059669;line-height:1.2">10:00</div>
+            <div style="font-size:10px;color:#9ca3af">60 min</div>
+          </div>
+          <div style="border-top:1px solid #d1fae5;padding-top:6px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:4px">Instructor</div>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:3px">
+              <input type="checkbox" style="accent-color:#059669;width:12px;height:12px" checked />
+              <span style="font-size:10px;color:#374151">Marco R.</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+              <input type="checkbox" style="accent-color:#059669;width:12px;height:12px" checked />
+              <span style="font-size:10px;color:#374151">Sara L.</span>
+            </label>
+          </div>
+        </div>
+        <div style="width:66%;padding:10px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em">Participants</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <div style="font-size:10px;font-weight:700;color:#374151">4/8</div>
+              <div style="width:48px;height:4px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="width:50%;height:100%;background:#f59e0b;border-radius:3px"></div></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px"><span style="font-size:10px;color:#111827;font-weight:500">✓ Peter</span><button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px"><span style="font-size:10px;color:#111827;font-weight:500">✓ Emma</span><button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px"><span style="font-size:10px;color:#111827;font-weight:500">✓ Leon</span><button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#f0fdf4;border-radius:5px;padding:4px 8px"><span style="font-size:10px;color:#111827;font-weight:500">✓ Sofia</span><button style="font-size:9px;color:#9ca3af;border:none;background:none;cursor:pointer">remove</button></div>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #d1fae5;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;background:#f7fffe">
+        <span style="font-size:9px;color:#059669;font-weight:600;background:#dcfce7;border-radius:9999px;padding:1px 7px">scheduled</span>
+        <div style="display:flex;gap:10px">
+          <button style="font-size:9px;color:#6b7280;border:none;background:none;cursor:pointer">Edit</button>
+          <button style="font-size:9px;color:#2563eb;border:none;background:none;cursor:pointer">Open →</button>
+          <button style="font-size:9px;color:#ef4444;border:none;background:none;cursor:pointer">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: New session / Link existing -->
+<div class="section" style="margin-top:32px">
+  <h3>Modal — "New session" or "Link existing session"</h3>
+  <p class="subtitle" style="margin-bottom:16px">Same SessionCard component. Opens as overlay. No navigation away.</p>
+
+  <!-- Modal overlay simulation -->
+  <div style="position:relative;background:rgba(0,0,0,.35);border-radius:12px;padding:20px;max-width:860px">
+    <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+
+      <!-- Modal header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e5e7eb">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#111827">Link to existing session</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:1px">Group Surf Lesson · sessions available on 18–19 Jun</div>
+        </div>
+        <button style="width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#f9fafb;font-size:14px;cursor:pointer;color:#6b7280">✕</button>
+      </div>
+
+      <!-- Modal tabs: New / Link -->
+      <div style="display:flex;border-bottom:1px solid #e5e7eb">
+        <button style="padding:10px 20px;font-size:12px;font-weight:600;color:#6b7280;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">+ New session</button>
+        <button style="padding:10px 20px;font-size:12px;font-weight:600;color:#059669;border:none;background:none;cursor:pointer;border-bottom:2px solid #059669">🔗 Link existing</button>
+      </div>
+
+      <!-- Session list in modal — same SessionCard, different context -->
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px;max-height:420px;overflow-y:auto">
+
+        <!-- Session card in modal — shows all clients + their participants -->
+        <div style="background:#fff;border:2px solid #059669;border-radius:10px;box-shadow:0 1px 6px rgba(5,150,105,.15);overflow:hidden">
+          <div style="background:#dcfce7;padding:5px 12px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:10px;font-weight:700;color:#065f46">Wed 18 Jun · 10:00 · Marco R.</span>
+            <span style="font-size:9px;color:#059669;background:#fff;border-radius:9999px;padding:1px 8px;font-weight:600">5/8 spots taken</span>
+          </div>
+          <div style="padding:10px 12px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:6px">Enrolled clients + participants</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+              <!-- Client 1 row -->
+              <div style="background:#f0fdf4;border-radius:6px;padding:6px 10px">
+                <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:2px">Ana García <span style="font-weight:400;color:#9ca3af">· Booking #B001</span></div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Ana</span>
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Carlos</span>
+                </div>
+              </div>
+              <!-- Client 2 row -->
+              <div style="background:#f0fdf4;border-radius:6px;padding:6px 10px">
+                <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:2px">Maria Lopez <span style="font-weight:400;color:#9ca3af">· Booking #B002</span></div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Maria</span>
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Juan</span>
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Rosa</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:9px;color:#6b7280;margin-bottom:8px">Linking this booking adds Peter + 4 participants → brings total to <strong style="color:#059669">9/8 ⚠ over capacity</strong></div>
+            <div style="background:#fef3c7;border-radius:5px;padding:5px 8px;font-size:9px;color:#92400e;margin-bottom:8px">⚠ Session is at capacity (8/8). Linking will exceed the limit — confirm to override or choose another session.</div>
+            <button style="width:100%;background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:6px;padding:7px;font-size:11px;cursor:pointer">Link anyway (override)</button>
+          </div>
+        </div>
+
+        <!-- Session card 2 in modal — available -->
+        <div style="background:#fff;border:1px solid #d1fae5;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden">
+          <div style="background:#f0fdf4;padding:5px 12px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:10px;font-weight:700;color:#065f46">Thu 19 Jun · 10:00 · Marco R. · Sara L.</span>
+            <span style="font-size:9px;color:#059669;background:#dcfce7;border-radius:9999px;padding:1px 8px;font-weight:600">3/8 spots taken</span>
+          </div>
+          <div style="padding:10px 12px">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:6px">Enrolled clients + participants</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+              <div style="background:#f0fdf4;border-radius:6px;padding:6px 10px">
+                <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:2px">Ana García <span style="font-weight:400;color:#9ca3af">· Booking #B001</span></div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Ana</span>
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Carlos</span>
+                  <span style="background:#dcfce7;color:#065f46;border-radius:9999px;padding:1px 7px;font-size:9px">Pedro</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:9px;color:#6b7280;margin-bottom:8px">Linking adds Peter + 4 participants → <strong style="color:#059669">7/8 — 1 spot left</strong></div>
+            <button style="width:100%;background:#059669;color:#fff;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:600;cursor:pointer">Link to this session</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:28px">
+  <h3>Component reuse plan</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:700px">
+    <div style="background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">
+      <div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:4px">SessionCard.svelte</div>
+      <div style="font-size:10px;color:#374151;line-height:1.6">Single source of truth for session card UI. Props control context:<br><code style="font-size:9px;background:#e0f2fe;padding:1px 4px;border-radius:3px">mode="booking"</code> — shows participant pool from booking client<br><code style="font-size:9px;background:#e0f2fe;padding:1px 4px;border-radius:3px">mode="service"</code> — shows all session participants<br><code style="font-size:9px;background:#e0f2fe;padding:1px 4px;border-radius:3px">mode="modal"</code> — link/select mode, shows enrolled bookings</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px">
+      <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:4px">Used in</div>
+      <div style="font-size:10px;color:#374151;line-height:1.9">
+        <div>📄 <code style="font-size:9px;background:#dcfce7;padding:1px 4px;border-radius:3px">/bookings/[id]</code> — booking context</div>
+        <div>📄 <code style="font-size:9px;background:#dcfce7;padding:1px 4px;border-radius:3px">/sessions</code> — service context (replaces old card)</div>
+        <div>🔲 <code style="font-size:9px;background:#dcfce7;padding:1px 4px;border-radius:3px">SessionPickerModal</code> — modal context</div>
+      </div>
+    </div>
+  </div>
+</div>

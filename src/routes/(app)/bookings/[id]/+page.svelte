@@ -5,13 +5,14 @@
 	import { withToast } from '$lib/utils/enhance';
 	import { DOT_COLORS } from '$lib/features/services/colors';
 	import type { ServiceColorKey } from '$lib/features/services/colors';
-	import { Zap, Waves } from 'lucide-svelte';
+	import { Zap, Waves, User } from 'lucide-svelte';
 	import type { ActionData, PageData } from './$types';
 	import { getLocale } from '$lib/paraglide/runtime';
 
 	// New components
 	import SessionCard from '$lib/components/sessions/SessionCard.svelte';
 	import SessionPickerModal from '$lib/components/sessions/SessionPickerModal.svelte';
+	import EnrollmentGroup from '$lib/components/bookings/EnrollmentGroup.svelte';
 
 	// Module cards kept for modules not fully rebuilt yet
 	import InstructorCard from '$lib/modules/instructor/BookingDetailCard.svelte';
@@ -60,14 +61,6 @@
 	let editingNotes = $state(false);
 	let editNotesValue = $state(data.booking.notes ?? '');
 
-	// Participant CRUD state
-	let bulkAddOpen = $state(false);
-	let bulkNames = $state('');
-	let removingParticipantId = $state<string | null>(null);
-	let editingParticipantId = $state<string | null>(null);
-	let editingParticipantName = $state('');
-	let removalImpact = $state<{ sessionCount: number; allocationCount: number } | null>(null);
-
 	// Payment per-participant
 	let expandedPaymentId = $state<string | null>(null);
 
@@ -100,19 +93,7 @@
 		return `https://wa.me/${phone.replace(/[\s\-()+]/g, '')}?text=${encodeURIComponent(message)}`;
 	}
 
-	async function fetchRemovalImpact(participantId: string) {
-		removingParticipantId = participantId;
-		removalImpact = null;
-		const fd = new FormData();
-		fd.set('participantId', participantId);
-		try {
-			const res = await fetch('?/getRemovalImpact', { method: 'POST', body: fd });
-			const json = await res.json();
-			removalImpact = json?.data?.impact ?? null;
-		} catch {
-			removalImpact = { sessionCount: 0, allocationCount: 0 };
-		}
-	}
+
 </script>
 
 <div class="w-full space-y-4 p-3 md:p-6">
@@ -143,8 +124,7 @@
 
 	<!-- HEADER -->
 	<div class="flex items-start gap-3">
-		<button onclick={() => (history.length > 1 ? history.back() : goto('/bookings'))}
-			class="btn-ghost btn-sm mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0">←</button>
+		<a href="/bookings" class="btn-ghost btn-sm mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg p-0">←</a>
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
 				<span class="inline-block h-3 w-3 shrink-0 rounded-full"
@@ -178,7 +158,7 @@
 			<span class="text-[11px] text-muted">Editada {fmtDateShort(data.booking.updatedAt)}</span>
 		{/if}
 		<span class="text-[10px] text-border">·</span>
-		<span class="text-[11px] text-muted capitalize">{data.booking.source === 'whatsapp_bot' ? '🤖 WhatsApp bot' : '👤 Admin'}</span>
+		<span class="text-[11px] text-muted capitalize">{data.booking.source === 'whatsapp_bot' ? 'WhatsApp bot' : 'Admin'}</span>
 		<div class="ml-auto flex gap-3">
 			<button type="button" onclick={() => { editNotesValue = data.booking.notes ?? ''; editingNotes = !editingNotes; }}
 				class="text-[11px] font-medium text-ocean hover:underline">
@@ -308,7 +288,7 @@
 
 		<!-- CLIENT + PARTICIPANTS CARD -->
 		<div class="rounded-(--radius-card) border border-blue-100 bg-white p-4">
-			<div class="mb-3 text-[10px] font-bold uppercase tracking-wider text-blue-700">👤 Cliente</div>
+			<div class="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-700"><User size={12} />Cliente</div>
 
 			{#if bookingClient}
 				<!-- Contract holder -->
@@ -335,84 +315,20 @@
 				</div>
 
 				<!-- Participants section -->
-				<div class="border-t border-gray-100 pt-3">
-					<div class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">
-						Participantes ({participants.length})
-					</div>
-
-					<div class="mb-3 flex flex-col gap-1.5">
-						{#each participants as p (p.id)}
-							{#if editingParticipantId === p.id}
-								<form method="post" action="?/renameParticipant"
-									use:enhance={withToast(() => { editingParticipantId = null; })}
-									class="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5">
-									<input type="hidden" name="participantId" value={p.id} />
-									<input name="name" type="text" bind:value={editingParticipantName}
-										class="flex-1 rounded border border-border px-2 py-0.5 text-xs focus:border-ocean focus:outline-none" autofocus />
-									<button type="submit" class="text-[10px] font-semibold text-ocean">✓</button>
-									<button type="button" onclick={() => editingParticipantId = null} class="text-[10px] text-muted">✕</button>
-								</form>
-							{:else if removingParticipantId === p.id}
-								<div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-									<p class="mb-1 text-[10px] font-semibold text-red-700">{p.name}</p>
-									{#if removalImpact}
-										<p class="mb-2 rounded bg-amber-50 px-2 py-1 text-[9px] text-amber-700">
-											⚠ Se eliminará de {removalImpact.sessionCount} sesión{removalImpact.sessionCount !== 1 ? 'es' : ''}
-											{removalImpact.allocationCount > 0 ? ` y se desasignará el equipo (${removalImpact.allocationCount})` : ''}
-										</p>
-									{/if}
-									<div class="flex gap-2">
-										<form method="post" action="?/removeParticipantCascade"
-											use:enhance={withToast(() => { removingParticipantId = null; removalImpact = null; })}>
-											<input type="hidden" name="participantId" value={p.id} />
-											<input type="hidden" name="bookingClientId" value={bookingClient.id} />
-											<button type="submit" class="text-[10px] font-semibold text-red-600 hover:underline">Confirmar eliminar</button>
-										</form>
-										<button type="button" onclick={() => { removingParticipantId = null; removalImpact = null; }}
-											class="text-[10px] text-muted hover:text-gray-700">Cancelar</button>
-									</div>
-								</div>
-							{:else}
-								<div class="flex items-center gap-2 rounded-lg bg-blue-50/60 px-2.5 py-1.5">
-									<span class="flex-1 text-xs font-medium text-gray-800">{p.name}</span>
-									<button type="button"
-										onclick={() => { editingParticipantId = p.id; editingParticipantName = p.name; }}
-										class="text-[10px] text-muted hover:text-ocean">✎</button>
-									<button type="button"
-										onclick={() => fetchRemovalImpact(p.id)}
-										class="text-[10px] text-red-400 hover:text-red-600">✕</button>
-								</div>
-							{/if}
-						{/each}
-					</div>
-
-					<!-- Bulk add -->
-					{#if data.booking.status !== 'cancelled'}
-						{#if bulkAddOpen}
-							<form method="post" action="?/bulkAddParticipants"
-								use:enhance={withToast(() => { bulkAddOpen = false; bulkNames = ''; })}
-								class="rounded-lg border border-dashed border-blue-300 bg-blue-50 p-3">
-								<div class="mb-1 text-[9px] font-bold text-blue-700">Un nombre por línea</div>
-								<textarea name="names" bind:value={bulkNames} rows="3"
-									placeholder={"Emma Müller\nLeon Müller\nSofia Müller"}
-									class="w-full resize-none rounded border border-blue-200 bg-white px-2 py-1.5 text-xs focus:border-ocean focus:outline-none"></textarea>
-								<input type="hidden" name="bookingClientId" value={bookingClient.id} />
-								<input type="hidden" name="syncToSessions" value="true" />
-								<div class="mt-2 flex items-center justify-between">
-									<span class="text-[9px] text-muted">Se añadirán a sesiones existentes</span>
-									<div class="flex gap-2">
-										<button type="button" onclick={() => bulkAddOpen = false} class="text-[10px] text-muted">Cancelar</button>
-										<button type="submit" class="btn-primary btn-sm text-[10px]">Añadir todos</button>
-									</div>
-								</div>
-							</form>
-						{:else}
-							<button type="button" onclick={() => bulkAddOpen = true}
-								class="w-full rounded-lg border border-dashed border-blue-200 bg-blue-50/40 py-2 text-[10px] font-medium text-blue-600 hover:bg-blue-50">
-								+ Añadir participante(s)
-							</button>
-						{/if}
-					{/if}
+				<div class="mt-3">
+					<EnrollmentGroup
+						clientName="{bookingClient.clientFirstName} {bookingClient.clientLastName}"
+						bookingId={data.booking.id}
+						bookingClientId={bookingClient.id}
+						{participants}
+						canEdit={data.booking.status !== 'cancelled'}
+						bulkAdd={true}
+						syncToSessions={true}
+						renameAction="?/renameParticipant"
+						removeAction="?/removeParticipantCascade"
+						addAction="?/bulkAddParticipants"
+						impactAction="?/getRemovalImpact"
+					/>
 				</div>
 			{:else}
 				<p class="text-sm italic text-muted">Sin cliente vinculado.</p>
@@ -523,18 +439,20 @@
 				<div class="text-[10px] font-bold uppercase tracking-wider text-green-700">
 					⏱ Sesiones · {data.sessions.filter(s => s.status !== 'cancelled').length} activas
 				</div>
-				{#if data.booking.status !== 'cancelled' && data.sessionOwnerType === 'booking'}
+				{#if data.booking.status !== 'cancelled' && (data.sessionOwnerType === 'booking' || data.sessionOwnerType === 'service')}
 					<div class="flex gap-2">
 						<button type="button" onclick={() => { sessionModalOpen = true; }}
 							class="rounded-lg border border-green-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-green-700 hover:bg-green-50">
-							+ Nueva sesión
+							{data.sessionOwnerType === 'service' ? '+ Sesión' : '+ Nueva sesión'}
 						</button>
 					</div>
 				{/if}
 			</div>
 
 			{#if data.sessions.length === 0}
-				<p class="text-sm italic text-muted">Sin sesiones. Usa el botón para crear.</p>
+				<p class="text-sm italic text-muted">
+					{data.sessionOwnerType === 'service' ? 'Sin sesiones de grupo para esta fecha. Usa el botón para crear o vincular.' : 'Sin sesiones. Usa el botón para crear.'}
+				</p>
 			{:else}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					{#each data.sessions as session (session.id)}
@@ -558,9 +476,10 @@
 			bookingStatus={data.booking.status}
 			incomingParticipantCount={participants.length}
 			capacity={data.booking.serviceMaxCapacity}
-			availableSessions={[]}
+			availableSessions={data.sessionOwnerType === 'service' ? (data.sessions as any) : []}
 			instructors={data.instructors}
 			bookingDate={data.booking.date}
+			newSessionAction={data.sessionOwnerType === 'service' ? '?/addServiceSession' : '?/addSession'}
 		/>
 	{/if}
 

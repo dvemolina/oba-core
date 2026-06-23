@@ -306,6 +306,29 @@ export const actions: Actions = {
 		return { error: null, message: 'Client re-enrolled' };
 	},
 
+	addServiceSession: async ({ request, params, locals }) => {
+		requireRole(locals, 'admin', 'owner', 'manager');
+		const form = await request.formData();
+		const date = form.get('sessionDate')?.toString() ?? '';
+		const time = form.get('sessionTime')?.toString() || undefined;
+		const durRaw = form.get('sessionDuration')?.toString();
+		const durationMinutes = durRaw ? parseInt(durRaw) : undefined;
+		const instructorIds = form.getAll('sessionInstructorId').map(String).filter(Boolean);
+		if (!date) return fail(400, { error: 'Session date required' });
+		const booking = await getBooking(params.id);
+		if (!booking?.serviceId) return fail(400, { error: 'No service linked to booking' });
+		const session = await createSession({
+			ownerType: 'service',
+			serviceId: booking.serviceId,
+			date,
+			time,
+			durationMinutes,
+			instructorIds
+		});
+		await assignBookingToSession(params.id, session.id);
+		return { error: null, message: 'Sesión creada y asignada' };
+	},
+
 	addSession: async ({ request, params, locals }) => {
 		requireRole(locals, 'admin', 'owner', 'manager');
 		const form = await request.formData();

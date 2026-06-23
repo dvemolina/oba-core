@@ -1,0 +1,90 @@
+<h2>Modal — single warning color for full sessions</h2>
+<p class="subtitle">Full = amber warning. Available = clean neutral card. No color hierarchy overload.</p>
+
+<div style="background:#1f2937;border-radius:12px;padding:24px;max-width:680px;margin-top:16px">
+  <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.4)">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e5e7eb">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#111827">Link to existing session</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:1px">Group Surf Lesson · Wed–Fri 18–20 Jun</div>
+      </div>
+      <button style="width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;cursor:pointer;color:#6b7280">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;background:#f9fafb;border-bottom:1px solid #e5e7eb">
+      <button style="padding:10px 20px;font-size:12px;color:#6b7280;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">+ New session</button>
+      <button style="padding:10px 20px;font-size:12px;font-weight:700;color:#059669;border:none;background:none;cursor:pointer;border-bottom:2px solid #059669">🔗 Link existing</button>
+    </div>
+
+    <!-- Session list -->
+    <div style="background:#f3f4f6;padding:14px;display:flex;flex-direction:column;gap:12px;max-height:480px;overflow-y:auto">
+
+      <!-- Session 1 — FULL — amber warning only -->
+      <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">
+        <div style="background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:700;color:#111827">Wed 18 Jun · 10:00–11:00 · Marco R.</span>
+          <span style="font-size:9px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:9999px;padding:2px 8px">⚠ Full 8/8</span>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:6px">Enrolled</div>
+          <div style="background:#f9fafb;border-radius:6px;padding:5px 10px;margin-bottom:8px">
+            <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:3px">Ana García</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Ana</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Carlos</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Pedro</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Rosa</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Luis</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Marta</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Tomás</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Nuria</span>
+            </div>
+          </div>
+          <div style="background:#fef3c7;border-radius:6px;padding:7px 10px;font-size:9px;color:#92400e;margin-bottom:8px">
+            ⚠ Linking Peter + 4 participants would bring total to 12/8.
+          </div>
+          <button style="width:100%;border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;border-radius:6px;padding:6px;font-size:10px;cursor:pointer">Link anyway (override capacity)</button>
+        </div>
+      </div>
+
+      <!-- Session 2 — available — clean neutral -->
+      <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">
+        <div style="background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:700;color:#111827">Thu 19 Jun · 10:00–11:00 · Marco R. · Sara L.</span>
+          <span style="font-size:9px;color:#6b7280;background:#e5e7eb;border-radius:9999px;padding:2px 8px">3/8</span>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;margin-bottom:6px">Enrolled</div>
+          <div style="background:#f9fafb;border-radius:6px;padding:5px 10px;margin-bottom:8px">
+            <div style="font-size:10px;font-weight:600;color:#374151;margin-bottom:3px">Ana García</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Ana</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Carlos</span>
+              <span style="background:#e5e7eb;color:#374151;border-radius:9999px;padding:1px 6px;font-size:9px">Pedro</span>
+            </div>
+          </div>
+          <div style="font-size:9px;color:#6b7280;margin-bottom:8px">Adding Peter + 4 participants → 7/8</div>
+          <button style="width:100%;background:#059669;color:#fff;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">Link to this session</button>
+        </div>
+      </div>
+
+      <!-- Session 3 — empty — clean neutral -->
+      <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">
+        <div style="background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:700;color:#111827">Fri 20 Jun · 09:00–10:00 · Sara L.</span>
+          <span style="font-size:9px;color:#6b7280;background:#e5e7eb;border-radius:9999px;padding:2px 8px">0/8</span>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="font-size:9px;color:#9ca3af;margin-bottom:8px;font-style:italic">No participants enrolled yet.</div>
+          <button style="width:100%;background:#059669;color:#fff;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">Link to this session</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="padding:10px 20px;border-top:1px solid #e5e7eb;background:#f9fafb;text-align:right">
+      <button style="border:1px solid #e5e7eb;background:#fff;color:#6b7280;border-radius:6px;padding:6px 16px;font-size:11px;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+</div>

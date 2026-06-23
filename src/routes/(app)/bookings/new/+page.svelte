@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Zap } from 'lucide-svelte';
+	import { Zap, User } from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/toast.svelte';
@@ -269,7 +269,7 @@
 
 		<!-- CLIENT + PARTICIPANTS CARD -->
 		<div class="rounded-(--radius-card) border border-blue-100 bg-white p-4 space-y-4">
-			<div class="text-[10px] font-bold uppercase tracking-wider text-blue-700">👤 Cliente</div>
+			<div class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-blue-700"><User size={12} />Cliente</div>
 
 			{#if selectedClient}
 				<input type="hidden" name="clientId" value={selectedClient.clientId} />

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getServiceColor } from '$lib/features/services/colors';
+	import { User, Waves, Calendar } from 'lucide-svelte';
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 
@@ -114,7 +115,7 @@
 								{@const isCancelled = b.status === 'cancelled'}
 
 								<a href="/bookings/{b.id}"
-									class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md hover:ring-1 hover:ring-ocean/20
+									class="group flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white transition-all hover:border-ocean/30 hover:shadow-sm
 										{isCancelled ? 'opacity-60' : ''}">
 
 									<!-- Top bar -->
@@ -148,17 +149,17 @@
 									<!-- Meta row -->
 									<div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 pb-2 text-[11px] text-muted">
 										{#if b.serviceHasDateRange && b.serviceEditionStartDate}
-											<span>📅 {fmtDateShort(b.serviceEditionStartDate)} → {fmtDateShort(b.serviceEditionEndDate ?? b.serviceEditionStartDate)}</span>
+											<span class="flex items-center gap-1"><Calendar size={10} class="shrink-0" /> {fmtDateShort(b.serviceEditionStartDate)} → {fmtDateShort(b.serviceEditionEndDate ?? b.serviceEditionStartDate)}</span>
 										{:else if b.time}
-											<span>🕐 {b.time.slice(0, 5)}</span>
+											<span>{b.time.slice(0, 5)}</span>
 										{:else if b.isFlexible}
-											<span>⚡ Flexible</span>
+											<span>Flexible</span>
 										{/if}
 										{#if b.instructorName && !b.serviceHasSessions}
-											<span>👤 {b.instructorName.split(' ')[0]}</span>
+											<span class="flex items-center gap-1"><User size={10} class="shrink-0" /> {b.instructorName.split(' ')[0]}</span>
 										{/if}
 										{#if b.sessionsIncluded != null}
-											<span>🏄 {b.sessionsIncluded} ses.</span>
+											<span class="flex items-center gap-1"><Waves size={10} class="shrink-0" /> {b.sessionsIncluded} ses.</span>
 										{/if}
 									</div>
 
