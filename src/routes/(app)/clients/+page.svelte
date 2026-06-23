@@ -3,18 +3,10 @@
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	let { data }: { data: PageData } = $props();
 	let search = $state(data.search ?? '');
-
-	const skillColors: Record<string, string> = {
-		beginner:     'bg-blue-50 text-blue-700',
-		intermediate: 'bg-amber-50 text-amber-700',
-		advanced:     'bg-green-50 text-green-700'
-	};
-	const skillLabels: Record<string, string> = {
-		beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado'
-	};
 
 	function handleSearch() {
 		const params = search ? `?q=${encodeURIComponent(search)}` : '';
@@ -64,9 +56,7 @@
 							{/if}
 						</div>
 						{#if client.skillLevel}
-							<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium {skillColors[client.skillLevel] ?? 'bg-gray-100 text-gray-600'}">
-								{skillLabels[client.skillLevel] ?? client.skillLevel}
-							</span>
+							<StatusBadge variant={client.skillLevel} class="shrink-0" />
 						{/if}
 						<span class="shrink-0 text-xs text-muted">→</span>
 					</a>

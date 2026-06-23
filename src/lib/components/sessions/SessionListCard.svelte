@@ -4,6 +4,7 @@
 	import { withToast } from '$lib/utils/enhance';
 	import { User } from 'lucide-svelte';
 	import type { Session } from '$lib/features/sessions/types';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	interface ServiceColor {
 		bg: string;
@@ -91,9 +92,9 @@
 					{/if}
 				</div>
 				{#if isCancelled}
-					<span class="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-600">Cancelada</span>
+					<StatusBadge variant="cancelled" class="shrink-0" />
 				{:else if session.status === 'completed'}
-					<span class="shrink-0 rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold text-green-700">Completada</span>
+					<StatusBadge variant="completed" class="shrink-0" />
 				{/if}
 			</div>
 
