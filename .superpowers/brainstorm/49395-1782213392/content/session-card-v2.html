@@ -1,0 +1,210 @@
+<h2>SessionCard — updated design</h2>
+<p class="subtitle">Both modes revised per feedback</p>
+
+<style>
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 24px; }
+  .demo-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; margin-bottom: 10px; }
+  .note { font-size: 10px; color: #9ca3af; font-style: italic; margin-top: 8px; }
+
+  /* SHARED CARD SHELL */
+  .card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,.07); overflow: hidden; cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+  .card:hover { border-color: #bae6fd; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+
+  /* TIME BLOCK (shared) */
+  .time-block { width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #f3f4f6; background: #f9fafb; padding: 12px 6px; }
+  .time-start { font-size: 15px; font-weight: 800; color: #111827; line-height: 1; }
+  .time-end { font-size: 10px; color: #6b7280; margin-top: 3px; }
+  .time-dur { font-size: 9px; color: #d1d5db; margin-top: 3px; }
+
+  /* CLIENT+PARTICIPANT GROUP BOX */
+  .client-group { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; margin-bottom: 5px; }
+  .client-group:last-child { margin-bottom: 0; }
+  .client-label { font-size: 10px; color: #6b7280; margin-bottom: 5px; }
+  .client-label strong { color: #111827; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 3px; }
+  .chip { background: #eff6ff; color: #1d4ed8; border-radius: 999px; padding: 2px 8px; font-size: 9px; font-weight: 600; }
+
+  /* INSTRUCTOR ROW */
+  .meta-row { display: flex; align-items: center; gap-x: 4px; font-size: 10px; color: #6b7280; margin-bottom: 6px; }
+  .meta-label { color: #9ca3af; margin-right: 3px; }
+
+  /* STATUS BADGE */
+  .badge { border-radius: 999px; padding: 2px 8px; font-size: 9px; font-weight: 700; }
+  .badge-active { background: #dbeafe; color: #1d4ed8; }
+  .badge-cancelled { background: #fee2e2; color: #dc2626; }
+  .badge-completed { background: #f3f4f6; color: #6b7280; }
+
+  /* ===================== LIST MODE ===================== */
+  .list-inner { display: flex; align-items: stretch; }
+  .color-bar { width: 4px; background: #0ea5e9; flex-shrink: 0; }
+  .list-body { flex: 1; padding: 10px 12px; min-width: 0; }
+  .list-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; background: #fafafa; padding: 6px 12px; }
+  .list-footer-actions { display: flex; gap: 12px; margin-left: auto; }
+  .btn-text { font-size: 10px; color: #9ca3af; background: none; border: none; cursor: pointer; padding: 0; }
+  .btn-text:hover { color: #374151; }
+  .btn-text.danger { color: #fca5a5; }
+  .btn-text.danger:hover { color: #ef4444; }
+
+  /* ===================== BOOKING MODE ===================== */
+  .booking-inner { display: flex; }
+  .booking-left { width: 36%; border-right: 1px solid #f3f4f6; background: #f9fafb; padding: 12px 14px; }
+  .booking-date { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; margin-bottom: 4px; }
+  .booking-time-start { font-size: 22px; font-weight: 800; color: #111827; line-height: 1; }
+  .booking-time-end { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .booking-dur { font-size: 10px; color: #d1d5db; margin-top: 2px; }
+  .inst-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
+  .inst-title { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
+  .inst-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 11px; color: #374151; }
+  .inst-row input { accent-color: #0ea5e9; width: 11px; height: 11px; }
+  .booking-right { flex: 1; padding: 12px 14px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .section-title { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #9ca3af; }
+  .capacity-pill { display: flex; align-items: center; gap: 5px; }
+  .cap-text { font-size: 11px; font-weight: 700; color: #374151; }
+  .bar-track { height: 4px; width: 36px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #22c55e; border-radius: 999px; }
+
+  /* Client group in booking mode: current booking is blue-tinted */
+  .client-group.current { background: #eff6ff; border-color: #bfdbfe; }
+  .client-group.other { background: #f9fafb; border-color: #e5e7eb; opacity: .75; }
+  .pax-row { display: flex; align-items: center; justify-content: space-between; border-radius: 5px; padding: 3px 6px; margin-bottom: 2px; }
+  .pax-row.in { background: rgba(255,255,255,.7); }
+  .pax-name-in { font-size: 11px; font-weight: 600; color: #111827; }
+  .pax-name-out { font-size: 11px; color: #9ca3af; }
+  .pax-action { font-size: 9px; font-weight: 700; color: #16a34a; }
+  .pax-remove { font-size: 9px; color: #d1d5db; }
+  .booking-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; background: #fafafa; padding: 7px 14px; }
+  .booking-footer-actions { display: flex; gap: 12px; }
+</style>
+
+<div class="demo-grid">
+
+  <!-- ======= LIST MODE ======= -->
+  <div>
+    <div class="demo-label">mode="list"</div>
+
+    <!-- Example: single client -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="list-inner">
+        <div class="color-bar"></div>
+        <div class="time-block">
+          <div class="time-start">12:00</div>
+          <div class="time-end">13:30</div>
+          <div class="time-dur">90 min</div>
+        </div>
+        <div class="list-body">
+          <div class="meta-row">
+            <span class="meta-label">Instructor:</span>
+            <span style="color:#374151;font-size:10px">Cris</span>
+          </div>
+          <div class="client-group">
+            <div class="client-label"><strong>Carlos Palotes</strong></div>
+            <div class="chips">
+              <span class="chip">Carlos Palotes</span>
+              <span class="chip">Participante 2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="list-footer">
+        <span class="badge badge-active">activa</span>
+        <div class="list-footer-actions">
+          <button class="btn-text">Editar</button>
+          <button class="btn-text danger">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Example: group session with 2 clients -->
+    <div class="card">
+      <div class="list-inner">
+        <div class="color-bar" style="background:#8b5cf6"></div>
+        <div class="time-block">
+          <div class="time-start">10:00</div>
+          <div class="time-end">11:30</div>
+          <div class="time-dur">90 min</div>
+        </div>
+        <div class="list-body">
+          <div class="meta-row">
+            <span class="meta-label">Instructor:</span>
+            <span style="color:#374151;font-size:10px">Moli</span>
+          </div>
+          <div class="client-group">
+            <div class="client-label"><strong>García, Juan</strong></div>
+            <div class="chips">
+              <span class="chip">Juan García</span>
+              <span class="chip">Ana García</span>
+            </div>
+          </div>
+          <div class="client-group">
+            <div class="client-label"><strong>López, Sofía</strong></div>
+            <div class="chips">
+              <span class="chip">Sofía López</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="list-footer">
+        <span class="badge badge-active">activa</span>
+        <div class="list-footer-actions">
+          <button class="btn-text">Editar</button>
+          <button class="btn-text danger">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Whole card is clickable → opens session detail. "Abrir →" link removed.</p>
+  </div>
+
+  <!-- ======= BOOKING MODE ======= -->
+  <div>
+    <div class="demo-label">mode="booking" — inside /bookings/[id]</div>
+    <div class="card">
+      <div class="booking-inner">
+        <div class="booking-left">
+          <div class="booking-date">Mar, 23 Jun</div>
+          <div class="booking-time-start">12:00</div>
+          <div class="booking-time-end">→ 13:30</div>
+          <div class="booking-dur">90 min</div>
+          <div class="inst-section">
+            <div class="inst-title">Instructor</div>
+            <div class="inst-row"><input type="checkbox"> <span>Admin</span></div>
+            <div class="inst-row"><input type="checkbox" checked> <span>Cris</span></div>
+            <div class="inst-row"><input type="checkbox"> <span>Moli</span></div>
+          </div>
+        </div>
+        <div class="booking-right">
+          <div class="section-header">
+            <span class="section-title">Participantes</span>
+            <div class="capacity-pill">
+              <span class="cap-text">2/4</span>
+              <div class="bar-track"><div class="bar-fill" style="width:50%"></div></div>
+            </div>
+          </div>
+
+          <!-- Current booking's client group -->
+          <div class="client-group current" style="margin-bottom:6px">
+            <div class="client-label"><strong>Carlos Palotes</strong> <span style="font-size:9px;color:#93c5fd">esta reserva</span></div>
+            <div class="pax-row in"><span class="pax-name-in">✓ Carlos Palotes</span><span class="pax-remove">remove</span></div>
+            <div class="pax-row in"><span class="pax-name-in">✓ Participante 2</span><span class="pax-remove">remove</span></div>
+            <div class="pax-row"><span class="pax-name-out">○ Añadir participante</span><span class="pax-action">add</span></div>
+          </div>
+
+          <!-- Other booking in same group session -->
+          <div class="client-group other">
+            <div class="client-label"><strong>Sofía López</strong></div>
+            <div class="pax-row"><span class="pax-name-in" style="opacity:.6">✓ Sofía López</span><span style="font-size:8px;color:#d1d5db">otra reserva</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="booking-footer">
+        <span class="badge badge-active">activa</span>
+        <div class="booking-footer-actions">
+          <button class="btn-text">Editar</button>
+          <button class="btn-text danger">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Card clickable → opens session detail. Same footer as list mode. Time shows start + end + duration.</p>
+  </div>
+
+</div>
