@@ -4,7 +4,7 @@
 	import { enhance } from '$app/forms';
 	import { withToast } from '$lib/utils/enhance';
 	import { getServiceColor } from '$lib/features/services/colors';
-	import SessionListCard from '$lib/components/sessions/SessionListCard.svelte';
+	import SessionCard from '$lib/components/sessions/SessionCard.svelte';
 	import CardShell from '$lib/components/ui/CardShell.svelte';
 	import EnrollmentGroup from '$lib/components/bookings/EnrollmentGroup.svelte';
 	import { Users } from 'lucide-svelte';
@@ -155,7 +155,7 @@
 				{:else}
 					<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
 						{#each editionSessions as s (s.id)}
-							<SessionListCard
+							<SessionCard
 								session={s}
 								{color}
 								openHref="/sessions/{s.id}?from={encodeURIComponent('/services/' + data.service.id + '/roster?run=' + activeEditionId)}"
@@ -165,6 +165,8 @@
 								instructors={data.instructors}
 								hiddenFields={{ sessionId: s.id, editionId: activeEditionId }}
 								showDate={true}
+								clientGroups={s.clientGroups}
+								participantNames={s.participantNames}
 							>
 								{#snippet children()}
 									{#if s.participants.length > 0}
@@ -173,7 +175,7 @@
 										<p class="text-[10px] text-gray-300">Sin participantes</p>
 									{/if}
 								{/snippet}
-							</SessionListCard>
+							</SessionCard>
 						{/each}
 					</div>
 				{/if}

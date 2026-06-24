@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { withToast } from '$lib/utils/enhance';
 	import { getServiceColor } from '$lib/features/services/colors';
-	import SessionListCard from '$lib/components/sessions/SessionListCard.svelte';
+	import SessionCard from '$lib/components/sessions/SessionCard.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -16,10 +16,6 @@
 		return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
 			weekday: 'long', day: 'numeric', month: 'long'
 		});
-	}
-	function paidPct(s: S) {
-		if (!s.totalAmountDue || s.totalAmountDue === 0) return 0;
-		return Math.min(100, Math.round((s.totalAmountPaid / s.totalAmountDue) * 100));
 	}
 </script>
 
@@ -61,14 +57,14 @@
 						<div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
 							{#each daySessions as s (s.id)}
 								{@const color = getServiceColor(s.serviceColor ?? '')}
-								{@const paid = paidPct(s)}
-								<SessionListCard
+								<SessionCard
 									session={s}
 									{color}
 									openHref="/sessions/{s.id}"
 									updateAction="?/updateSession"
 									cancelAction="?/cancelSession"
 									hiddenFields={{ sessionId: s.id }}
+									clientGroups={s.clientGroups}
 									participantNames={s.participantNames}
 								>
 									{#snippet children()}
@@ -78,28 +74,10 @@
 												<a href="/bookings/{s.bookingId}" class="hover:underline">{s.firstClientName}</a>
 											</p>
 										{:else if (s.enrolledCount ?? 0) > 0}
-											<p class="text-[11px] text-muted">
-												{s.enrolledCount} reserva{(s.enrolledCount ?? 0) !== 1 ? 's' : ''}
-												{s.maxCapacity ? ` · ${s.enrolledCount}/${s.maxCapacity}` : ''}
-											</p>
+											<p class="text-xs text-muted">{s.enrolledCount} inscrito{s.enrolledCount !== 1 ? 's' : ''}</p>
 										{/if}
 									{/snippet}
-									{#snippet extraContent()}
-										{#if s.ownerType === 'booking' && s.totalAmountDue > 0}
-											<div class="border-t border-gray-100 px-3 py-2">
-												<div class="mb-1 flex items-center justify-between">
-													<span class="text-[10px] text-muted">€{s.totalAmountPaid.toFixed(0)} / €{s.totalAmountDue.toFixed(0)}</span>
-													<span class="text-[10px] {paid === 100 ? 'text-green-600' : paid > 0 ? 'text-amber-600' : 'text-gray-400'}">
-														{paid === 100 ? 'Pagado' : paid > 0 ? `${paid}%` : 'Pendiente'}
-													</span>
-												</div>
-												<div class="h-1 overflow-hidden rounded-full bg-gray-100">
-													<div class="h-full rounded-full {paid === 100 ? 'bg-green-500' : 'bg-amber-400'}" style="width:{paid}%"></div>
-												</div>
-											</div>
-										{/if}
-									{/snippet}
-								</SessionListCard>
+								</SessionCard>
 							{/each}
 						</div>
 					</section>

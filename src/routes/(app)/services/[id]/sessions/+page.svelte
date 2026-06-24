@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { withToast } from '$lib/utils/enhance';
 	import { getServiceColor } from '$lib/features/services/colors';
-	import SessionListCard from '$lib/components/sessions/SessionListCard.svelte';
+	import SessionCard from '$lib/components/sessions/SessionCard.svelte';
 	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 	import type { PageData } from './$types';
 
@@ -181,7 +181,7 @@
 							{#each daySessions as s (s.id)}
 								{@const enrollments = data.enrollmentsBySession[s.id] ?? []}
 								{@const activeEnrollments = enrollments.filter(e => e.status !== 'cancelled')}
-								<SessionListCard
+								<SessionCard
 									session={s}
 									{color}
 									openHref="/sessions/{s.id}"
@@ -190,6 +190,7 @@
 									deleteAction="?/deleteSession"
 									instructors={data.instructors}
 									hiddenFields={{ sessionId: s.id }}
+									clientGroups={s.clientGroups}
 									participantNames={s.participantNames}
 								>
 									{#snippet children()}
@@ -223,7 +224,8 @@
 															{#if s.status !== 'cancelled'}
 																<form method="POST" action="?/unassignFromSession" use:enhance={withToast()}>
 																	<input type="hidden" name="bookingId" value={e.bookingId} />
-																	<button type="submit" title="Desasignar" class="shrink-0 text-[10px] text-gray-300 hover:text-red-500">✕</button>
+																	<button type="submit" title="Desasignar"
+																		class="shrink-0 text-[10px] text-gray-300 hover:text-red-500">✕</button>
 																</form>
 															{/if}
 														</li>
@@ -232,7 +234,7 @@
 											</div>
 										{/if}
 									{/snippet}
-								</SessionListCard>
+								</SessionCard>
 							{/each}
 						</div>
 					</section>

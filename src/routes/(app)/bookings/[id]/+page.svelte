@@ -13,6 +13,7 @@
 	import SessionCard from '$lib/components/sessions/SessionCard.svelte';
 	import SessionPickerModal from '$lib/components/sessions/SessionPickerModal.svelte';
 	import EnrollmentGroup from '$lib/components/bookings/EnrollmentGroup.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	// Module cards kept for modules not fully rebuilt yet
 	import InstructorCard from '$lib/modules/instructor/BookingDetailCard.svelte';
@@ -35,12 +36,11 @@
 	// Single booking client (1-per-booking model)
 	const bookingClient = $derived(data.booking.clients.find(c => c.status === 'enrolled') ?? data.booking.clients[0] ?? null);
 	const participants = $derived(bookingClient ? (data.participantsByEnrollment[bookingClient.id] ?? []) : []);
-
-	const statusColors: Record<string, string> = {
-		confirmed: 'bg-confirmed/15 text-green-700',
-		pending: 'bg-pending/30 text-amber-700',
-		cancelled: 'bg-red-100 text-red-600'
-	};
+	const bookingClientName = $derived(
+		bookingClient
+			? `${bookingClient.clientFirstName ?? ''} ${bookingClient.clientLastName ?? ''}`.trim()
+			: ''
+	);
 
 	// Edit form state
 	let editing = $state(false);
@@ -143,9 +143,7 @@
 				<p class="mt-0.5 text-xs text-muted">Edición {data.booking.serviceEditionStartDate} → {data.booking.serviceEditionEndDate}</p>
 			{/if}
 		</div>
-		<span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {statusColors[data.booking.status]}">
-			{data.booking.status}
-		</span>
+		<StatusBadge variant={data.booking.status} />
 	</div>
 
 	<!-- META STRIP -->
@@ -460,10 +458,13 @@
 							{session}
 							mode="booking"
 							participantPool={participants}
-							instructors={data.instructors}
+							bookingClientName={bookingClientName}
 							bookingId={data.booking.id}
 							bookingStatus={data.booking.status}
+							canEditInstructors={data.booking.status !== 'cancelled'}
+							instructors={data.instructors}
 							capacity={data.booking.serviceMaxCapacity}
+							openHref="/sessions/{session.id}?from=/bookings/{data.booking.id}"
 						/>
 					{/each}
 				</div>
