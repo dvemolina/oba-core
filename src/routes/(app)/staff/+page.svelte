@@ -2,18 +2,9 @@
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	let { data }: { data: PageData } = $props();
-
-	const ROLE_COLORS: Record<string, string> = {
-		admin:      'bg-red-50 text-red-700',
-		owner:      'bg-ocean/10 text-ocean',
-		manager:    'bg-purple-50 text-purple-700',
-		instructor: 'bg-green-50 text-green-700'
-	};
-	const ROLE_LABELS: Record<string, string> = {
-		admin: 'Admin', owner: 'Owner', manager: 'Manager', instructor: 'Instructor'
-	};
 </script>
 
 <div class="flex flex-1 flex-col overflow-hidden">
@@ -41,12 +32,10 @@
 							<div class="flex flex-wrap items-center gap-1.5">
 								<p class="font-semibold text-gray-900">{member.name}</p>
 								{#each (member.roles?.length ? member.roles : member.role ? [member.role] : []) as r}
-									<span class="rounded-full px-2 py-0.5 text-[10px] font-medium {ROLE_COLORS[r] ?? 'bg-gray-100 text-gray-600'}">
-										{ROLE_LABELS[r] ?? r}
-									</span>
+									<StatusBadge variant={r} />
 								{/each}
 								{#if member.banned}
-									<span class="rounded-full bg-red-50 px-2 py-0.5 text-[10px] text-red-600">{m.common_banned()}</span>
+									<StatusBadge variant="banned" />
 								{/if}
 							</div>
 							<p class="text-xs text-muted">{member.email}</p>

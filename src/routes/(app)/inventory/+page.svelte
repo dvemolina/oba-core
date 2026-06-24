@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
 
 	let { data }: { data: PageData } = $props();
 </script>
@@ -42,9 +43,7 @@
 									{/if}
 								</div>
 							</div>
-							<span class="rounded-full px-2 py-0.5 text-[10px] font-medium {type.trackingMode === 'pool' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}">
-								{type.trackingMode === 'pool' ? m.inventory_badge_pool() : m.inventory_badge_specific()}
-							</span>
+							<StatusBadge variant={type.trackingMode} label={type.trackingMode === 'pool' ? m.inventory_badge_pool() : m.inventory_badge_specific()} />
 						</div>
 
 						{#if type.description}

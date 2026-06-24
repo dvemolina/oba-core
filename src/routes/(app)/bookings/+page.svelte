@@ -7,21 +7,9 @@
 
 	let { data }: { data: PageData } = $props();
 
-	type Booking = PageData['byDate'][string][number];
-
 	const sortedDates = $derived(Object.keys(data.byDate).sort());
 	const totalCount = $derived(Object.values(data.byDate).reduce((acc, b) => acc + b.length, 0));
 
-	function typeLabel(b: Booking) {
-		if (b.serviceHasDateRange) return 'Campamento';
-		if (b.serviceHasRoster)   return 'Grupo';
-		return 'Privada';
-	}
-	function typeBadge(b: Booking) {
-		if (b.serviceHasDateRange) return 'bg-purple-100 text-purple-700';
-		if (b.serviceHasRoster)   return 'bg-blue-100 text-blue-700';
-		return 'bg-gray-100 text-gray-600';
-	}
 	function fmtDate(d: string) {
 		return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', {
 			weekday: 'long', day: 'numeric', month: 'long'
@@ -128,9 +116,6 @@
 										<!-- Badges -->
 										<div class="flex shrink-0 flex-col items-end gap-1">
 											<StatusBadge variant={b.status} />
-											<span class="rounded-full px-1.5 py-0.5 text-[9px] font-medium {typeBadge(b)}">
-												{typeLabel(b)}
-											</span>
 										</div>
 									</div>
 
