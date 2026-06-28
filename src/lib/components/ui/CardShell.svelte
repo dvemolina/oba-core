@@ -1,6 +1,10 @@
 <!-- src/lib/components/ui/CardShell.svelte -->
 <script lang="ts">
-	import type { Component, Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
+	import type { IconProps } from 'lucide-svelte';
+	import type { SvelteComponent } from 'svelte';
+
+	type LucideIcon = typeof SvelteComponent<IconProps>;
 
 	let {
 		label,
@@ -10,7 +14,7 @@
 		footer
 	}: {
 		label: string;
-		icon?: Component<{ size?: number; class?: string }>;
+		icon?: LucideIcon;
 		class?: string;
 		children?: Snippet;
 		footer?: Snippet;

@@ -33,6 +33,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 	let serviceName: string | null = null;
 	let serviceColor: string | null = null;
 	let editionId: string | null = null;
+	let serviceDurationMinutes: number | null = null;
 	let backLink = '/calendar';
 	let backLabel = 'Calendario';
 	let bookingClientName: string | null = null;
@@ -42,6 +43,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		serviceId = session.serviceId;
 		serviceName = svc?.name ?? null;
 		serviceColor = svc?.color ?? null;
+		serviceDurationMinutes = svc?.durationMinutes ?? null;
 		backLink = `/services/${serviceId}/sessions/`;
 		backLabel = serviceName ?? 'Sesiones';
 	} else if (session.ownerType === 'edition' && session.serviceEditionId) {
@@ -52,6 +54,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 			editionId = edition.id;
 			serviceName = svc?.name ?? null;
 			serviceColor = svc?.color ?? null;
+			serviceDurationMinutes = svc?.durationMinutes ?? null;
 			backLink = `/services/${serviceId}/roster?run=${editionId}`;
 			backLabel = serviceName ?? 'Campamento';
 		}
@@ -62,6 +65,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 			serviceId = booking.serviceId ?? null;
 			serviceName = booking.serviceName ?? null;
 			serviceColor = booking.serviceColor ?? null;
+			serviceDurationMinutes = svc?.durationMinutes ?? null;
 			backLink = `/bookings/${session.bookingId}`;
 			const firstClient = booking.clients?.[0];
 			backLabel = [firstClient?.clientFirstName, firstClient?.clientLastName].filter(Boolean).join(' ') || 'Reserva';
@@ -115,8 +119,10 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		);
 	}
 
+	const effectiveDuration = session.durationMinutes ?? serviceDurationMinutes ?? 60;
+
 	return {
-		session,
+		session: { ...session, effectiveDuration },
 		serviceId,
 		serviceName,
 		serviceColor,

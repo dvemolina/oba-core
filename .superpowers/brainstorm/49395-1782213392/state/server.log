@@ -1,4 +1,0 @@
-{"type":"server-started","port":58151,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:58151","screen_dir":"/Users/moli/Desktop/Coding/Projects/oba-core/.superpowers/brainstorm/49395-1782213392/content","state_dir":"/Users/moli/Desktop/Coding/Projects/oba-core/.superpowers/brainstorm/49395-1782213392/state"}
-{"type":"screen-added","file":"/Users/moli/Desktop/Coding/Projects/oba-core/.superpowers/brainstorm/49395-1782213392/content/session-card-v2.html"}
-{"type":"screen-added","file":"/Users/moli/Desktop/Coding/Projects/oba-core/.superpowers/brainstorm/49395-1782213392/content/waiting.html"}
-{"type":"server-stopped","reason":"idle timeout"}
