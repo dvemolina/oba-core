@@ -1,6 +1,6 @@
 # Booking Detail Page Redesign
 
-**Date:** 2026-06-20  
+**Date:** 2026-06-20
 **Scope:** `/bookings/[id]` page layout, data model cleanup, reusable `SessionCard` component
 
 ---

@@ -1,7 +1,7 @@
 # OBA Core — Product Flow Scan
 
-Date: 2026-06-28  
-Branch: `fix/dev-baseline`  
+Date: 2026-06-28
+Branch: `fix/dev-baseline`
 Repo: `/home/agent/core/repos/oba-core`
 
 ## 1. Current framing

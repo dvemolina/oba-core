@@ -1,8 +1,8 @@
 # UI Design System + Page Rebuilds
 
-**Date:** 2026-06-23  
-**Branch:** feat/booking-detail-redesign  
-**North star:** `/bookings/[id]` — the reference page. All patterns derive from it.  
+**Date:** 2026-06-23
+**Branch:** feat/booking-detail-redesign
+**North star:** `/bookings/[id]` — the reference page. All patterns derive from it.
 **Goal:** Extract the booking detail card vocabulary into reusable components. Apply those components across every page that touches client/participant/session data. One design language, DRY, mobile-first.
 
 ---
@@ -63,30 +63,30 @@ Participants grouped by booking (EnrollmentGroup pattern). Each group: client na
 
 ### New components
 
-**`src/lib/components/ui/CardShell.svelte`**  
-Props: `label: string`, `icon?: ComponentType` (Lucide), `class?: string`  
-Slots: default (body), `footer` (optional)  
+**`src/lib/components/ui/CardShell.svelte`**
+Props: `label: string`, `icon?: ComponentType` (Lucide), `class?: string`
+Slots: default (body), `footer` (optional)
 Replaces: all inline `rounded-(--radius-card) border ... p-4` card patterns
 
-**`src/lib/components/ui/StatusBadge.svelte`**  
-Props: `variant: 'confirmed'|'pending'|'cancelled'|'paid'|'partial'|'unpaid'|'active'|'beginner'|'intermediate'|'advanced'`, `class?: string`  
+**`src/lib/components/ui/StatusBadge.svelte`**
+Props: `variant: 'confirmed'|'pending'|'cancelled'|'paid'|'partial'|'unpaid'|'active'|'beginner'|'intermediate'|'advanced'`, `class?: string`
 Replaces: all inline status pill spans scattered across pages
 
-**`src/lib/components/bookings/EnrollmentGroup.svelte`**  
-Props: `clientName: string`, `bookingId: string`, `bookingClientId: string`, `participants: { id, name, paymentStatus, amountPaid, amountDue }[]`, `canEdit?: boolean`  
-When `canEdit={true}`: exposes rename, remove (with cascade), bulk-add, sync-to-sessions actions via form actions passed as props (same pattern as current `ClientParticipants`).  
-When `canEdit={false}` (session detail, roster read-only view): shows names + badges only, no mutation controls.  
-Shows: client header with "ver reserva →" link, nested participant rows with `StatusBadge`, inline payment edit when `canEdit`  
+**`src/lib/components/bookings/EnrollmentGroup.svelte`**
+Props: `clientName: string`, `bookingId: string`, `bookingClientId: string`, `participants: { id, name, paymentStatus, amountPaid, amountDue }[]`, `canEdit?: boolean`
+When `canEdit={true}`: exposes rename, remove (with cascade), bulk-add, sync-to-sessions actions via form actions passed as props (same pattern as current `ClientParticipants`).
+When `canEdit={false}` (session detail, roster read-only view): shows names + badges only, no mutation controls.
+Shows: client header with "ver reserva →" link, nested participant rows with `StatusBadge`, inline payment edit when `canEdit`
 Replaces: inline participant grouping in `/bookings/[id]`, `ClientParticipants` usage in roster, participant section in `/sessions/[id]`
 
-**`src/lib/components/bookings/BookingMiniRow.svelte`**  
-Props: `bookingId: string`, `serviceName: string`, `serviceColor: string`, `date: string`, `status: string`, `participantCount: number`, `amountDue: string`, `amountPaid: string`  
-Shows: service color dot · name · date · participant count · status badge · → link  
+**`src/lib/components/bookings/BookingMiniRow.svelte`**
+Props: `bookingId: string`, `serviceName: string`, `serviceColor: string`, `date: string`, `status: string`, `participantCount: number`, `amountDue: string`, `amountPaid: string`
+Shows: service color dot · name · date · participant count · status badge · → link
 Used by: `/clients/[id]` active bookings section
 
-**`src/lib/components/sessions/SessionTimelineRow.svelte`**  
-Props: `date: string`, `serviceName: string`, `instructorName?: string`, `status: string`  
-Shows: date · service · instructor · status badge  
+**`src/lib/components/sessions/SessionTimelineRow.svelte`**
+Props: `date: string`, `serviceName: string`, `instructorName?: string`, `status: string`
+Shows: date · service · instructor · status badge
 Used by: `/clients/[id]` session history section
 
 ### Existing — keep, don't replace
@@ -137,16 +137,16 @@ Used by: `/clients/[id]` session history section
 
 **New server query required:** `listSessionsForClient(clientId)` — returns sessions where this client has a booking participant enrolled. Ordered by date desc. Returns: `date`, `serviceName`, `instructorName`, `status`. Add to `/clients/[id]/+page.server.ts`.
 
-**Removed from current page:** bare booking list with no context  
+**Removed from current page:** bare booking list with no context
 **Added:** payment summary, session timeline, consistent navigation to bookings
 
 ---
 
 ### 3 · `/services/[id]/roster` — vocabulary update (not a full rebuild)
 
-Edition tabs: keep as-is.  
-Edition summary card: wrap in `CardShell` with Users icon.  
-Each booking row: replace `ClientParticipants` with `EnrollmentGroup`.  
+Edition tabs: keep as-is.
+Edition summary card: wrap in `CardShell` with Users icon.
+Each booking row: replace `ClientParticipants` with `EnrollmentGroup`.
 Payment badges: replace inline spans with `StatusBadge`.
 
 No layout changes — the page structure is correct. DRY component adoption only.
@@ -155,15 +155,15 @@ No layout changes — the page structure is correct. DRY component adoption only
 
 ### 4 · `/sessions` list — consistency update
 
-`SessionListCard`: add service color dot, participant count badge, payment % bar.  
-Wrap card in `CardShell` or apply consistent border/shadow via CSS.  
+`SessionListCard`: add service color dot, participant count badge, payment % bar.
+Wrap card in `CardShell` or apply consistent border/shadow via CSS.
 Replace inline status spans with `StatusBadge`.
 
 ---
 
 ### 5 · `/clients` list — consistency update
 
-Each client row: add active booking count chip + outstanding balance (red if > 0, gray if zero).  
+Each client row: add active booking count chip + outstanding balance (red if > 0, gray if zero).
 Replace any inline status spans with `StatusBadge`.
 
 ---
